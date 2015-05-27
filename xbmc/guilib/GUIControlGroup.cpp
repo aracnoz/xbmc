@@ -21,6 +21,10 @@
 #include "GUIControlGroup.h"
 
 #include <cassert>
+#ifdef HAS_DS_PLAYER
+#include "MadvrCallback.h"
+#include "cores/VideoRenderers/RenderManager.h"
+#endif
 
 using namespace std;
 
@@ -123,10 +127,52 @@ void CGUIControlGroup::Render()
   for (iControls it = m_children.begin(); it != m_children.end(); ++it)
   {
     CGUIControl *control = *it;
+#ifdef HAS_DS_PLAYER
+    if (!CMadvrCallback::Get()->ReadyMadvr() || g_graphicsContext.IsFullScreenVideo())
+    { 
+#endif
     if (m_renderFocusedLast && control->HasFocus())
       focusedControl = control;
     else
       control->DoRender();
+#ifdef HAS_DS_PLAYER
+    }
+    else
+    {     
+      if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_UNDER) 
+      { 
+        if (!CMadvrCallback::Get()->IsVideoLayer())
+        { 
+          CMadvrCallback::Get()->SetVideoLayer(control->GetControlType() == GUICONTROL_VIDEO);
+
+          if (m_renderFocusedLast && control->HasFocus())
+            focusedControl = control;
+          else
+            control->DoRender();
+        }
+        else
+          break;
+      }
+      if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_OVER)
+      {
+        if (!CMadvrCallback::Get()->IsVideoLayer())
+        {
+          bool isVideo = control->GetControlType() == GUICONTROL_VIDEO;
+          if (isVideo)
+            g_renderManager.m_pRenderer->Update();
+          CMadvrCallback::Get()->SetVideoLayer(isVideo);
+          continue;
+        }
+        else
+        {
+          if (m_renderFocusedLast && control->HasFocus())
+            focusedControl = control;
+          else
+            control->DoRender();
+        }
+      }
+    }
+#endif
   }
   if (focusedControl)
     focusedControl->DoRender();

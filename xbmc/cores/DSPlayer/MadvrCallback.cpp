@@ -31,6 +31,8 @@ CMadvrCallback::CMadvrCallback()
   m_pMadvr = NULL;  
   m_isInitMadvr = false;
   m_renderOnMadvr = false;
+  m_isVideoLayer = false;
+  m_renderLayer = RENDER_LAYER_UNDER;
 }
 
 CMadvrCallback::~CMadvrCallback()
