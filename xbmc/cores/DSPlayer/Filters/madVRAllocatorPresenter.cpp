@@ -327,18 +327,29 @@ void CmadVRAllocatorPresenter::RenderMadvr(MADVR_RENDER_LAYER layer)
 {
   if (m_isDeviceSet && !m_isEnteringExclusive && CMadvrCallback::Get()->GetRenderOnMadvr())
   {
+    // if the context it's kodi menu manage the layer
+    if (!g_graphicsContext.IsFullScreenVideo())
+    {
+      if (layer == RENDER_LAYER_OVER && !CMadvrCallback::Get()->IsVideoLayer())
+      { 
+        // re-check if there is a videolayer before render over
+        CMadvrCallback::Get()->SetRenderLayer(RENDER_LAYER_CHECK);
+        g_windowManager.Render();
+
+        // if there is not a video layer render all over the video
+        if (!CMadvrCallback::Get()->IsVideoLayer())
+          layer = RENDER_LAYER_ALL;
+      }
+      
+      //set initial render variables
+      CMadvrCallback::Get()->SetVideoLayer(false);
+      CMadvrCallback::Get()->SetRenderLayer(layer);
+    }
+
     // restore pixelshader for render kodi gui
     m_pD3DDeviceMadVR->SetPixelShader(NULL);
 
-    // if there is not a video layer render all over the video
-    if (layer == RENDER_LAYER_OVER && !CMadvrCallback::Get()->IsVideoLayer())
-      layer = RENDER_LAYER_ALL;
-
-    //set initial render variables
-    CMadvrCallback::Get()->SetVideoLayer(false);
-    CMadvrCallback::Get()->SetRenderLayer(layer);
-
-     // render kodi gui
+    // render kodi gui
     if (layer == RENDER_LAYER_UNDER)
       g_windowManager.Render();
     else

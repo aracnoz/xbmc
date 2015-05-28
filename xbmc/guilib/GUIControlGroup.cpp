@@ -151,6 +151,9 @@ void CGUIControlGroup::Render()
         if (isVideo)
           CMadvrCallback::Get()->SetVideoLayer(true);
         
+        if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_CHECK && isGroup)
+          control->DoRender();
+
         if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_UNDER)
         { 
           if (!CMadvrCallback::Get()->IsVideoLayer())
