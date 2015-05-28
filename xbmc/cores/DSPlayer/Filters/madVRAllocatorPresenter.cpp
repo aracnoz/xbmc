@@ -208,7 +208,9 @@ void CmadVRAllocatorPresenter::SwapDevice()
 
 STDMETHODIMP CmadVRAllocatorPresenter::ClearBackground(LPCSTR name, REFERENCE_TIME frameStart, RECT *fullOutputRect, RECT *activeVideoRect)
 {
-  RenderMadvr(RENDER_LAYER_UNDER);
+  if (!g_graphicsContext.IsFullScreenVideo())
+    RenderMadvr(RENDER_LAYER_UNDER);
+
   return S_OK;
 }
 
@@ -328,10 +330,15 @@ void CmadVRAllocatorPresenter::RenderMadvr(MADVR_RENDER_LAYER layer)
     // restore pixelshader for render kodi gui
     m_pD3DDeviceMadVR->SetPixelShader(NULL);
 
-    // render kodi gui
+    // if there is not a video layer render all over the video
+    if (layer == RENDER_LAYER_OVER && !CMadvrCallback::Get()->IsVideoLayer())
+      layer = RENDER_LAYER_ALL;
+
+    //set initial render variables
     CMadvrCallback::Get()->SetVideoLayer(false);
     CMadvrCallback::Get()->SetRenderLayer(layer);
 
+     // render kodi gui
     if (layer == RENDER_LAYER_UNDER)
       g_windowManager.Render();
     else

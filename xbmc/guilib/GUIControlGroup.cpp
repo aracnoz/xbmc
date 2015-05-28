@@ -23,7 +23,6 @@
 #include <cassert>
 #ifdef HAS_DS_PLAYER
 #include "MadvrCallback.h"
-#include "cores/VideoRenderers/RenderManager.h"
 #endif
 
 using namespace std;
@@ -128,7 +127,10 @@ void CGUIControlGroup::Render()
   {
     CGUIControl *control = *it;
 #ifdef HAS_DS_PLAYER
-    if (!CMadvrCallback::Get()->ReadyMadvr() || g_graphicsContext.IsFullScreenVideo())
+    if (!CMadvrCallback::Get()->ReadyMadvr() 
+      || CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_ALL
+      || g_graphicsContext.IsFullScreenVideo() 
+      )
     { 
 #endif
     if (m_renderFocusedLast && control->HasFocus())
@@ -138,35 +140,29 @@ void CGUIControlGroup::Render()
 #ifdef HAS_DS_PLAYER
     }
     else
-    {     
-      if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_UNDER) 
-      { 
-        if (!CMadvrCallback::Get()->IsVideoLayer())
-        { 
-          CMadvrCallback::Get()->SetVideoLayer(control->GetControlType() == GUICONTROL_VIDEO);
-
-          if (m_renderFocusedLast && control->HasFocus())
-            focusedControl = control;
-          else
-            control->DoRender();
-        }
-        else
-          break;
-      }
-      if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_OVER)
+    {        
+      if (m_renderFocusedLast && control->HasFocus())
+        focusedControl = control;
+      else
       {
-        if (!CMadvrCallback::Get()->IsVideoLayer())
-        {
-          bool isVideo = control->GetControlType() == GUICONTROL_VIDEO;
-          if (isVideo)
-            g_renderManager.m_pRenderer->Update();
-          CMadvrCallback::Get()->SetVideoLayer(isVideo);
-          continue;
+        bool isVideo = (control->GetControlType() == GUICONTROL_VIDEO && control->IsVisible());
+        bool isGroup = (control->GetControlType() == GUICONTROL_GROUP);
+
+        if (isVideo)
+          CMadvrCallback::Get()->SetVideoLayer(true);
+        
+        if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_UNDER)
+        { 
+          if (!CMadvrCallback::Get()->IsVideoLayer())
+            control->DoRender();
+          else
+            break;
         }
-        else
-        {
-          if (m_renderFocusedLast && control->HasFocus())
-            focusedControl = control;
+
+        if (CMadvrCallback::Get()->GetRenderLayer() == RENDER_LAYER_OVER)
+        {     
+          if (!CMadvrCallback::Get()->IsVideoLayer() && !isGroup && !isVideo)
+            continue;
           else
             control->DoRender();
         }
