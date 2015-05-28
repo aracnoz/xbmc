@@ -56,7 +56,6 @@ CmadVRAllocatorPresenter::CmadVRAllocatorPresenter(HWND hWnd, HRESULT& hr, CStdS
   m_isDeviceSet = false;
   m_firstBoot = true;
   m_isEnteringExclusive = false;
-  m_isRendering = false;
   m_threadID = 0;
   
   if (FAILED(hr)) {
@@ -193,10 +192,6 @@ bool CmadVRAllocatorPresenter::ParentWindowProc(HWND hWnd, UINT uMsg, WPARAM *wP
 
 void CmadVRAllocatorPresenter::RestoreKodiDevice()
 {
-  //be sure that madVR thread is not calling the rendering
-  while (m_isRendering)
-    Sleep(10);
-
   m_isDeviceSet = false;
   g_Windowing.GetKodi3DDevice()->SetPixelShader(NULL);
   g_Windowing.ResetForKodi();
@@ -213,36 +208,7 @@ void CmadVRAllocatorPresenter::SwapDevice()
 
 STDMETHODIMP CmadVRAllocatorPresenter::ClearBackground(LPCSTR name, REFERENCE_TIME frameStart, RECT *fullOutputRect, RECT *activeVideoRect)
 {
-  if (m_isDeviceSet && !m_isEnteringExclusive && CMadvrCallback::Get()->GetRenderOnMadvr())
-  {
-    m_isRendering = true;
-
-    // restore pixelshader for render kodi gui
-    m_pD3DDeviceMadVR->SetPixelShader(NULL);
-
-    // render kodi gui
-    CMadvrCallback::Get()->SetVideoLayer(false);
-    CMadvrCallback::Get()->SetRenderLayer(RENDER_LAYER_UNDER);
-    g_application.RenderMadvr();
-
-    //restore stagestate for xysubfilter
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-
-    // set false for pixelshader
-    m_pD3DDeviceMadVR->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-
-    // quickfix for high gpu load while paused
-    if (g_application.m_pPlayer->IsPausedPlayback())
-      Sleep(25);
-
-    m_isRendering = false;
-  }
-
+  RenderMadvr(RENDER_LAYER_UNDER);
   return S_OK;
 }
 
@@ -258,7 +224,6 @@ STDMETHODIMP CmadVRAllocatorPresenter::SetDeviceOsd(IDirect3DDevice9* pD3DDev)
     // release all resources
     m_pSubPicQueue = nullptr;
     m_pAllocator = nullptr;
-    return S_OK;
   }
   return S_OK;
 }
@@ -351,17 +316,26 @@ HRESULT CmadVRAllocatorPresenter::Render( REFERENCE_TIME rtStart, REFERENCE_TIME
 
   AlphaBltSubPic(Com::SmartSize(width, height));
 
+  RenderMadvr(RENDER_LAYER_OVER);
+
+  return S_OK;
+}
+
+void CmadVRAllocatorPresenter::RenderMadvr(MADVR_RENDER_LAYER layer)
+{
   if (m_isDeviceSet && !m_isEnteringExclusive && CMadvrCallback::Get()->GetRenderOnMadvr())
   {
-    m_isRendering = true;
-
     // restore pixelshader for render kodi gui
     m_pD3DDeviceMadVR->SetPixelShader(NULL);
 
     // render kodi gui
     CMadvrCallback::Get()->SetVideoLayer(false);
-    CMadvrCallback::Get()->SetRenderLayer(RENDER_LAYER_OVER);
-    g_application.RenderMadvr();
+    CMadvrCallback::Get()->SetRenderLayer(layer);
+
+    if (layer == RENDER_LAYER_UNDER)
+      g_windowManager.Render();
+    else
+      g_application.RenderMadvr();
 
     //restore stagestate for xysubfilter
     m_pD3DDeviceMadVR->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
@@ -373,15 +347,11 @@ HRESULT CmadVRAllocatorPresenter::Render( REFERENCE_TIME rtStart, REFERENCE_TIME
 
     // set false for pixelshader
     m_pD3DDeviceMadVR->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-    
-    // quickfix for high gpu load while paused
-    if (g_application.m_pPlayer->IsPausedPlayback())
-      Sleep(25);
-    
-    m_isRendering = false;
-  }
 
-  return S_OK;
+    // quickfix for high gpu load while paused
+    if (g_application.m_pPlayer->IsPausedPlayback() && (layer == RENDER_LAYER_OVER))
+      Sleep(25);
+  }
 }
 
 // ISubPicAllocatorPresenter
