@@ -379,7 +379,7 @@ public:
   bool GetRenderGUI() const { return m_renderGUI; };
 
   bool SetLanguage(const std::string &strLanguage);
-  bool LoadLanguage(bool reload, bool& fallback);
+  bool LoadLanguage(bool reload);
 
   ReplayGainSettings& GetReplayGainSettings() { return m_replayGainSettings; }
 
@@ -509,6 +509,8 @@ protected:
   ReplayGainSettings m_replayGainSettings;
   
   std::vector<IActionListener *> m_actionListeners;
+
+  bool m_fallbackLanguageLoaded;
   
 private:
   CCriticalSection                m_critSection;                 /*!< critical section for all changes to this class, except for changes to triggers */
