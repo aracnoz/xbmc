@@ -25,6 +25,9 @@
 #include "LangInfo.h"
 #include "utils/LangCodeExpander.h"
 #include "utils/Archive.h"
+#ifdef HAS_DS_PLAYER
+#include "cores/DSPlayer/Filters/MadvrSettings.h"
+#endif
 
 const float VIDEOASPECT_EPSILON = 0.025f;
 
@@ -163,6 +166,28 @@ bool CStreamDetailSubtitle::IsWorseThan(CStreamDetail *that)
   return m_strLanguage.empty() ||
     g_LangCodeExpander.CompareISO639Codes(((CStreamDetailSubtitle *)that)->m_strLanguage, g_langInfo.GetSubtitleLanguage());
 }
+
+#ifdef HAS_DS_PLAYER
+CStreamDetailEditon::CStreamDetailEditon():CStreamDetail(CStreamDetail::EDITION)
+{
+}
+void CStreamDetailEditon::Archive(CArchive& ar)
+{
+  CStreamDetail::Archive(ar);
+  if (ar.IsStoring())
+  {
+    ar << m_strName;
+  }
+  else
+  {
+    ar >> m_strName;
+  }
+}
+void CStreamDetailEditon::Serialize(CVariant& value)
+{
+  value["name"] = m_strName;
+}
+#endif
 
 CStreamDetailSubtitle& CStreamDetailSubtitle::operator=(const CStreamDetailSubtitle &that)
 {
@@ -359,6 +384,63 @@ std::string CStreamDetails::GetVideoCodec(int idx) const
   else
     return "";
 }
+
+#ifdef HAS_DS_PLAYER
+CStdString CStreamDetails::GetVideoFourcc(int idx) const
+{
+  CStreamDetailVideo *item = (CStreamDetailVideo *)GetNthStream(CStreamDetail::VIDEO, idx);
+  if (item)
+  {
+    CStdString fourcc = "";
+    int iFourcc = item->m_iFourcc;
+    fourcc.Format("%c%c%c%c", iFourcc >> 24 & 0xff, iFourcc >> 16 & 0xff, iFourcc >> 8 & 0xff, iFourcc & 0xff);
+    return fourcc;
+  }
+  else
+    return "";
+}
+int CStreamDetails::VideoDimsToResolution(int iWidth, int iHeight)
+{
+  int res = 0;
+  int madvr_res = -1;
+
+  if (iWidth == 0 || iHeight == 0)
+    res =  0;
+  else if (iWidth <= 720 && iHeight <= 480)
+    res = 480;
+  // 720x576 (PAL) (768 when rescaled for square pixels)
+  else if (iWidth <= 768 && iHeight <= 576)
+    res = 576;
+  // 960x540 (sometimes 544 which is multiple of 16)
+  else if (iWidth <= 960 && iHeight <= 544)
+    res = 540;
+  // 1280x720
+  else if (iWidth <= 1280 && iHeight <= 720)
+    res = 720;
+  // 1920x1080
+  else if (iWidth <= 1920 && iHeight <= 1080)
+    res = 1080;
+  // 4K
+  else if (iWidth * iHeight >= 6000000)
+    res = 2160;
+  else
+    res = 0;
+
+  if (res == 480 || res == 540 || res == 576)
+    madvr_res = MADVR_RES_SD;
+
+  if (res == 720)
+    madvr_res = MADVR_RES_720;
+
+  if (res == 1080)
+    madvr_res = MADVR_RES_1080;
+
+  if (res == 2160)
+    madvr_res = MADVR_RES_2160;
+
+  return madvr_res;
+}
+#endif
 
 float CStreamDetails::GetVideoAspect(int idx) const
 {

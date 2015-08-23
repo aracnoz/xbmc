@@ -104,6 +104,24 @@ enum ESCALINGMETHOD
   VS_SCALINGMETHOD_MAX // do not use and keep as last enum value.
 };
 
+#ifdef HAS_DS_PLAYER
+enum EDSSCALINGMETHOD
+{
+  DS_SCALINGMETHOD_NEAREST_NEIGHBOR = 0,
+  DS_SCALINGMETHOD_BILINEAR,
+  DS_SCALINGMETHOD_BILINEAR_2,
+  DS_SCALINGMETHOD_BILINEAR_2_60,
+  DS_SCALINGMETHOD_BILINEAR_2_75,
+  DS_SCALINGMETHOD_BILINEAR_2_100
+};
+#endif
+
+enum EDECODEMETHOD
+{
+  VS_DECODEMETHOD_SOFTWARE=0,
+  VS_DECODEMETHOD_HARDWARE=1
+};
+
 typedef enum {
   ViewModeNormal      = 0,
   ViewModeZoom,
@@ -123,9 +141,14 @@ public:
 
   bool operator!=(const CVideoSettings &right) const;
 
+#ifdef HAS_DS_PLAYER
+  void SetDSPlayerScalingMethod(EDSSCALINGMETHOD method);
+  EDSSCALINGMETHOD GetDSPlayerScalingMethod();
+#endif
+
   EDEINTERLACEMODE m_DeinterlaceMode;
   EINTERLACEMETHOD m_InterlaceMethod;
-  ESCALINGMETHOD   m_ScalingMethod;
+  int m_ScalingMethod;
   int m_ViewMode;   // current view mode
   float m_CustomZoomAmount; // custom setting zoom amount
   float m_CustomPixelRatio; // custom setting pixel ratio

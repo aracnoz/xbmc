@@ -425,6 +425,18 @@
           </constraints>
           <control type="list" format="string" />
         </setting>
+        <setting id="videolibrary.tvshowsselectitem" type="integer" label="55067" help="">
+          <level>1</level>
+          <default>0</default> <!-- Never -->
+          <constraints>
+            <options>
+              <option label="20420">0</option> <!-- Never -->
+              <option label="55068">1</option> <!-- Last played TV show -->
+              <option label="55069">2</option> <!-- Last watched TV show -->
+            </options>
+          </constraints>
+          <control type="spinner" format="string" />
+        </setting>
         <setting id="videolibrary.tvshowsselectfirstunwatcheditem" type="integer" label="21416" help="21466">
           <level>1</level>
           <default>0</default> <!-- Never -->
@@ -549,6 +561,21 @@
               <option label="36036">2</option> <!-- ADJUST_REFRESHRATE_ON_STARTSTOP -->
             </options>
           </constraints>
+          <control type="list" format="string" />
+        </setting>
+        <setting id="videoplayer.changerefreshwith" type="integer" parent="videoplayer.adjustrefreshrate" label="55070" help="">
+          <level>2</level>
+          <default>0</default>
+          <constraints>
+            <options>
+              <option label="21475">0</option> <!-- ADJUST_REFRESHRATE_WITH_BOTH -->
+              <option label="55071">1</option> <!-- ADJUST_REFRESHRATE_WITH_DSPLAYER -->
+              <option label="55072">2</option> <!-- ADJUST_REFRESHRATE_WITH_DVDPLAYER -->
+            </options>
+          </constraints>
+          <dependencies>
+            <dependency type="enable" setting="videoplayer.adjustrefreshrate" operator="!is">0</dependency> <!-- ADJUST_REFRESHRATE_OFF -->
+          </dependencies>
           <control type="list" format="string" />
         </setting>
         <setting id="videoplayer.pauseafterrefreshchange" type="integer" parent="videoplayer.adjustrefreshrate" label="13550" help="36165">
@@ -937,6 +964,47 @@
           </dependencies>
           <control type="list" format="string" />
         </setting>
+        <setting id="subtitles.border" type="integer" label="55050" help="">
+          <level>1</level>
+         <default>0</default>
+          <constraints>
+            <options>
+              <option label="55051">0</option>
+              <option label="55052">1</option>
+            </options>
+          </constraints>
+          <control type="spinner" format="integer" />
+       </setting>
+       <setting id="subtitles.outlinewidth" type="integer" label="55053" help="">
+          <level>1</level>
+          <default>2</default>
+          <constraints>
+            <minimum>0</minimum>
+            <step>1</step>
+            <maximum>100</maximum>
+          </constraints>
+          <control type="spinner" format="integer" />
+       </setting>
+       <setting id="subtitles.shadowdepth" type="integer" label="55054" help="">
+          <level>1</level>
+          <default>3</default>
+          <constraints>
+            <minimum>0</minimum>
+            <step>1</step>
+            <maximum>100</maximum>
+          </constraints>
+          <control type="spinner" format="integer" />
+       </setting>
+       <setting id="subtitles.alpha" type="integer" label="55055" help="">
+          <level>1</level>
+          <default>0</default>
+          <constraints>
+            <minimum>0</minimum>
+            <step>1</step>
+            <maximum>255</maximum>
+          </constraints>
+          <control type="spinner" format="integer" />
+       </setting>
         <setting id="subtitles.color" type="integer" parent="subtitles.font" label="737" help="36188">
           <level>1</level>
           <default>1</default> <!-- White -->
@@ -1100,6 +1168,131 @@
       <group id="2">
         <setting id="accessibility.subhearing" type="boolean" label="37038" help="37039">
           <level>1</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+      </group>
+    </category>
+    <category id="dsplayer" label="55000" help="">
+      <group id="1">
+        <setting id="dsplayer.defaultvideoplayer" type="boolean" label="55031" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.playercore" type="action" parent="dsplayer.autofiltersettings" label="66001">
+          <level>0</level>
+          <dependencies>
+            <dependency type="enable" setting="dsplayer.defaultvideoplayer" operator="is">true</dependency>
+          </dependencies>
+          <control type="button" format="action" />
+        </setting>
+        <setting id="dsplayer.videorenderer" type="string" label="55001" help="">
+          <level>0</level>
+          <default>madVR</default>
+          <constraints>
+            <options>dsvideorenderer</options>
+          </constraints>
+          <control type="list" format="string" />
+        </setting>
+        <setting id="dsplayer.managemadvrsettings" type="boolean" label="55064" help="">
+          <level>0</level>
+          <default>true</default>
+          <dependencies>
+            <dependency type="visible" setting="dsplayer.videorenderer" operator="is">madVR</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.delaymadvrplayback" type="boolean" label="55065" help="">
+          <level>0</level>
+          <default>true</default>
+          <dependencies>
+            <dependency type="visible" setting="dsplayer.videorenderer" operator="is">madVR</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.madvrexclusivemode" type="boolean" label="55063" help="">
+          <level>0</level>
+          <default>false</default>
+          <dependencies>
+            <dependency type="visible" setting="dsplayer.videorenderer" operator="is">madVR</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.exitmadvrfullscreen" type="boolean" label="55074" help="">
+          <level>0</level>
+          <default>false</default>
+          <dependencies>
+            <dependency type="visible" setting="dsplayer.videorenderer" operator="is">madVR</dependency>
+            <dependency type="enable" setting="dsplayer.madvrexclusivemode" operator="is">true</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.audiorenderer" type="string" label="55003" help="">
+          <level>0</level>
+          <default>System Default</default>
+          <constraints>
+            <options>dsaudiorenderer</options>
+          </constraints>
+          <control type="list" format="string" />
+        </setting>
+      </group>
+      <group id="2">
+        <setting id="dsplayer.autofiltersettings" type="boolean" label="55021" help="">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.rules" type="action" parent="dsplayer.autofiltersettings" label="60001">
+          <level>0</level>
+          <dependencies>
+            <dependency type="enable" setting="dsplayer.autofiltersettings" operator="is">false</dependency>
+          </dependencies>
+          <control type="button" format="action" />
+        </setting>
+        <setting id="dsplayer.filters" type="action" parent="dsplayer.autofiltersettings" label="65001">
+          <level>0</level>
+          <dependencies>
+            <dependency type="enable" setting="dsplayer.autofiltersettings" operator="is">false</dependency>
+          </dependencies>
+          <control type="button" format="action" />
+        </setting>
+      </group>
+      <group id="3">
+        <setting id="dsplayer.showbdtitlechoice" type="boolean" label="55030" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.showbdtitlechoice" type="boolean" label="55032" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.mintitlelength" type="integer" label="55022" help="">
+          <level>0</level>
+          <default>30</default>
+          <constraints>
+            <minimum>0</minimum>
+            <step>1</step>
+            <maximum>300</maximum>
+          </constraints>
+          <control type="spinner" format="integer" />
+	</setting>
+      </group>
+      <group id="4">
+        <setting id="dsplayer.videoaudioexpandedselector" type="boolean" label="55060" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.videosubsexpandedselector" type="boolean" label="55061" help="">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="dsplayer.showsplitterdetail" type="boolean" label="55066" help="">
+          <level>0</level>
           <default>false</default>
           <control type="toggle" />
         </setting>
@@ -2440,7 +2633,7 @@
           <level>2</level>
           <default>true</default>
           <dependencies>
-            <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
+              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
           </dependencies>
           <control type="toggle" />
         </setting>

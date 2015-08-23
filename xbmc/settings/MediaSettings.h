@@ -27,6 +27,9 @@
 #include "settings/lib/ISubSettings.h"
 #include "settings/AudioDSPSettings.h"
 #include "settings/VideoSettings.h"
+#ifdef HAS_DS_PLAYER
+#include "cores/DSplayer/Filters/MadvrSettings.h"
+#endif
 #include "threads/CriticalSection.h"
 
 #define VOLUME_DRC_MINIMUM 0    // 0dB
@@ -60,6 +63,18 @@ public:
   CAudioSettings& GetDefaultAudioSettings() { return m_defaultAudioSettings; }
   const CAudioSettings& GetCurrentAudioSettings() const { return m_currentAudioSettings; }
   CAudioSettings& GetCurrentAudioSettings() { return m_currentAudioSettings; }
+
+#ifdef HAS_DS_PLAYER
+  const CVideoSettings& GetAtStartVideoSettings() const { return m_atstartVideoSettings; }
+  CVideoSettings& GetAtStartVideoSettings() { return m_atstartVideoSettings; }
+
+  const CMadvrSettings& GetDefaultMadvrSettings() const { return m_defaultMadvrSettings; }
+  CMadvrSettings& GetDefaultMadvrSettings() { return m_defaultMadvrSettings; }
+  const CMadvrSettings& GetAtStartMadvrSettings() const { return m_atstartMadvrSettings; }
+  CMadvrSettings& GetAtStartMadvrSettings() { return m_atstartMadvrSettings; }
+  const CMadvrSettings& GetCurrentMadvrSettings() const { return m_currentMadvrSettings; }
+  CMadvrSettings& GetCurrentMadvrSettings() { return m_currentMadvrSettings; }
+#endif
 
   /*! \brief Retreive the watched mode for the given content type
    \param content Current content type
@@ -111,6 +126,13 @@ private:
 
   CAudioSettings m_defaultAudioSettings;
   CAudioSettings m_currentAudioSettings;
+
+#ifdef HAS_DS_PLAYER
+  CVideoSettings m_atstartVideoSettings;
+  CMadvrSettings m_defaultMadvrSettings;
+  CMadvrSettings m_atstartMadvrSettings;
+  CMadvrSettings m_currentMadvrSettings;
+#endif
 
   typedef std::map<std::string, WatchedMode> WatchedModes;
   WatchedModes m_watchedModes;

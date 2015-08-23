@@ -155,6 +155,10 @@
 #include "dialogs/GUIDialogButtonMenu.h"
 #include "dialogs/GUIDialogSimpleMenu.h"
 #include "addons/GUIDialogAddonSettings.h"
+#ifdef HAS_DS_PLAYER
+#include "MadvrCallback.h"
+#include "DSPlayerDatabase.h"
+#endif
 
 // PVR related include Files
 #include "pvr/PVRManager.h"
@@ -181,6 +185,9 @@
 
 #ifdef TARGET_WINDOWS
 #include "win32util.h"
+#ifdef HAS_DS_PLAYER
+#include "cores/DSPlayer/Filters/RendererSettings.h"
+#endif
 #endif
 
 #ifdef TARGET_DARWIN_OSX
@@ -647,6 +654,10 @@ bool CApplication::Create()
 
   update_emu_environ();//apply the GUI settings
 
+#ifdef HAS_DS_PLAYER // DSPlayer
+  g_dsSettings.Initialize();
+  g_dsSettings.LoadConfig();
+#endif
 #ifdef TARGET_WINDOWS
   CWIN32Util::SetThreadLocalLocale(true); // enable independent locale for each thread, see https://connect.microsoft.com/VisualStudio/feedback/details/794122
 #endif // TARGET_WINDOWS
@@ -1888,6 +1899,9 @@ bool CApplication::RenderNoPresent()
   // dont show GUI when playing full screen video
   if (g_graphicsContext.IsFullScreenVideo())
   {
+    g_graphicsContext.SetRenderingResolution(g_graphicsContext.GetVideoResolution(), false);
+    g_renderManager.Render(true, 0, 255);
+
     // close window overlays
     CGUIDialog *overlay = (CGUIDialog *)g_windowManager.GetWindow(WINDOW_DIALOG_VIDEO_OVERLAY);
     if (overlay) overlay->Close(true);
@@ -1978,10 +1992,23 @@ void CApplication::Render()
 
   CSingleLock lock(g_graphicsContext);
 
-  if (g_graphicsContext.IsFullScreenVideo() && m_pPlayer->IsPlaying() && vsync_mode == VSYNC_VIDEO)
+  if (g_graphicsContext.IsFullScreenVideo() && m_pPlayer->IsPlaying() && vsync_mode == VSYNC_VIDEO
+#ifdef HAS_DS_PLAYER
+    && !g_dsSettings.pRendererSettings->vSync
+#endif
+)
     g_Windowing.SetVSync(true);
   else if (vsync_mode == VSYNC_ALWAYS)
+#ifdef HAS_DS_PLAYER
+  {
+    if (m_pPlayer->IsPlaying() && g_dsSettings.pRendererSettings->vSync)
+      g_Windowing.SetVSync(false); // Disable XBMC vsync and use DSplayer one
+    else
+      g_Windowing.SetVSync(true);
+  }
+#else
     g_Windowing.SetVSync(true);
+#endif
   else if (vsync_mode != VSYNC_DRIVER)
     g_Windowing.SetVSync(false);
 
@@ -1991,6 +2018,10 @@ void CApplication::Render()
   if(!g_Windowing.BeginRender())
     return;
 
+#ifdef HAS_DS_PLAYER
+  if (CMadvrCallback::Get()->ReadyMadvr())
+    CMadvrCallback::Get()->GetCallback()->RenderToTexture(RENDER_LAYER_UNDER);
+#endif
   CDirtyRegionList dirtyRegions;
 
   // render gui layer
@@ -2058,13 +2089,17 @@ void CApplication::Render()
     if (frameTime < singleFrameTime)
       Sleep(singleFrameTime - frameTime);
   }
+    if (flip)
+      g_graphicsContext.Flip(dirtyRegions);
 
-  if (flip)
-    g_graphicsContext.Flip(dirtyRegions);
-
+#ifdef HAS_DS_PLAYER    
+    if (CMadvrCallback::Get()->ReadyMadvr())
+        CMadvrCallback::Get()->GetCallback()->Flush();
+    else
+#endif
   if (!extPlayerActive && g_graphicsContext.IsFullScreenVideo() && !m_pPlayer->IsPausedPlayback())
   {
-    g_renderManager.FrameWait(100);
+      g_renderManager.FrameWait(100);
   }
 
   m_lastFrameTime = XbmcThreads::SystemClockMillis();
@@ -2804,6 +2839,7 @@ void CApplication::FrameMove(bool processEvents, bool processGUI)
       CSeekHandler::Get().Process();
     }
   }
+
   if (processGUI && m_renderGUI)
   {
     m_skipGuiRender = false;
@@ -3267,6 +3303,12 @@ PlayBackRet CApplication::PlayFile(const CFileItem& item, bool bRestart)
     // Switch to default options
     CMediaSettings::Get().GetCurrentVideoSettings() = CMediaSettings::Get().GetDefaultVideoSettings();
     CMediaSettings::Get().GetCurrentAudioSettings() = CMediaSettings::Get().GetDefaultAudioSettings();
+#ifdef HAS_DS_PLAYER
+    CMediaSettings::Get().GetAtStartVideoSettings() = CMediaSettings::Get().GetCurrentVideoSettings();
+
+    CMediaSettings::Get().GetCurrentMadvrSettings() = CMediaSettings::Get().GetDefaultMadvrSettings();
+    CMediaSettings::Get().GetAtStartMadvrSettings() = CMediaSettings::Get().GetCurrentMadvrSettings();
+#endif
     // see if we have saved options in the database
 
     m_pPlayer->SetPlaySpeed(1, g_application.m_muted);
@@ -3276,7 +3318,10 @@ PlayBackRet CApplication::PlayFile(const CFileItem& item, bool bRestart)
     m_nextPlaylistItem = -1;
     m_currentStackPosition = 0;
     m_currentStack->Clear();
-
+#ifdef HAS_DS_PLAYER
+    m_progressTrackingVideoResumeBookmark.edition.editionNumber = 0;
+    m_progressTrackingVideoResumeBookmark.edition.editionName = "";
+#endif
     if (item.IsVideo())
       CUtil::ClearSubtitles();
   }
@@ -3785,7 +3830,12 @@ void CApplication::SaveFileState(bool bForeground /* = false */)
       m_progressTrackingVideoResumeBookmark,
       m_progressTrackingPlayCountUpdate,
       CMediaSettings::Get().GetCurrentVideoSettings(),
-      CMediaSettings::Get().GetCurrentAudioSettings());
+      CMediaSettings::Get().GetCurrentAudioSettings()
+#ifdef HAS_DS_PLAYER
+      ,
+      CMediaSettings::Get().GetCurrentMadvrSettings()
+#endif
+      );
   
   if (bForeground)
   {
@@ -3890,6 +3940,29 @@ void CApplication::LoadVideoSettings(const CFileItem& item)
     
     dbs.Close();
   }
+
+#ifdef HAS_DS_PLAYER
+  CMediaSettings::Get().GetAtStartVideoSettings() = CMediaSettings::Get().GetCurrentVideoSettings();
+
+  CDSPlayerDatabase dsdbs;
+  if (dsdbs.Open())
+  {
+    CFileItem item = CurrentFileItem();
+    CStreamDetails streamDetails = item.GetVideoInfoTag()->m_streamDetails;
+    int res = streamDetails.VideoDimsToResolution(streamDetails.GetVideoWidth(), streamDetails.GetVideoHeight());
+   
+    CLog::Log(LOGDEBUG, "Loading madvr settings for %s with resolution id: %i", item.GetPath().c_str(), res);
+
+    // Load stored settings if they exist, otherwise use default
+    if (!dsdbs.GetVideoSettings(item.GetPath().c_str(), CMediaSettings::Get().GetCurrentMadvrSettings()))
+      if (!dsdbs.GetDefResMadvrSettings(res, CMediaSettings::Get().GetCurrentMadvrSettings())) 
+        CMediaSettings::Get().GetCurrentMadvrSettings() = CMediaSettings::Get().GetDefaultMadvrSettings();
+
+    CMediaSettings::Get().GetAtStartMadvrSettings() = CMediaSettings::Get().GetCurrentMadvrSettings();
+
+    dsdbs.Close();
+  }
+#endif
 }
 
 void CApplication::StopPlaying()
@@ -3900,6 +3973,14 @@ void CApplication::StopPlaying()
 #ifdef HAS_KARAOKE
     if( m_pKaraokeMgr )
       m_pKaraokeMgr->Stop();
+#endif
+
+#ifdef HAS_DS_PLAYER
+  if (m_pPlayer->GetEditionsCount() > 1)
+  {
+    m_progressTrackingVideoResumeBookmark.edition.editionNumber = m_pPlayer->GetEdition();
+    m_pPlayer->GetEditionInfo(m_progressTrackingVideoResumeBookmark.edition.editionNumber, m_progressTrackingVideoResumeBookmark.edition.editionName, NULL);
+   }
 #endif
     m_pPlayer->CloseFile();
 
@@ -5218,10 +5299,24 @@ bool CApplication::ProcessAndStartPlaylist(const std::string& strPlayList, CPlay
   }
   return false;
 }
-
+#ifdef HAS_DS_PLAYER
+bool CApplication::IsCurrentThread(bool checkForMadvr) const
+#else
 bool CApplication::IsCurrentThread() const
+#endif
 {
+#ifdef HAS_DS_PLAYER
+  if (CMadvrCallback::Get()->UsingMadvr() && checkForMadvr)
+  {
+    bool isMadvrThread = CMadvrCallback::Get()->GetCallback()->IsCurrentThreadId();
+    bool isApplicationThread = CThread::IsCurrentThread(m_threadID);
+    return (isMadvrThread || isApplicationThread);
+  }
+  else
+    return CThread::IsCurrentThread(m_threadID);
+#else
   return CThread::IsCurrentThread(m_threadID);
+#endif
 }
 
 void CApplication::SetRenderGUI(bool renderGUI)

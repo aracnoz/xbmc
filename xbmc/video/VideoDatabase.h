@@ -79,7 +79,10 @@ namespace VIDEO
 #define VIDEODB_DETAILS_MOVIE_DATEADDED         VIDEODB_MAX_COLUMNS + 8
 #define VIDEODB_DETAILS_MOVIE_RESUME_TIME       VIDEODB_MAX_COLUMNS + 9
 #define VIDEODB_DETAILS_MOVIE_TOTAL_TIME        VIDEODB_MAX_COLUMNS + 10
-
+#ifdef HAS_DS_PLAYER
+#define VIDEODB_DETAILS_MOVIE_RESUME_EDITION	VIDEODB_MAX_COLUMNS + 11
+#define VIDEODB_DETAILS_MOVIE_RESUME_EDITION_NUMBER	VIDEODB_MAX_COLUMNS + 12
+#endif 
 #define VIDEODB_DETAILS_EPISODE_TVSHOW_ID       VIDEODB_MAX_COLUMNS + 2
 #define VIDEODB_DETAILS_EPISODE_FILE            VIDEODB_MAX_COLUMNS + 3
 #define VIDEODB_DETAILS_EPISODE_PATH            VIDEODB_MAX_COLUMNS + 4
@@ -93,7 +96,10 @@ namespace VIDEO
 #define VIDEODB_DETAILS_EPISODE_RESUME_TIME     VIDEODB_MAX_COLUMNS + 12
 #define VIDEODB_DETAILS_EPISODE_TOTAL_TIME      VIDEODB_MAX_COLUMNS + 13
 #define VIDEODB_DETAILS_EPISODE_SEASON_ID       VIDEODB_MAX_COLUMNS + 14
-
+#ifdef HAS_DS_PLAYER
+#define VIDEODB_DETAILS_EPISODE_RESUME_EDITION			VIDEODB_MAX_COLUMNS + 15
+#define VIDEODB_DETAILS_EPISODE_RESUME_EDITION_NUMBER	VIDEODB_MAX_COLUMNS + 16
+#endif 
 #define VIDEODB_DETAILS_TVSHOW_PARENTPATHID     VIDEODB_MAX_COLUMNS + 1
 #define VIDEODB_DETAILS_TVSHOW_PATH             VIDEODB_MAX_COLUMNS + 2
 #define VIDEODB_DETAILS_TVSHOW_DATEADDED        VIDEODB_MAX_COLUMNS + 3
@@ -109,6 +115,11 @@ namespace VIDEO
 #define VIDEODB_DETAILS_MUSICVIDEO_DATEADDED    VIDEODB_MAX_COLUMNS + 6
 #define VIDEODB_DETAILS_MUSICVIDEO_RESUME_TIME  VIDEODB_MAX_COLUMNS + 7
 #define VIDEODB_DETAILS_MUSICVIDEO_TOTAL_TIME   VIDEODB_MAX_COLUMNS + 8
+#ifdef HAS_DS_PLAYER
+#define VIDEODB_DETAILS_MUSICVIDEO_RESUME_EDITION			VIDEODB_MAX_COLUMNS + 9
+#define VIDEODB_DETAILS_MUSICVIDEO_RESUME_EDITION_NUMBER	VIDEODB_MAX_COLUMNS + 10
+#endif 
+
 
 #define VIDEODB_TYPE_STRING 1
 #define VIDEODB_TYPE_INT 2
@@ -454,6 +465,9 @@ public:
   bool LoadVideoInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details);
   bool GetMovieInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idMovie = -1);
   bool GetTvShowInfo(const std::string& strPath, CVideoInfoTag& details, int idTvShow = -1, CFileItem* item = NULL);
+#ifdef HAS_DS_PLAYER
+  int  GetLastTvShowId(int lastType);
+#endif
   bool GetSeasonInfo(int idSeason, CVideoInfoTag& details);
   bool GetEpisodeInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idEpisode = -1);
   bool GetMusicVideoInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idMVideo=-1);

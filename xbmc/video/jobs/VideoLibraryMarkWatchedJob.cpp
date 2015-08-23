@@ -30,6 +30,9 @@
 #include "profiles/ProfilesManager.h"
 #include "utils/URIUtils.h"
 #include "video/VideoDatabase.h"
+#ifdef HAS_DS_PLAYER
+#include "DSPlayerDatabase.h"
+#endif
 
 CVideoLibraryMarkWatchedJob::CVideoLibraryMarkWatchedJob(const CFileItemPtr &item, bool mark)
   : m_item(item),
@@ -91,6 +94,10 @@ bool CVideoLibraryMarkWatchedJob::Work(CVideoDatabase &db)
       if (item->HasVideoInfoTag())
         path = item->GetVideoInfoTag()->GetPath();
 
+#ifdef HAS_DS_PLAYER
+      CDSPlayerDatabase dspdb;
+      dspdb.ClearEditionOfFile(item->GetPath());
+#endif
       db.ClearBookMarksOfFile(path, CBookmark::RESUME);
       db.IncrementPlayCount(*item);
     }

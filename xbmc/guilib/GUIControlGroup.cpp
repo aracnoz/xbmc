@@ -21,6 +21,9 @@
 #include "GUIControlGroup.h"
 
 #include <cassert>
+#ifdef HAS_DS_PLAYER
+#include "MadvrCallback.h"
+#endif
 
 using namespace std;
 
@@ -126,7 +129,17 @@ void CGUIControlGroup::Render()
     if (m_renderFocusedLast && control->HasFocus())
       focusedControl = control;
     else
+#ifdef HAS_DS_PLAYER
+    {
+      if (CMadvrCallback::Get()->ReadyMadvr() && control->GetControlType() == GUICONTROL_VIDEO && control->IsVisible())
+        CMadvrCallback::Get()->GetCallback()->RenderToTexture(RENDER_LAYER_OVER);
+
       control->DoRender();
+    }
+#else      
+      control->DoRender();
+#endif
+
   }
   if (focusedControl)
     focusedControl->DoRender();

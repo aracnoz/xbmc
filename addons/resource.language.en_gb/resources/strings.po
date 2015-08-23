@@ -17344,3 +17344,747 @@ msgstr ""
 msgctxt "#38016"
 msgid "%d fps"
 msgstr ""
+
+#. 55000-55100 reserved for DSPlayer
+msgctxt "#55000"
+msgid "DSPlayer"
+msgstr ""
+
+msgctxt "#55001"
+msgid "Video Renderer"
+msgstr ""
+
+msgctxt "#55002"
+msgid "Use EVR instead of VMR9 Renderer"
+msgstr ""
+
+msgctxt "#55003"
+msgid "Audio Renderer"
+msgstr ""
+
+msgctxt "#55004"
+msgid "Set all stable formats to libavcodec (ffdshow)"
+msgstr ""
+
+msgctxt "#55005"
+msgid "Nearest neighbor"
+msgstr ""
+
+msgctxt "#55006"
+msgid "Bilinear"
+msgstr ""
+
+msgctxt "#55007"
+msgid "Bilinear (PS 2.0)"
+msgstr ""
+
+msgctxt "#55008"
+msgid "Bicubic A=-0.60 (PS 2.0)"
+msgstr ""
+
+msgctxt "#55009"
+msgid "Bicubic A=-0.75 (PS 2.0)"
+msgstr ""
+
+msgctxt "#55010"
+msgid "Bicubic A=-1.00 (PS 2.0)"
+msgstr ""
+
+msgctxt "#55011"
+msgid "Stats hidden"
+msgstr ""
+
+msgctxt "#55012"
+msgid "Stats minimal"
+msgstr ""
+
+msgctxt "#55013"
+msgid "Stats medium"
+msgstr ""
+
+msgctxt "#55014"
+msgid "Stats large"
+msgstr ""
+
+msgctxt "#55015"
+msgid "Renderer stats"
+msgstr ""
+
+msgctxt "#55016"
+msgid "Shaders"
+msgstr ""
+
+msgctxt "#55017"
+msgid "Shaders list"
+msgstr ""
+
+msgctxt "#55018"
+msgid "There is no shader loaded"
+msgstr ""
+
+msgctxt "#55021"
+msgid "Use system filters (DirectShow merits)"
+msgstr ""
+
+msgctxt "#55022"
+msgid "Min. Blu-ray title length (min.)"
+msgstr ""
+
+msgctxt "#55023"
+msgid "Matroska Editions"
+msgstr ""
+
+msgctxt "#55024"
+msgid "Blu-ray Titles"
+msgstr ""
+
+msgctxt "#55025"
+msgid "Select Matroska Editions"
+msgstr ""
+
+msgctxt "#55026"
+msgid "Select Blu-ray Titles"
+msgstr ""
+
+msgctxt "#55027"
+msgid "Show all Blu-ray Titles"
+msgstr ""
+
+msgctxt "#55030"
+msgid "Auto start .bdmv in Blu-ray folders"
+msgstr ""
+
+msgctxt "#55031"
+msgid "Use as the default video player"
+msgstr ""
+
+msgctxt "#55032"
+msgid "Show Blu-ray titles and Matroska Editions choice dialog"
+msgstr ""
+
+#. 55050-55100 Directshow Subtitles 
+msgctxt "#55050"
+msgid "- Border line"
+msgstr ""
+
+msgctxt "#55051"
+msgid "Outline"
+msgstr ""
+
+msgctxt "#55052"
+msgid "Opaque"
+msgstr ""
+
+msgctxt "#55053"
+msgid "- Outline width"
+msgstr ""
+
+msgctxt "#55054"
+msgid "- Shadow depth"
+msgstr ""
+
+msgctxt "#55055"
+msgid "- Alpha"
+msgstr ""
+
+msgctxt "#55056"
+msgid "Font to use for text subtitles (dsplayer only) : %s"
+msgstr ""
+
+msgctxt "#55057"
+msgid "Choose a font"
+msgstr ""
+
+msgctxt "#55058"
+msgid "Disable subtitles"
+msgstr ""
+
+msgctxt "#55059"
+msgid "Subtitles not found"
+msgstr ""
+
+msgctxt "#55060"
+msgid "Use menu audio selector"
+msgstr ""
+
+msgctxt "#55061"
+msgid "Use menu subtitle selector"
+msgstr ""
+
+msgctxt "#55062"
+msgid "DSPlayer filters list..."
+msgstr ""
+
+msgctxt "#55063"
+msgid "- Use madVR in fullscreen (exclusive mode)"
+msgstr ""
+
+msgctxt "#55064"
+msgid "- Manage madVR settings through the gui of kodi"
+msgstr ""
+
+msgctxt "#55065"
+msgid "- Delay madVR playback until render queue is full"
+msgstr ""
+
+msgctxt "#55066"
+msgid "Show stream details from selected splitter"
+msgstr ""
+
+msgctxt "#55067"
+msgid "Select last TV show on first entry"
+msgstr ""
+
+msgctxt "#55068"
+msgid "Last played TV show"
+msgstr ""
+
+msgctxt "#55069"
+msgid "Last watched TV show"
+msgstr ""
+
+msgctxt "#55070"
+msgid "Enable with player"
+msgstr ""
+
+msgctxt "#55071"
+msgid "DSPlayer"
+msgstr ""
+
+msgctxt "#55072"
+msgid "DVDPlayer"
+msgstr ""
+
+
+msgctxt "#55074"
+msgid "- Force madVR to exit from fullscreen before stop"
+msgstr ""
+
+
+msgctxt "#60001"
+msgid "Media rules"
+msgstr ""
+
+msgctxt "#60002"
+msgid "Rule name"
+msgstr ""
+
+msgctxt "#60003"
+msgid "- File types"
+msgstr ""
+
+msgctxt "#60004"
+msgid "- File name"
+msgstr ""
+
+msgctxt "#60005"
+msgid "- Protocols"
+msgstr ""
+
+msgctxt "#60006"
+msgid "- Url"
+msgstr ""
+
+msgctxt "#60007"
+msgid "Source filter"
+msgstr ""
+
+msgctxt "#60008"
+msgid "Splitter filter"
+msgstr ""
+
+msgctxt "#60009"
+msgid "Video filter"
+msgstr ""
+
+msgctxt "#60010"
+msgid "Audio filter"
+msgstr ""
+
+msgctxt "#60011"
+msgid "Subs filter"
+msgstr ""
+
+msgctxt "#60012"
+msgid "Extra filter"
+msgstr ""
+
+msgctxt "#60013"
+msgid "Shader Id"
+msgstr ""
+
+msgctxt "#60014"
+msgid "Add new rule..."
+msgstr ""
+
+msgctxt "#60015"
+msgid "Add rule"
+msgstr ""
+
+msgctxt "#60016"
+msgid "Save rule changes"
+msgstr ""
+
+msgctxt "#60017"
+msgid "Delete rule"
+msgstr ""
+
+msgctxt "#60018"
+msgid "Are you sure to delete this rule?"
+msgstr ""
+
+msgctxt "#60019"
+msgid "- Video resolution"
+msgstr ""
+
+msgctxt "#60020"
+msgid "- Video codec"
+msgstr ""
+
+msgctxt "#60021"
+msgid "- Audio channels"
+msgstr ""
+
+msgctxt "#60022"
+msgid "- Audio codec"
+msgstr ""
+
+msgctxt "#60023"
+msgid "- Stage"
+msgstr ""
+
+msgctxt "#61001"
+msgid "Save changes?"
+msgstr ""
+
+msgctxt "#61002"
+msgid "Do you want to save changes you made?"
+msgstr ""
+
+msgctxt "#65001"
+msgid "Filters configuration"
+msgstr ""
+
+msgctxt "#65002"
+msgid "Add new filter..."
+msgstr ""
+
+msgctxt "#65003"
+msgid "OSDName"
+msgstr ""
+
+msgctxt "#65004"
+msgid "Filter name"
+msgstr ""
+
+msgctxt "#65005"
+msgid "Filter type"
+msgstr ""
+
+msgctxt "#65006"
+msgid "Filter guid"
+msgstr ""
+
+msgctxt "#65007"
+msgid "Add filter"
+msgstr ""
+
+msgctxt "#65008"
+msgid "Save filter changes"
+msgstr ""
+
+msgctxt "#65009"
+msgid "Delete filter"
+msgstr ""
+
+msgctxt "#65010"
+msgid "System filters list"
+msgstr ""
+
+msgctxt "#65011"
+msgid "Are you sure to delete this filter?"
+msgstr ""
+
+msgctxt "#65012"
+msgid "Please fill out all required fields"
+msgstr ""
+
+msgctxt "#66001"
+msgid "DVDPlayer merits"
+msgstr ""
+
+msgctxt "#66002"
+msgid "Add new merits rule..."
+msgstr ""
+
+msgctxt "#66003"
+msgid "- Internet stream"
+msgstr ""
+
+msgctxt "#66004"
+msgid "- Remote"
+msgstr ""
+
+msgctxt "#66005"
+msgid "- Audio"
+msgstr ""
+
+msgctxt "#66006"
+msgid "- Video"
+msgstr ""
+
+msgctxt "#66007"
+msgid "- DVD"
+msgstr ""
+
+msgctxt "#66008"
+msgid "- DVD image"
+msgstr ""
+
+msgctxt "#66009"
+msgid "- DVD file"
+msgstr ""
+
+msgctxt "#66010"
+msgid "- Video aspect ratio"
+msgstr ""
+
+msgctxt "#66011"
+msgid "- Mimetypes"
+msgstr ""
+
+msgctxt "#70000"
+msgid "Scaling algorithms..."
+msgstr ""
+
+msgctxt "#70001"
+msgid "Nearest Neighbor"
+msgstr ""
+
+msgctxt "#70002"
+msgid "Bilinear"
+msgstr ""
+
+msgctxt "#70003"
+msgid "DXVA2"
+msgstr ""
+
+msgctxt "#70004"
+msgid "Mitchel-Netravali"
+msgstr ""
+
+msgctxt "#70005"
+msgid "Catmul-Rom"
+msgstr ""
+
+msgctxt "#70006"
+msgid "Bicubic (sharpness 50)"
+msgstr ""
+
+msgctxt "#70007"
+msgid "Bicubic (sharpness 60)"
+msgstr ""
+
+msgctxt "#70008"
+msgid "Bicubic (sharpness 75)"
+msgstr ""
+
+msgctxt "#70009"
+msgid "Bicubic (sharpness 100)"
+msgstr ""
+
+msgctxt "#70010"
+msgid "SoftCubic (softness 50)"
+msgstr ""
+
+msgctxt "#70011"
+msgid "SoftCubic (softness 60)"
+msgstr ""
+
+msgctxt "#70012"
+msgid "SoftCubic (softness 70)"
+msgstr ""
+
+msgctxt "#70013"
+msgid "SoftCubic (softness 80)"
+msgstr ""
+
+msgctxt "#70014"
+msgid "SoftCubic (softness 100)"
+msgstr ""
+
+msgctxt "#70015"
+msgid "Lanczos (3 taps)"
+msgstr ""
+
+msgctxt "#70016"
+msgid "Lanczos (4 taps)"
+msgstr ""
+
+msgctxt "#70017"
+msgid "Lanczos (8 taps)"
+msgstr ""
+
+msgctxt "#70018"
+msgid "Spline (3 taps)"
+msgstr ""
+
+msgctxt "#70019"
+msgid "Spline (4 taps)"
+msgstr ""
+
+msgctxt "#70020"
+msgid "Jinc (3 taps)"
+msgstr ""
+
+msgctxt "#70021"
+msgid "Jinc (4 taps)"
+msgstr ""
+
+msgctxt "#70022"
+msgid "Jinc (8 taps)"
+msgstr ""
+
+msgctxt "#70023"
+msgid "NNEDI3 (16 neurons)"
+msgstr ""
+
+msgctxt "#70024"
+msgid "NNEDI3 (32 neurons)"
+msgstr ""
+
+msgctxt "#70025"
+msgid "NNEDI3 (64 neurons)"
+msgstr ""
+
+msgctxt "#70026"
+msgid "NNEDI3 (128 neurons)"
+msgstr ""
+
+msgctxt "#70027"
+msgid "NNEDI3 (256 neurons)"
+msgstr ""
+
+msgctxt "#70028"
+msgid "Chroma upscaling"
+msgstr ""
+
+msgctxt "#70029"
+msgid "Image upscaling"
+msgstr ""
+
+msgctxt "#70030"
+msgid "Image downscaling"
+msgstr ""
+
+msgctxt "#70031"
+msgid "- anti-ringing filter"
+msgstr ""
+
+msgctxt "#70032"
+msgid "- scale in linear light"
+msgstr ""
+
+msgctxt "#70100"
+msgid "NNEDI3 to double Luma resolution"
+msgstr ""
+
+msgctxt "#70101"
+msgid "NNEDI3 to double Chroma resolution"
+msgstr ""
+
+msgctxt "#70102"
+msgid "NNEDI3 to quadruple Luma resolution"
+msgstr ""
+
+msgctxt "#70103"
+msgid "NNEDI3 to quadruple Chroma resolution"
+msgstr ""
+
+msgctxt "#70104"
+msgid "use (16 Neurons)"
+msgstr ""
+
+msgctxt "#70105"
+msgid "use (32 Neurons)"
+msgstr ""
+
+msgctxt "#70106"
+msgid "use (64 Neurons)"
+msgstr ""
+
+msgctxt "#70107"
+msgid "use (128 Neurons)"
+msgstr ""
+
+msgctxt "#70108"
+msgid "use (256 Neurons)"
+msgstr ""
+
+msgctxt "#70109"
+msgid "only if scaling factor is 2.0x (or bigger)"
+msgstr ""
+
+msgctxt "#70110"
+msgid "only if scaling factor is 1.5x (or bigger)"
+msgstr ""
+
+msgctxt "#70111"
+msgid "only if scaling factor is 1.2x (or bigger)"
+msgstr ""
+
+msgctxt "#70112"
+msgid "always if upscaling needed"
+msgstr ""
+
+msgctxt "#70113"
+msgid "only if scaling factor is 4.0x (or bigger)"
+msgstr ""
+
+msgctxt "#70114"
+msgid "only if scaling factor is 3.0x (or bigger)"
+msgstr ""
+
+msgctxt "#70115"
+msgid "only if scaling factor is 2.4x (or bigger)"
+msgstr ""
+
+msgctxt "#70116"
+msgid "- scaling condition"
+msgstr ""
+
+msgctxt "#70117"
+msgid "(disabled)"
+msgstr ""
+
+msgctxt "#70200"
+msgid "Deinterlace auto-activation"
+msgstr ""
+
+msgctxt "#70201"
+msgid "Deinterlace detection type"
+msgstr ""
+
+msgctxt "#70202"
+msgid "(auto-detection)"
+msgstr ""
+
+msgctxt "#70203"
+msgid "force film mode"
+msgstr ""
+
+msgctxt "#70204"
+msgid "force video mode"
+msgstr ""
+
+msgctxt "#70205"
+msgid "if doubt, active"
+msgstr ""
+
+msgctxt "#70206"
+msgid "if doubt, deactive"
+msgstr ""
+
+msgctxt "#70206"
+msgid "force video mode"
+msgstr ""
+
+msgctxt "#70207"
+msgid "Deinterlace only pixels in the frame center"
+msgstr ""
+
+msgctxt "#70300"
+msgid "Smooth motion"
+msgstr ""
+
+msgctxt "#70301"
+msgid "avoid judder"
+msgstr ""
+
+msgctxt "#70302"
+msgid "almost always"
+msgstr ""
+
+msgctxt "#70303"
+msgid "always"
+msgstr ""
+
+msgctxt "#70400"
+msgid "Dithering"
+msgstr ""
+
+msgctxt "#70401"
+msgid "random dithering"
+msgstr ""
+
+msgctxt "#70402"
+msgid "ordered dithering"
+msgstr ""
+
+msgctxt "#70403"
+msgid "error diffusion 1 (no patterns) (dx11)"
+msgstr ""
+
+msgctxt "#70404"
+msgid "error diffusion 2 (mild patterns) (dx11)"
+msgstr ""
+
+msgctxt "#70405"
+msgid "- use colored noise"
+msgstr ""
+
+msgctxt "#70406"
+msgid "- change dither for every frame"
+msgstr ""
+
+msgctxt "#70500"
+msgid "Reduce banding artifacts"
+msgstr ""
+
+msgctxt "#70501"
+msgid "- default debanding strength"
+msgstr ""
+
+msgctxt "#70502"
+msgid "- strength during fade in/out"
+msgstr ""
+
+msgctxt "#70503"
+msgid "low"
+msgstr ""
+
+msgctxt "#70504"
+msgid "medium"
+msgstr ""
+
+msgctxt "#70505"
+msgid "high"
+msgstr ""
+
+msgctxt "#70600"
+msgid "Set default settings..."
+msgstr ""
+
+msgctxt "#70601"
+msgid "Set as default for SD videos"
+msgstr ""
+
+msgctxt "#70602"
+msgid "Set as default for 720p videos"
+msgstr ""
+
+msgctxt "#70603"
+msgid "Set as default for 1080p videos"
+msgstr ""
+
+msgctxt "#70604"
+msgid "Set as default for 2160p videos"
+msgstr ""
+
+msgctxt "#909001"
+msgid "Rus"
+msgstr ""
+
+msgctxt "#909002"
+msgid "IP"
+msgstr ""

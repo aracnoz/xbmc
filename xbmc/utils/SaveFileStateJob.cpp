@@ -35,6 +35,9 @@
 #include "GUIUserMessages.h"
 #include "music/MusicDatabase.h"
 #include "cores/AudioEngine/DSPAddons/ActiveAEDSP.h"
+#ifdef HAS_DS_PLAYER
+#include "DSPlayerDatabase.h"
+#endif
 
 bool CSaveFileStateJob::DoWork()
 {
@@ -63,7 +66,25 @@ bool CSaveFileStateJob::DoWork()
     {
       std::string redactPath = CURL::GetRedacted(progressTrackingFile);
       CLog::Log(LOGDEBUG, "%s - Saving file state for video item %s", __FUNCTION__, redactPath.c_str());
-
+#ifdef HAS_DS_PLAYER
+	  CDSPlayerDatabase dspdb;
+	  if(!dspdb.Open())
+	  {
+		  CLog::Log(LOGWARNING, "%s - Unable to open DSPlayer database. Can not save file state!", __FUNCTION__);
+	  }
+	  else if (m_bookmark.timeInSeconds <= 0.0f)
+	  {
+		  dspdb.ClearEditionOfFile(progressTrackingFile);
+	  }
+	  else if(m_bookmark.edition.IsSet())
+	  {
+		  dspdb.AddEdition(progressTrackingFile, m_bookmark.edition);
+	  }
+      if (m_madvrSettings != CMediaSettings::Get().GetAtStartMadvrSettings())
+      {
+        dspdb.SetVideoSettings(progressTrackingFile, m_madvrSettings);
+      }
+#endif
       CVideoDatabase videodatabase;
       if (!videodatabase.Open())
       {
@@ -123,8 +144,11 @@ bool CSaveFileStateJob::DoWork()
             updateListing = true;
           }
         }
-
+#ifdef HAS_DS_PLAYER
+        if (m_videoSettings != CMediaSettings::Get().GetAtStartVideoSettings())
+#else
         if (m_videoSettings != CMediaSettings::Get().GetDefaultVideoSettings())
+#endif
         {
           videodatabase.SetVideoSettings(progressTrackingFile, m_videoSettings);
         }

@@ -43,6 +43,11 @@
 #include "video/VideoDatabase.h"
 #include "cores/AudioEngine/DSPAddons/ActiveAEDSP.h"
 
+#ifdef HAS_DS_PLAYER
+#include "cores/DSPlayer/Dialogs/GUIDialogDSRules.h"
+#include "cores/DSPlayer/Dialogs/GUIDialogDSFilters.h"
+#include "cores/DSPlayer/Dialogs/GUIDialogDSPlayercoreFactory.h"
+#endif
 CMediaSettings::CMediaSettings()
 {
   m_watchedModes["files"] = WatchedModeAll;
@@ -162,6 +167,63 @@ bool CMediaSettings::Load(const TiXmlNode *settings)
     }
   }
 
+#ifdef HAS_DS_PLAYER
+  // madvr settings
+  pElement = settings->FirstChildElement("defaultmadvrsettings");
+  if (pElement != NULL)
+  {
+    if (!XMLUtils::GetInt(pElement, "chromaupscaling", m_defaultMadvrSettings.m_ChromaUpscaling))
+      m_defaultMadvrSettings.m_ChromaUpscaling = MADVR_SCALING_BICUBIC_75;
+    XMLUtils::GetBoolean(pElement, "chromaantiring", m_defaultMadvrSettings.m_ChromaAntiRing);
+
+    if (!XMLUtils::GetInt(pElement, "imageupscaling", m_defaultMadvrSettings.m_ImageUpscaling))
+      m_defaultMadvrSettings.m_ImageUpscaling = MADVR_SCALING_LANCZOS_3;
+    XMLUtils::GetBoolean(pElement, "imageupantiring", m_defaultMadvrSettings.m_ImageUpAntiRing);
+    XMLUtils::GetBoolean(pElement, "imageuplinear", m_defaultMadvrSettings.m_ImageUpLinear);
+
+    if (!XMLUtils::GetInt(pElement, "imagedownscaling", m_defaultMadvrSettings.m_ImageDownscaling))
+      m_defaultMadvrSettings.m_ImageDownscaling= MADVR_SCALING_CATMULL_ROM;
+    XMLUtils::GetBoolean(pElement, "imagedownantiring", m_defaultMadvrSettings.m_ImageDownAntiRing);
+    XMLUtils::GetBoolean(pElement, "imagedownlinear", m_defaultMadvrSettings.m_ImageDownLinear);
+
+    if (!XMLUtils::GetInt(pElement, "imagedoubleluma", m_defaultMadvrSettings.m_ImageDoubleLuma))
+      m_defaultMadvrSettings.m_ImageDoubleLuma = -1;
+    if (!XMLUtils::GetInt(pElement, "imagedoublechroma", m_defaultMadvrSettings.m_ImageDoubleChroma))
+      m_defaultMadvrSettings.m_ImageDoubleChroma = -1;
+    if (!XMLUtils::GetInt(pElement, "imagequadrupleluma", m_defaultMadvrSettings.m_ImageQuadrupleLuma))
+      m_defaultMadvrSettings.m_ImageQuadrupleLuma = -1;
+    if (!XMLUtils::GetInt(pElement, "imagequadruplechroma", m_defaultMadvrSettings.m_ImageQuadrupleChroma))
+      m_defaultMadvrSettings.m_ImageQuadrupleChroma = -1;
+
+    if (!XMLUtils::GetInt(pElement, "imagedoublelumafactor", m_defaultMadvrSettings.m_ImageDoubleLumaFactor))
+      m_defaultMadvrSettings.m_ImageDoubleLumaFactor = MADVR_DOUBLE_FACTOR_1_5;
+    if (!XMLUtils::GetInt(pElement, "imagedoublechromafactor", m_defaultMadvrSettings.m_ImageDoubleChromaFactor))
+      m_defaultMadvrSettings.m_ImageDoubleChromaFactor = MADVR_DOUBLE_FACTOR_1_5;
+    if (!XMLUtils::GetInt(pElement, "imagequadruplelumafactor", m_defaultMadvrSettings.m_ImageQuadrupleLumaFactor))
+      m_defaultMadvrSettings.m_ImageQuadrupleLumaFactor = MADVR_QUADRUPLE_FACTOR_3_0;
+    if (!XMLUtils::GetInt(pElement, "imagequadruplechromafactor", m_defaultMadvrSettings.m_ImageQuadrupleChromaFactor))
+      m_defaultMadvrSettings.m_ImageQuadrupleChromaFactor = MADVR_QUADRUPLE_FACTOR_3_0;
+
+    if (!XMLUtils::GetInt(pElement, "deintactive", m_defaultMadvrSettings.m_deintactive))
+      m_defaultMadvrSettings.m_deintactive = MADVR_DEINT_IFDOUBT_DEACTIVE;
+    if (!XMLUtils::GetInt(pElement, "deintforce", m_defaultMadvrSettings.m_deintforce))
+      m_defaultMadvrSettings.m_deintforce = MADVR_DEINT_FORCE_AUTO;
+    XMLUtils::GetBoolean(pElement, "deintlookpixels", m_defaultMadvrSettings.m_deintlookpixels);
+
+    if (!XMLUtils::GetInt(pElement, "smoothmotion", m_defaultMadvrSettings.m_smoothMotion))
+      m_defaultMadvrSettings.m_smoothMotion = -1;
+    if (!XMLUtils::GetInt(pElement, "dithering", m_defaultMadvrSettings.m_dithering))
+      m_defaultMadvrSettings.m_dithering = MADVR_DITHERING_ORDERED;
+    XMLUtils::GetBoolean(pElement, "ditheringcolorednoise", m_defaultMadvrSettings.m_ditheringColoredNoise);
+    XMLUtils::GetBoolean(pElement, "ditheringeveryframe", m_defaultMadvrSettings.m_ditheringEveryFrame);
+
+    XMLUtils::GetBoolean(pElement, "deband", m_defaultMadvrSettings.m_deband);
+    if (!XMLUtils::GetInt(pElement, "debandlevel", m_defaultMadvrSettings.m_debandLevel))
+      m_defaultMadvrSettings.m_debandLevel = MADVR_DEBAND_LOW;
+    if (!XMLUtils::GetInt(pElement, "debandfadelevel", m_defaultMadvrSettings.m_debandFadeLevel))
+      m_defaultMadvrSettings.m_debandFadeLevel = MADVR_DEBAND_HIGH;
+  }
+#endif
   // mymusic settings
   pElement = settings->FirstChildElement("mymusic");
   if (pElement != NULL)
@@ -261,6 +323,48 @@ bool CMediaSettings::Save(TiXmlNode *settings) const
       XMLUtils::SetInt(pNode, strTag.c_str(), m_defaultAudioSettings.m_MasterModes[type][base]);
     }
   }
+
+#ifdef HAS_DS_PLAYER
+  //madvr settings
+  TiXmlElement madvrSettingsNode("defaultmadvrsettings");
+  pNode = settings->InsertEndChild(madvrSettingsNode);
+  if (pNode == NULL)
+    return false;
+
+  XMLUtils::SetInt(pNode, "chromaupscaling", m_defaultMadvrSettings.m_ChromaUpscaling);
+  XMLUtils::SetBoolean(pNode, "chromaantiring", m_defaultMadvrSettings.m_ChromaAntiRing);
+  XMLUtils::SetInt(pNode, "imageupscaling", m_defaultMadvrSettings.m_ImageUpscaling);
+  XMLUtils::SetBoolean(pNode, "imageupantiring", m_defaultMadvrSettings.m_ImageUpAntiRing);
+  XMLUtils::SetBoolean(pNode, "imageuplinear", m_defaultMadvrSettings.m_ImageUpLinear);
+  XMLUtils::SetInt(pNode, "imagedownscaling", m_defaultMadvrSettings.m_ImageDownscaling);
+  XMLUtils::SetBoolean(pNode, "imagedownantiring", m_defaultMadvrSettings.m_ImageDownAntiRing);
+  XMLUtils::SetBoolean(pNode, "imagedownlinear", m_defaultMadvrSettings.m_ImageDownLinear);
+
+  XMLUtils::SetInt(pNode, "imagedoubleluma", m_defaultMadvrSettings.m_ImageDoubleLuma);
+  XMLUtils::SetInt(pNode, "imagedoublechroma", m_defaultMadvrSettings.m_ImageDoubleChroma);
+  XMLUtils::SetInt(pNode, "imagequadrupleluma", m_defaultMadvrSettings.m_ImageQuadrupleLuma);
+  XMLUtils::SetInt(pNode, "imagequadruplechroma", m_defaultMadvrSettings.m_ImageQuadrupleChroma);
+
+  XMLUtils::SetInt(pNode, "imagedoublelumafactor", m_defaultMadvrSettings.m_ImageDoubleLumaFactor);
+  XMLUtils::SetInt(pNode, "imagedoublechromafactor", m_defaultMadvrSettings.m_ImageDoubleChromaFactor);
+  XMLUtils::SetInt(pNode, "imagequadruplelumafactor", m_defaultMadvrSettings.m_ImageQuadrupleLumaFactor);
+  XMLUtils::SetInt(pNode, "imagequadruplechromafactor", m_defaultMadvrSettings.m_ImageQuadrupleChromaFactor);
+
+  XMLUtils::SetInt(pNode, "deintactive", m_defaultMadvrSettings.m_deintactive);
+  XMLUtils::SetInt(pNode, "deintforce", m_defaultMadvrSettings.m_deintforce);
+  XMLUtils::SetBoolean(pNode, "deintlookpixels", m_defaultMadvrSettings.m_deintlookpixels);
+
+  XMLUtils::SetInt(pNode, "smoothmotion", m_defaultMadvrSettings.m_smoothMotion);
+
+  XMLUtils::SetInt(pNode, "dithering", m_defaultMadvrSettings.m_dithering);
+  XMLUtils::SetBoolean(pNode, "ditheringcolorednoise", m_defaultMadvrSettings.m_ditheringColoredNoise);
+  XMLUtils::SetBoolean(pNode, "ditheringeveryframe", m_defaultMadvrSettings.m_ditheringEveryFrame);
+
+  XMLUtils::SetBoolean(pNode, "deband", m_defaultMadvrSettings.m_deband); 
+  XMLUtils::SetInt(pNode, "debandlevel", m_defaultMadvrSettings.m_debandLevel);
+  XMLUtils::SetInt(pNode, "debandfadelevel", m_defaultMadvrSettings.m_debandFadeLevel);
+  
+#endif
 
   // mymusic
   pNode = settings->FirstChild("mymusic");
@@ -384,6 +488,14 @@ void CMediaSettings::OnSettingAction(const CSetting *setting)
   }
   else if (settingId == CSettings::SETTING_VIDEOLIBRARY_EXPORT)
     CBuiltins::Execute("exportlibrary(video)");
+#ifdef HAS_DS_PLAYER
+  else if (settingId == "dsplayer.rules")
+    CGUIDialogDSRules::ShowDSRulesList();
+  else if (settingId == "dsplayer.filters")
+    CGUIDialogDSFilters::ShowDSFiltersList();
+  else if (settingId == "dsplayer.playercore")
+    CGUIDialogDSPlayercoreFactory::ShowDSPlayercoreFactory();
+#endif
   else if (settingId == CSettings::SETTING_VIDEOLIBRARY_IMPORT)
   {
     std::string path;

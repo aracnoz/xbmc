@@ -30,8 +30,7 @@ CVideoLibraryJob::~CVideoLibraryJob()
 bool CVideoLibraryJob::DoWork()
 {
   CVideoDatabase db;
-  if (!db.Open())
-    return false;
+  if (!db.Open()) return false;
 
   return Work(db);
 }

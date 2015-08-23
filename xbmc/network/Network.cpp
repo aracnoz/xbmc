@@ -32,6 +32,7 @@
 #include "utils/CharsetConverter.h"
 #endif
 #include "utils/StringUtils.h"
+#include "utils/StdString.h"
 
 using namespace KODI::MESSAGING;
 

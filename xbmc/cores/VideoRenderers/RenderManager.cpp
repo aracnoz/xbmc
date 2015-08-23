@@ -115,6 +115,9 @@ CXBMCRenderManager::CXBMCRenderManager()
   m_bReconfigured = false;
   m_hasCaptures = false;
   m_displayLatency = 0.0f;
+#ifdef HAS_DS_PLAYER
+  m_pRendererType = RENDERER_UNINIT;
+#endif
   m_presentcorr = 0.0;
   m_presenterr = 0.0;
   memset(&m_errorbuff, 0, ERRORBUFFSIZE);
@@ -150,7 +153,7 @@ float CXBMCRenderManager::GetAspectRatio()
 /* These is based on CurrentHostCounter() */
 double CXBMCRenderManager::GetPresentTime()
 {
-  return CDVDClock::GetAbsoluteClock(false) / DVD_TIME_BASE;
+  return CDVDClock::GetAbsoluteClock(false) / CDVDClock::GetTimeBase();
 }
 
 static double wrap(double x, double minimum, double maximum)
@@ -173,20 +176,20 @@ void CXBMCRenderManager::WaitPresentTime(double presenttime)
   if(fps <= 0)
   {
     /* smooth video not enabled */
-    CDVDClock::WaitAbsoluteClock(presenttime * DVD_TIME_BASE);
+    CDVDClock::WaitAbsoluteClock(presenttime * CDVDClock::GetTimeBase());
     return;
   }
 
   CDVDClock *dvdclock = CDVDClock::GetMasterClock();
   if(dvdclock != NULL && dvdclock->GetSpeedAdjust() != 0.0)
   {
-    CDVDClock::WaitAbsoluteClock(presenttime * DVD_TIME_BASE);
+    CDVDClock::WaitAbsoluteClock(presenttime * CDVDClock::GetTimeBase());
     m_presenterr = 0;
     m_presentcorr = 0;
     return;
   }
 
-  double clock     = CDVDClock::WaitAbsoluteClock(presenttime * DVD_TIME_BASE) / DVD_TIME_BASE;
+  double clock     = CDVDClock::WaitAbsoluteClock(presenttime * CDVDClock::GetTimeBase()) / CDVDClock::GetTimeBase();
   double target    = 0.5;
   double error     = ( clock - presenttime ) / frametime - target;
 
@@ -331,6 +334,17 @@ void CXBMCRenderManager::Update()
     m_pRenderer->Update();
 }
 
+#ifdef HAS_DS_PLAYER
+void CXBMCRenderManager::NewFrame()
+{
+  {
+    CSingleLock lock2(m_presentlock);
+    m_presentstep = PRESENT_READY;
+  }
+  m_presentevent.notifyAll();
+}
+#endif
+
 void CXBMCRenderManager::FrameWait(int ms)
 {
   XbmcThreads::EndTime timeout(ms);
@@ -408,7 +422,12 @@ void CXBMCRenderManager::FrameFinish()
   if(g_graphicsContext.IsFullScreenVideo())
   {
     CSingleExit lock(g_graphicsContext);
+#ifdef HAS_DS_PLAYER
+ // if (m_pRendererType == RENDERER_NORMAL)
     WaitPresentTime(m.timestamp);
+#else
+    WaitPresentTime(m.timestamp);
+#endif
   }
 
   m_clock_framefinish = GetPresentTime();
@@ -437,7 +456,11 @@ void CXBMCRenderManager::FrameFinish()
   }
 }
 
+#ifdef HAS_DS_PLAYER
+unsigned int CXBMCRenderManager::PreInit(RENDERERTYPE rendtype)
+#else
 unsigned int CXBMCRenderManager::PreInit()
+#endif
 {
   CRetakeLock<CExclusiveLock> lock(m_sharedSection);
 
@@ -447,6 +470,12 @@ unsigned int CXBMCRenderManager::PreInit()
   memset(m_errorbuff, 0, sizeof(m_errorbuff));
 
   m_bIsStarted = false;
+#ifdef HAS_DS_PLAYER
+  if(m_pRenderer && rendtype != m_pRendererType)
+  {
+    SAFE_DELETE(m_pRenderer);
+  }
+#endif
   if (!m_pRenderer)
   {
 #if defined(HAS_GL)
@@ -456,7 +485,16 @@ unsigned int CXBMCRenderManager::PreInit()
 #elif HAS_GLES == 2
     m_pRenderer = new CLinuxRendererGLES();
 #elif defined(HAS_DX)
+#ifdef HAS_DS_PLAYER
+    if (rendtype == RENDERER_NORMAL)
+      m_pRenderer = new CWinRenderer();
+    else
+      m_pRenderer = new CWinDsRenderer();
+
+    m_pRendererType = rendtype;
+#else
     m_pRenderer = new CWinRenderer();
+#endif
 #elif defined(HAS_SDL)
     m_pRenderer = new CLinuxRenderer();
 #endif
@@ -918,6 +956,16 @@ void CXBMCRenderManager::Recover()
   UpdateDisplayLatency();
 }
 
+#ifdef HAS_DS_PLAYER
+void CXBMCRenderManager::UpdateDisplayLatencyForMadvr(float fps)
+{
+  float refresh = fps;
+  m_displayLatency = (double)g_advancedSettings.GetDisplayLatency(refresh);
+  CLog::Log(LOGDEBUG, "CRenderManager::UpdateDisplayLatencyForMadvr - Latency set to %1.0f msec", m_displayLatency * 1000.0f);
+  g_application.m_pPlayer->SetAVDelay(CMediaSettings::Get().GetCurrentVideoSettings().m_AudioDelay);
+}
+#endif
+
 void CXBMCRenderManager::UpdateDisplayLatency()
 {
   float refresh = g_graphicsContext.GetFPS();
@@ -925,6 +973,10 @@ void CXBMCRenderManager::UpdateDisplayLatency()
     refresh = 0; // No idea about refresh rate when windowed, just get the default latency
   m_displayLatency = (double) g_advancedSettings.GetDisplayLatency(refresh);
   CLog::Log(LOGDEBUG, "CRenderManager::UpdateDisplayLatency - Latency set to %1.0f msec", m_displayLatency * 1000.0f);
+#ifdef HAS_DS_PLAYER
+  if (g_application.GetCurrentPlayer() == PCID_DSPLAYER)
+    g_application.m_pPlayer->SetAVDelay(CMediaSettings::Get().GetCurrentVideoSettings().m_AudioDelay);
+#endif
 }
 
 void CXBMCRenderManager::UpdateResolution()
@@ -1157,7 +1209,11 @@ void CXBMCRenderManager::PrepareNextRender()
 
   if (m_queued.empty())
   {
+#ifdef HAS_DS_PLAYER
+    if (!g_application.GetCurrentPlayer() == PCID_DSPLAYER)
+#endif
     CLog::Log(LOGERROR, "CRenderManager::PrepareNextRender - asked to prepare with nothing available");
+
     m_presentstep = PRESENT_IDLE;
     m_presentevent.notifyAll();
     return;

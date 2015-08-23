@@ -33,6 +33,11 @@
 #include "utils/SystemInfo.h"
 #include "settings/AdvancedSettings.h"
 #include "cores/VideoRenderers/RenderFlags.h"
+#ifdef HAS_DS_PLAYER
+#include "MadvrCallback.h"
+#include "Application.h"
+#include "DSPlayer.h"
+#endif
 
 
 CBaseRenderer::CBaseRenderer()
@@ -81,9 +86,26 @@ void CBaseRenderer::ChooseBestResolution(float fps)
 {
   if (fps == 0.0) return;
 
+#ifdef HAS_DS_PLAYER
+  int iValue = CSettings::Get().GetInt("videoplayer.changerefreshwith");
+  bool canChange = true;
+  if (iValue != ADJUST_REFRESHRATE_WITH_BOTH)
+  { 
+    if (g_application.GetCurrentPlayer() == PCID_DSPLAYER && iValue == ADJUST_REFRESHRATE_WITH_DVDPLAYER)
+      canChange = false;
+
+    if (g_application.GetCurrentPlayer() == PCID_DVDPLAYER && iValue == ADJUST_REFRESHRATE_WITH_DSPLAYER)
+      canChange = false;
+  }
+#endif
+
   // Adjust refreshrate to match source fps
 #if !defined(TARGET_DARWIN_IOS)
+#ifdef HAS_DS_PLAYER
+  if (CSettings::Get().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF && canChange)
+#else
   if (CSettings::Get().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF)
+#endif
   {
     float weight;
     if (!FindResolutionFromOverride(fps, weight, false)) //find a refreshrate from overrides
@@ -497,6 +519,10 @@ void CBaseRenderer::CalcNormalDisplayRect(float offsetX, float offsetY, float sc
     m_oldDestRect = m_destRect;
     m_oldRenderOrientation = m_renderOrientation;
   }
+#ifdef HAS_DS_PLAYER
+  if (CMadvrCallback::Get()->UsingMadvr())
+    CDSPlayer::PostMessage(new CDSMsg(CDSMsg::MADVR_SET_WINDOW_POS), false);
+#endif
 }
 
 //***************************************************************************************
@@ -696,6 +722,7 @@ void CBaseRenderer::SetViewMode(int viewMode)
     { // now we need to set CDisplaySettings::Get().GetPixelRatio() so that
       // outputFrameRatio = 16:9.
       CDisplaySettings::Get().SetPixelRatio((16.0f / 9.0f) / sourceFrameRatio);
+
     }
     else
     { // stretch to the limits of the 16:9 screen.

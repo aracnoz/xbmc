@@ -648,12 +648,12 @@ void CWinRenderer::UpdatePSVideoFilter()
 
 void CWinRenderer::UpdateVideoFilter()
 {
-  if (m_scalingMethodGui == CMediaSettings::Get().GetCurrentVideoSettings().m_ScalingMethod && m_bFilterInitialized)
+  if (m_scalingMethodGui == (ESCALINGMETHOD)CMediaSettings::Get().GetCurrentVideoSettings().m_ScalingMethod && m_bFilterInitialized)
     return;
 
   m_bFilterInitialized = true;
 
-  m_scalingMethodGui = CMediaSettings::Get().GetCurrentVideoSettings().m_ScalingMethod;
+  m_scalingMethodGui = (ESCALINGMETHOD)CMediaSettings::Get().GetCurrentVideoSettings().m_ScalingMethod;
   m_scalingMethod    = m_scalingMethodGui;
 
   if (!Supports(m_scalingMethod))

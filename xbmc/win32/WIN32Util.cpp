@@ -38,6 +38,7 @@
 #include "utils/SystemInfo.h"
 #include "utils/Environment.h"
 #include "utils/StringUtils.h"
+#include "utils/StdString.h"
 #include "win32/crts_caller.h"
 
 #include <cassert>

@@ -32,6 +32,9 @@
 #include "input/InputManager.h"
 #include "GUIWindowManager.h"
 #include "video/VideoReferenceClock.h"
+#ifdef HAS_DS_PLAYER
+#include "MadvrCallback.h"
+#endif
 
 using namespace std;
 using namespace KODI::MESSAGING;
@@ -375,7 +378,11 @@ bool CGraphicContext::IsValidResolution(RESOLUTION res)
 // call SetVideoResolutionInternal and ensure its done from mainthread
 void CGraphicContext::SetVideoResolution(RESOLUTION res, bool forceUpdate)
 {
+#ifdef HAS_DS_PLAYER
+  if (g_application.IsCurrentThread() || CMadvrCallback::Get()->IsInitMadvr())
+#else
   if (g_application.IsCurrentThread())
+#endif
   {
     SetVideoResolutionInternal(res, forceUpdate);
   }
@@ -407,7 +414,11 @@ void CGraphicContext::SetVideoResolutionInternal(RESOLUTION res, bool forceUpdat
   {
     //pause the player during the refreshrate change
     int delay = CSettings::Get().GetInt(CSettings::SETTING_VIDEOPLAYER_PAUSEAFTERREFRESHCHANGE);
+#ifdef HAS_DS_PLAYER
+    if (delay > 0 && CSettings::Get().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF && g_application.m_pPlayer->IsPlayingVideo() && !g_application.m_pPlayer->IsPausedPlayback() && !CMadvrCallback::Get()->UsingMadvr())
+#else
     if (delay > 0 && CSettings::Get().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF && g_application.m_pPlayer->IsPlayingVideo() && !g_application.m_pPlayer->IsPausedPlayback())
+#endif
     {
       g_application.m_pPlayer->Pause();
       KODI::MESSAGING::ThreadMessage msg{TMSG_MEDIA_UNPAUSE};

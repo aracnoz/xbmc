@@ -30,12 +30,22 @@
 #include "utils/log.h"
 #include "video/VideoInfoTag.h"
 #include "URL.h"
+#ifdef HAS_DS_PLAYER
+#include "Application.h"
+#include "DSPlayerDatabase.h"
+#include "utils/StdString.h"
+#endif
 #include "utils/Variant.h"
 
 bool CGUIDialogSimpleMenu::ShowPlaySelection(CFileItem& item)
 {
   /* if asked to resume somewhere, we should not show anything */
+#ifdef HAS_DS_PLAYER
+  if ((item.m_lStartOffset || (item.HasVideoInfoTag() && item.GetVideoInfoTag()->m_iBookmarkId > 0))
+  || (GetDefaultPlayer(item) != EPC_DVDPLAYER && g_application.m_eForcedNextPlayer != EPC_DVDPLAYER))
+#else
   if (item.m_lStartOffset || (item.HasVideoInfoTag() && item.GetVideoInfoTag()->m_iBookmarkId > 0))
+#endif
     return true;
 
   if (CSettings::Get().GetInt(CSettings::SETTING_DISC_PLAYBACK) != BD_PLAYBACK_SIMPLE_MENU)
@@ -76,6 +86,23 @@ bool CGUIDialogSimpleMenu::ShowPlaySelection(CFileItem& item)
     }
   }
   return true;
+}
+
+int CGUIDialogSimpleMenu::GetDefaultPlayer(const CFileItem &item)
+{
+    VECPLAYERCORES vecCores;
+	if (item.IsVideoDb())
+	{
+		CFileItem item2(*item.GetVideoInfoTag());
+		CPlayerCoreFactory::Get().GetPlayers(item2, vecCores);
+	}
+	else
+		CPlayerCoreFactory::Get().GetPlayers(item, vecCores);
+
+	if (vecCores.size())
+		return vecCores[0];
+
+  return PCID_NONE;
 }
 
 bool CGUIDialogSimpleMenu::ShowPlaySelection(CFileItem& item, const std::string& directory)

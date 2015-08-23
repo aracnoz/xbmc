@@ -172,6 +172,13 @@ bool ProfileLockMode(const std::string &condition, const std::string &value, con
   return CProfilesManager::Get().GetCurrentProfile().getLockMode() == lock;
 }
 
+#ifdef HAS_DS_PLAYER  
+bool IsWindowsVersionAtLeast(const std::string &condition, const std::string &value, const CSetting *setting, void *data)
+{
+  return g_sysinfo.IsWindowsVersionAtLeast(CSysInfo::WindowsVersionVista);
+}
+#endif
+
 std::set<std::string> CSettingConditions::m_simpleConditions;
 std::map<std::string, SettingConditionCheck> CSettingConditions::m_complexConditions;
 
@@ -296,6 +303,9 @@ void CSettingConditions::Initialize()
   m_complexConditions.insert(std::pair<std::string, SettingConditionCheck>("profilelockmode",               ProfileLockMode));
   m_complexConditions.insert(std::pair<std::string, SettingConditionCheck>("aesettingvisible",              CAEFactory::IsSettingVisible));
   m_complexConditions.insert(std::pair<std::string, SettingConditionCheck>("codecoptionvisible",            CDVDVideoCodec::IsSettingVisible));
+#ifdef HAS_DS_PLAYER  
+  m_complexConditions.insert(std::pair<std::string, SettingConditionCheck>("iswindowsversionatleast",       IsWindowsVersionAtLeast));
+#endif;
 }
 
 bool CSettingConditions::Check(const std::string &condition, const std::string &value /* = "" */, const CSetting *setting /* = NULL */)

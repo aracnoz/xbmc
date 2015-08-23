@@ -1147,6 +1147,18 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
     XMLUtils::GetString(pDatabase, "ciphers", m_databaseEpg.ciphers);
     XMLUtils::GetBoolean(pDatabase, "compression", m_databaseEpg.compression);
   }
+#ifdef HAS_DS_PLAYER
+  pDatabase = pRootElement->FirstChildElement("dsplayerdatabase");
+  if (pDatabase)
+  {
+    XMLUtils::GetString(pDatabase, "type", m_databaseDSPlayer.type);
+    XMLUtils::GetString(pDatabase, "host", m_databaseDSPlayer.host);
+    XMLUtils::GetString(pDatabase, "port", m_databaseDSPlayer.port);
+    XMLUtils::GetString(pDatabase, "user", m_databaseDSPlayer.user);
+    XMLUtils::GetString(pDatabase, "pass", m_databaseDSPlayer.pass);
+    XMLUtils::GetString(pDatabase, "name", m_databaseDSPlayer.name);
+  }
+#endif
 
   pElement = pRootElement->FirstChildElement("enablemultimediakeys");
   if (pElement)

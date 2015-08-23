@@ -41,6 +41,7 @@ public:
   virtual bool operator==(const CJob* job) const;
 
 protected:
+
   virtual bool Work(CVideoDatabase &db);
 
 private:

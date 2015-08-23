@@ -1252,6 +1252,17 @@ extern "C"
     return 0;
   }
 
+  FILE* dll_wfopen(const wchar_t* wfilename, const wchar_t* wmode)
+  {
+	  CStdStringA filename;
+	  CStdStringA mode;
+
+	  g_charsetConverter.wToUTF8(wfilename, filename);
+	  g_charsetConverter.wToUTF8(wmode, mode);
+	  return dll_fopen(filename, mode);
+  }
+
+
   int dll_putc(int c, FILE *stream)
   {
     if (g_emuFileWrapper.StreamIsEmulatedFile(stream) || IS_STD_STREAM(stream))
