@@ -1344,6 +1344,8 @@ msgstr ""
 #: system/peripherals.xml
 #: xbmc/filesystem/AddonsDirectory.cpp
 #: system/settings/settings.xml
+#. Label of active/inactive radiobutton in PVR timer settings dialog
+#: xbmc/pvr/dialogs/GUIDialogPVRTimerSettings.cpp
 msgctxt "#305"
 msgid "Enabled"
 msgstr ""
@@ -3527,23 +3529,11 @@ msgstr ""
 
 #empty string with id 824
 
-#. Representation of PVR timer state "disabled"
-#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
-msgctxt "#825"
-msgid "Inactive"
-msgstr ""
+#empty string with id 825
 
-#. Notification text to announce that a timer was activated
-#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
-msgctxt "#826"
-msgid "Timer activated"
-msgstr ""
+#empty string with id 826
 
-#. Notification text to announce that a timer was deactivated
-#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
-msgctxt "#827"
-msgid "Timer deactivated"
-msgstr ""
+#empty string with id 827
 
 #. Text for notification that a repeating timer has been deleted
 #: xbmc/pvr/timers/PVRTimers.cpp
@@ -5630,6 +5620,7 @@ msgstr ""
 
 #: xbmc/peripherals/bus/PeripheralBus.cpp
 #: system/settings/settings.xml
+#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
 msgctxt "#13106"
 msgid "Disabled"
 msgstr ""
@@ -8671,8 +8662,14 @@ msgctxt "#19056"
 msgid "New timer"
 msgstr ""
 
-# empty string with id 19057
+#. Notification text to announce that a timer was disabled
+#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
+msgctxt "#19057"
+msgid "Timer disabled"
+msgstr ""
 
+#. Notification text to announce that a timer was enabled
+#: xbmc/pvr/timers/PVRTimerInfoTag.cpp
 msgctxt "#19058"
 msgid "Timer enabled"
 msgstr ""
@@ -8753,8 +8750,7 @@ msgctxt "#19073"
 msgid "Delay channel switch"
 msgstr ""
 
-#. Label of active/inactive radiobutton in PVR timer settings dialog
-#: xbmc/pvr/dialogs/GUIDialogPVRTimerSettings.cpp
+#: addons/skin.confluence/720p/DialogPVRChannelManager.xml
 msgctxt "#19074"
 msgid "Active"
 msgstr ""
@@ -11852,7 +11848,10 @@ msgctxt "#20443"
 msgid "Do you want to refresh information for all items within this path?"
 msgstr ""
 
-#empty string with id 20444
+#: xbmc/music/windows/GUIWindowMusicBase.cpp
+msgctxt "#20444"
+msgid "Add to library"
+msgstr ""
 
 #: xbmc/music/dialogs/GUIDialogMusicInfo.cpp
 msgctxt "#20445"
@@ -11863,7 +11862,10 @@ msgctxt "#20446"
 msgid "Locally stored information found. Ignore and refresh from Internet?"
 msgstr ""
 
-#empty string with id 20447
+#: xbmc/music/windows/GUIWindowMusicBase.cpp
+msgctxt "#20447"
+msgid "Do you want to add the media from this source to your library?"
+msgstr ""
 
 #: xbmc/video/VideoInfoScanner.cpp
 msgctxt "#20448"
@@ -12037,7 +12039,17 @@ msgctxt "#21340"
 msgid "Auto-update"
 msgstr ""
 
-#empty strings from id 21341 to 21358
+#: xbmc/addons/GUIDialogAddonInfo.cpp
+msgctxt "#21341"
+msgid "No updates available"
+msgstr ""
+
+#: xbmc/addons/GUIDialogAddonInfo.cpp
+msgctxt "#21342"
+msgid "There are currently no updates available for this add-on."
+msgstr ""
+
+#empty strings from id 21343 to 21358
 
 #: xbmc/dialogs/GUIDialogFileBrowser.cpp
 msgctxt "#21359"
@@ -14458,7 +14470,7 @@ msgstr ""
 
 #. Program style name
 #: xbmc/cores/dvdplayer/DVDPlayerRadioRDS.cpp
-msgctxt "#29960"
+msgctxt "#29970"
 msgid "Alarm Test"
 msgstr ""
 
