@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([kodi], [15.9.803], [http://trac.kodi.tv])
+AC_INIT([kodi], [16.9.701], [http://trac.kodi.tv])
 AC_CONFIG_HEADERS([xbmc/config.h])
 AH_TOP([#pragma once])
 m4_include([m4/ax_prog_cc_for_build.m4])
@@ -616,10 +616,10 @@ case $host in
      use_cpu=cortex-a8
      ARCH="arm-osx"
      use_arch="arm"
-     PYTHON_VERSION="2.6"
-     PYTHON_LDFLAGS="-L${prefix}/lib -lpython2.6"
-     PYTHON_CPPFLAGS="-I${prefix}/include/python2.6"
-     PYTHON_SITE_PKG="${prefix}/lib/python2.6/site-packages"
+     PYTHON_VERSION="2.7"
+     PYTHON_LDFLAGS="-L${prefix}/lib -lpython2.7"
+     PYTHON_CPPFLAGS="-I${prefix}/include/python2.7"
+     PYTHON_SITE_PKG="${prefix}/lib/python2.7/site-packages"
      PYTHON_NOVERSIONCHECK="no-check"
      DEPENDS_ROOT_FOR_XCODE=$(echo ${prefix%/*})
      AC_SUBST([DEPENDS_ROOT_FOR_XCODE])
