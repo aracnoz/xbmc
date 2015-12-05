@@ -18,6 +18,8 @@
  *
  */
 
+#include <algorithm>
+
 #include "MusicInfoTag.h"
 #include "music/Album.h"
 #include "music/Artist.h"
@@ -343,10 +345,10 @@ void CMusicInfoTag::SetArtist(const std::string& strArtist)
   }
 }
 
-void CMusicInfoTag::SetArtist(const std::vector<std::string>& artists)
+void CMusicInfoTag::SetArtist(const std::vector<std::string>& artists, bool FillDesc /* = false*/)
 {
   m_artist = artists;
-  if (m_strArtistDesc.empty()) 
+  if (m_strArtistDesc.empty() || FillDesc) 
   { 
     SetArtistDesc(StringUtils::Join(artists, g_advancedSettings.m_musicItemSeparator));
   }
@@ -381,10 +383,10 @@ void CMusicInfoTag::SetAlbumArtist(const std::string& strAlbumArtist)
   }
 }
 
-void CMusicInfoTag::SetAlbumArtist(const std::vector<std::string>& albumArtists)
+void CMusicInfoTag::SetAlbumArtist(const std::vector<std::string>& albumArtists, bool FillDesc /* = false*/)
 {
   m_albumArtist = albumArtists;
-  if (m_strAlbumArtistDesc.empty()) 
+  if (m_strAlbumArtistDesc.empty() || FillDesc) 
     SetAlbumArtistDesc(StringUtils::Join(albumArtists, g_advancedSettings.m_musicItemSeparator));
 }
 
@@ -470,7 +472,7 @@ void CMusicInfoTag::SetUserrating(char rating)
 
 void CMusicInfoTag::SetListeners(int listeners)
 {
- m_listeners = listeners;
+  m_listeners = std::max(listeners, 0);
 }
 
 void CMusicInfoTag::SetPlayCount(int playcount)
@@ -672,7 +674,7 @@ void CMusicInfoTag::SetSong(const CSong& song)
   SYSTEMTIME stTime;
   stTime.wYear = song.iYear;
   SetReleaseDate(stTime);
-  SetTrackNumber(song.iTrack);
+  SetTrackAndDiscNumber(song.iTrack);
   SetDuration(song.iDuration);
   SetMood(song.strMood);
   SetCompilation(song.bCompilation);
@@ -764,8 +766,10 @@ void CMusicInfoTag::Archive(CArchive& ar)
     ar << m_strURL;
     ar << m_strTitle;
     ar << m_artist;
+    ar << m_strArtistDesc;
     ar << m_strAlbum;
     ar << m_albumArtist;
+    ar << m_strAlbumArtistDesc;
     ar << m_genre;
     ar << m_iDuration;
     ar << m_iTrack;
@@ -797,8 +801,10 @@ void CMusicInfoTag::Archive(CArchive& ar)
     ar >> m_strURL;
     ar >> m_strTitle;
     ar >> m_artist;
+    ar >> m_strArtistDesc;
     ar >> m_strAlbum;
     ar >> m_albumArtist;
+    ar >> m_strAlbumArtistDesc;
     ar >> m_genre;
     ar >> m_iDuration;
     ar >> m_iTrack;
@@ -861,6 +867,7 @@ void CMusicInfoTag::Clear()
   m_coverArt.clear();
   m_replayGain = ReplayGain();
   m_albumReleaseType = CAlbum::Album;
+  m_listeners = 0;
 }
 
 void CMusicInfoTag::AppendArtist(const std::string &artist)
