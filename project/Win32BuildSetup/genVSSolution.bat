@@ -58,7 +58,7 @@ set WORKSPACE=%CD%\..\..
   MKDIR %WORKSPACE%\kodi-build
   PUSHD %WORKSPACE%\kodi-build
 
-  cmake.exe -G "Visual Studio 14" %base_dir%\project\cmake
+  cmake.exe -G "Visual Studio 14 2015 Win64" %base_dir%\project\cmake
   IF %errorlevel%==1 (
     set DIETEXT="%APP_NAME%.EXE failed to build!"
     goto DIE
