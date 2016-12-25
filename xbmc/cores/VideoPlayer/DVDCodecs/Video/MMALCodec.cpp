@@ -37,7 +37,6 @@
 #include "settings/MediaSettings.h"
 #include "messaging/ApplicationMessenger.h"
 #include "Application.h"
-#include "threads/Atomics.h"
 #include "guilib/GUIWindowManager.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderFlags.h"
 #include "settings/DisplaySettings.h"
