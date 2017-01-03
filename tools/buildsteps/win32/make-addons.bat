@@ -131,6 +131,10 @@ FOR /f "delims=" %%i IN ('nmake supported_addons') DO (
 SETLOCAL DisableDelayedExpansion
 
 rem loop over all addons to build
+
+rem replace expat.lib with x64 version for inputstream.adaptive
+xcopy %base_dir%\project\BuildDependencies\x64\lib\expat.lib %ADDONS_BUILD_PATH%\inputstream.adaptive\lib\expat\lib /Q /I /Y > NUL
+
 FOR %%a IN (%ADDONS_TO_MAKE%) DO (
   ECHO Building %%a...
   rem execute nmake to build the addons
