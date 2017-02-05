@@ -18,7 +18,7 @@
   OutFile "${APP_NAME}Setup-${app_revision}-${app_branch}-x64.exe"
 
   ;Default installation folder
-  InstallDir "$PROGRAMFILES\${APP_NAME}"
+  InstallDir "$PROGRAMFILES64\${APP_NAME}"
 
   ;Get installation folder from registry if available
   InstallDirRegKey HKCU "Software\${APP_NAME}" ""
