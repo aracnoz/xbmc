@@ -50,7 +50,7 @@ link_directories(${PROJECT_SOURCE_DIR}/../../lib/win32/ffmpeg/bin
 
 # Additional libraries
 list(APPEND DEPLIBS d3d11.lib DInput8.lib DSound.lib winmm.lib Mpr.lib Iphlpapi.lib WS2_32.lib
-                    PowrProf.lib setupapi.lib dwmapi.lib yajl.lib dxguid.lib DelayImp.lib comctl32.lib)
+                    PowrProf.lib setupapi.lib dwmapi.lib dxguid.lib DelayImp.lib comctl32.lib)
 
 # NODEFAULTLIB option
 set(_nodefaultlibs_RELEASE libcmt)
