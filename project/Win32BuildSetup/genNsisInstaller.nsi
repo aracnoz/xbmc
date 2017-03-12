@@ -18,7 +18,7 @@
   OutFile "${APP_NAME}Setup-${app_revision}-${app_branch}.exe"
 
   ;Default installation folder
-  InstallDir "$PROGRAMFILES\${APP_NAME}"
+  InstallDir "$PROGRAMFILES64\${APP_NAME}"
 
   ;Get installation folder from registry if available
   InstallDirRegKey HKCU "Software\${APP_NAME}" ""
@@ -194,7 +194,7 @@ Section "${APP_NAME}" SecAPP
   SetOutPath "$INSTDIR"
   
   CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
-  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${APP_NAME}.lnk" "$INSTDIR\${APP_NAME}.exe" \
+  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${APP_NAME} (64-Bit).lnk" "$INSTDIR\${APP_NAME}.exe" \
     "" "$INSTDIR\${APP_NAME}.exe" 0 SW_SHOWNORMAL \
     "" "Start ${APP_NAME}."
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall ${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe" \
@@ -317,12 +317,12 @@ SectionEnd
 ;vs redist installer Section
 SectionGroup "Microsoft Visual C++ packages" SEC_VCREDIST
 
-Section "VS2015 C++ re-distributable Package (x86)" SEC_VCREDIST1
+Section "VS2015 C++ re-distributable Package (x64)" SEC_VCREDIST1
 DetailPrint "Running VS2015 re-distributable setup..."
   SectionIn 1 2 #section is in install type Full
   SetOutPath "$TEMP\vc2015"
-  File "${app_root}\..\dependencies\vcredist\2015\vcredist_x86.exe"
-  ExecWait '"$TEMP\vc2015\vcredist_x86.exe" /install /quiet /norestart' $VSRedistSetupError
+  File "${app_root}\..\dependencies\vcredist\2015\vcredist_x64.exe"
+  ExecWait '"$TEMP\vc2015\vcredist_x64.exe" /install /quiet /norestart' $VSRedistSetupError
   RMDir /r "$TEMP\vc2015"
   DetailPrint "Finished VS2015 re-distributable setup"
   SetOutPath "$INSTDIR"
