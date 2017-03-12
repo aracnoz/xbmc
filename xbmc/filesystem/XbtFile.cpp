@@ -25,7 +25,7 @@
 #ifdef NDEBUG
 #pragma comment(lib,"lzo2.lib")
 #else
-#pragma comment(lib, "lzo2-no_idb.lib")
+#pragma comment(lib, "lzo2.lib")
 #endif
 #endif
 
