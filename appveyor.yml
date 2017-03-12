@@ -26,7 +26,7 @@ build_script:
   - ps: $ErrorActionPreference= 'silentlycontinue'
   
   # Setup Visual Studio compiler environment 
-  - call "%VS140COMNTOOLS%..\..\VC\bin\vcvars32.bat"
+  - call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
   
   #
   # Build Kodi
@@ -40,26 +40,26 @@ build_script:
         # We are using AppVeyor's already installed msys64 environment,
         # no need to install msys/mingw environment.
         
-        # Download precompiled mingw32 libraries
+        # Download precompiled mingw64 libraries
         # To run make-mingwlibs.bat on AppVeyor takes too long, 
         # we must use precompiled libs to speed up build
-        bash -c "wget -O - http://repo.msys2.org/mingw/i686/mingw-w64-i686-ffmpeg-3.1.1-1-any.pkg.tar.xz | tar xJv"
-        bash -c "wget -O - http://repo.msys2.org/mingw/i686/mingw-w64-i686-libdvdcss-1.4.0-1-any.pkg.tar.xz | tar xJv"
-        bash -c "wget -O - http://repo.msys2.org/mingw/i686/mingw-w64-i686-libdvdnav-5.0.3-1-any.pkg.tar.xz | tar xJv"
-        bash -c "wget -O - http://repo.msys2.org/mingw/i686/mingw-w64-i686-libdvdread-5.0.3-1-any.pkg.tar.xz | tar xJv"
+        bash -c "wget -O - http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-ffmpeg-3.1.4-1-any.pkg.tar.xz | tar xJv"
+        bash -c "wget -O - http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libdvdcss-1.4.0-1-any.pkg.tar.xz | tar xJv"
+        bash -c "wget -O - http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libdvdnav-5.0.3-1-any.pkg.tar.xz | tar xJv"
+        bash -c "wget -O - http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libdvdread-5.0.3-1-any.pkg.tar.xz | tar xJv"
         # Rename all precompiled lib*.dll.a -> *.lib, so MSVC will find them
-        Get-ChildItem mingw32\lib\lib*.dll.a | %{
+        Get-ChildItem mingw64\lib\lib*.dll.a | %{
           $new_name = $_.Name.SubString(3) -replace ".dll.a", ".lib"
           $new_fullname = Join-Path $_.DirectoryName $new_name
           Rename-Item $_.FullName $new_fullname
         }
         # Copy all libs and includes under Kodi's dependencies folder
-        xcopy /s /y mingw32\*.* .
-        xcopy /s /y mingw32\bin\*.dll $env:APPVEYOR_BUILD_FOLDER\system\
+        xcopy /s /y mingw64\*.* .
+        xcopy /s /y mingw64\bin\*.dll $env:APPVEYOR_BUILD_FOLDER\system\
         # Build  
         mkdir $env:APPVEYOR_BUILD_FOLDER\kodi-build
         cd $env:APPVEYOR_BUILD_FOLDER\kodi-build
-        cmd /c 'cmake -G "Visual Studio 14" .. 2>&1'
+        cmd /c 'cmake -G "Visual Studio 14 Win64" -DENABLE_SSH:BOOL=OFF -DENABLE_XSLT:BOOL=OFF .. 2>&1'
         cmd /c 'cmake --build . --target all_build --config RelWithDebInfo 2>&1'
       }
   
