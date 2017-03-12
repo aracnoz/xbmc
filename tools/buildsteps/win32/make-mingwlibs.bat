@@ -7,9 +7,9 @@ SET WORKDIR=%base_dir%
 SET PROMPTLEVEL=prompt
 SET BUILDMODE=clean
 SET opt=mintty
-SET build32=yes
-SET build64=no
-SET vcarch=x86
+SET build32=no
+SET build64=yes
+SET vcarch=x64
 SET msys2=msys64
 SET tools=mingw
 FOR %%b in (%1, %2, %3) DO (
