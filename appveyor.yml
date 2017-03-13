@@ -59,7 +59,7 @@ build_script:
         # Build  
         mkdir $env:APPVEYOR_BUILD_FOLDER\kodi-build
         cd $env:APPVEYOR_BUILD_FOLDER\kodi-build
-        cmd /c 'cmake -G "Visual Studio 14 Win64" -DENABLE_SSH:BOOL=OFF -DENABLE_XSLT:BOOL=OFF .. 2>&1'
+        cmd /c 'cmake -G "Visual Studio 14 Win64" -DENABLE_XSLT:BOOL=OFF .. 2>&1'
         cmd /c 'cmake --build . --target all_build --config RelWithDebInfo 2>&1'
       }
   
