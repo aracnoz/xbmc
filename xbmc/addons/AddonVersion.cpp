@@ -1,30 +1,28 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-
 #include "AddonVersion.h"
+
 #include "utils/StringUtils.h"
+#include "utils/log.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+namespace {
+// Add-on versions are used e.g. in file names and should
+// not have too much freedom in their accepted characters
+// Things that should be allowed: e.g. 0.1.0~beta3+git010cab3
+// Note that all of these characters are url-safe
+const std::string VALID_ADDON_VERSION_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.+_@~";
+}
 
 namespace ADDON
 {
@@ -42,8 +40,24 @@ namespace ADDON
     if (pos != std::string::npos)
     {
       mRevision = mUpstream.substr(pos+1);
+      if (mRevision.find_first_not_of(VALID_ADDON_VERSION_CHARACTERS) != std::string::npos)
+      {
+        CLog::Log(LOGERROR, "AddonVersion: {} is not a valid revision number", mRevision);
+        mRevision = "";
+      }
       mUpstream.erase(pos);
     }
+
+    if (mUpstream.find_first_not_of(VALID_ADDON_VERSION_CHARACTERS) != std::string::npos)
+    {
+      CLog::Log(LOGERROR, "AddonVersion: {} is not a valid version", mUpstream);
+      mUpstream = "0.0.0";
+    }
+  }
+
+  AddonVersion::AddonVersion(const char* version)
+    : AddonVersion(std::string(version ? version : ""))
+  {
   }
 
   /**Compare two components of a Debian-style version.  Return -1, 0, or 1

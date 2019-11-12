@@ -1,0 +1,32 @@
+KODI ADDON DEPENDENCIES
+=======================
+This directory contains the cmake-based buildsystem for addon dependencies. It
+looks into the "common" and the "<platform>/cmake" sub-directories and parses
+all *.txt files recursively. Each dependency must have its own <dependency>.txt
+file (either in the main sub-directory or in a separate subdirectory of the main
+subdirectory) which must follow one of the defined formats:
+  * an empty file means that no extra downloads are necessary
+  * <dependency>
+  * <dependency> <url>
+  * <dependency> <git-url> <git-revision>
+where
+  * <dependency> must be identical to the filename
+  * <url> must be the URL to an archive that is downloaded and extracted.
+  * <git-url> must be the URL of the git repository containing the
+    dependency.
+  * <git-revision> must be a valid git tag/branch/commit in the dependency's git
+    repository which will be used for the build.
+
+Reserved filenames (for additional information on how to build a dependency)
+are:
+  * CMakeLists.txt: build instructions for the dependency
+  * install.txt: instructions on how to install the dependency's built files
+  * noinstall.txt: no installation step required (content is ignored)
+  * flags.txt: additional build flags
+  * deps.txt: whitespace separated list of dependencies of this dependency
+
+The buildsystem uses the following depends-related variables (which can be passed
+into it when executing cmake with the -D<variable-name>=<value> option) to e.g.
+access specific paths:
+  * DEPENDS_TO_BUILD is a quoted, space delimited list of <dependency>s that
+    you want to build (default is "all").

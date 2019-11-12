@@ -1,29 +1,17 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "windows/GUIMediaWindow.h"
-#include "video/VideoDatabase.h"
+#pragma once
+
 #include "PlayListPlayer.h"
+#include "video/VideoDatabase.h"
 #include "video/VideoThumbLoader.h"
+#include "windows/GUIMediaWindow.h"
 
 enum VideoSelectAction
 {
@@ -33,16 +21,17 @@ enum VideoSelectAction
   SELECT_ACTION_INFO,
   SELECT_ACTION_MORE,
   SELECT_ACTION_PLAY,
-  SELECT_ACTION_PLAYPART
+  SELECT_ACTION_PLAYPART,
+  SELECT_ACTION_QUEUE
 };
 
 class CGUIWindowVideoBase : public CGUIMediaWindow, public IBackgroundLoaderObserver
 {
 public:
   CGUIWindowVideoBase(int id, const std::string &xmlFile);
-  virtual ~CGUIWindowVideoBase(void);
-  virtual bool OnMessage(CGUIMessage& message) override;
-  virtual bool OnAction(const CAction &action) override;
+  ~CGUIWindowVideoBase(void) override;
+  bool OnMessage(CGUIMessage& message) override;
+  bool OnAction(const CAction &action) override;
 
   void PlayMovie(const CFileItem *item, const std::string &player = "");
 #ifdef HAS_DS_PLAYER
@@ -50,6 +39,8 @@ public:
 #else
   static void GetResumeItemOffset(const CFileItem *item, int& startoffset, int& partNumber);
 #endif
+
+  static void GetResumeItemOffset(const CFileItem *item, int64_t& startoffset, int& partNumber);
   static bool HasResumeItemOffset(const CFileItem *item);
 
   void AddToDatabase(int iItem);
@@ -91,21 +82,21 @@ public:
 
 protected:
   void OnScan(const std::string& strPath, bool scanAll = false);
-  virtual bool Update(const std::string &strDirectory, bool updateFilterPath = true) override;
-  virtual bool GetDirectory(const std::string &strDirectory, CFileItemList &items) override;
-  virtual void OnItemLoaded(CFileItem* pItem) override {};
-  virtual void GetGroupedItems(CFileItemList &items) override;
+  bool Update(const std::string &strDirectory, bool updateFilterPath = true) override;
+  bool GetDirectory(const std::string &strDirectory, CFileItemList &items) override;
+  void OnItemLoaded(CFileItem* pItem) override {};
+  void GetGroupedItems(CFileItemList &items) override;
 
-  virtual bool CheckFilterAdvanced(CFileItemList &items) const override;
-  virtual bool CanContainFilter(const std::string &strDirectory) const override;
+  bool CheckFilterAdvanced(CFileItemList &items) const override;
+  bool CanContainFilter(const std::string &strDirectory) const override;
 
-  virtual void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
-  virtual bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
-  virtual void OnQueueItem(int iItem);
+  void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
+  bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
+  virtual void OnQueueItem(int iItem, bool first = false);
   virtual void OnDeleteItem(CFileItemPtr pItem);
-  virtual void OnDeleteItem(int iItem) override;
+  void OnDeleteItem(int iItem) override;
   virtual void DoSearch(const std::string& strSearch, CFileItemList& items) {};
-  virtual std::string GetStartFolder(const std::string &dir) override;
+  std::string GetStartFolder(const std::string &dir) override;
 
   bool OnClick(int iItem, const std::string &player = "") override;
   bool OnSelect(int iItem) override;
@@ -124,8 +115,9 @@ protected:
   void OnRestartItem(int iItem, const std::string &player = "");
   bool OnResumeItem(int iItem, const std::string &player = "");
   void PlayItem(int iItem, const std::string &player = "");
-  virtual bool OnPlayMedia(int iItem, const std::string &player = "") override;
-  virtual bool OnPlayAndQueueMedia(const CFileItemPtr &item, std::string player = "") override;
+  bool OnPlayMedia(int iItem, const std::string &player = "") override;
+  bool OnPlayAndQueueMedia(const CFileItemPtr &item, std::string player = "") override;
+  using CGUIMediaWindow::LoadPlayList;
   void LoadPlayList(const std::string& strPlayList, int iPlayList = PLAYLIST_VIDEO);
 
   bool ShowIMDB(CFileItemPtr item, const ADDON::ScraperPtr& content, bool fromDB);

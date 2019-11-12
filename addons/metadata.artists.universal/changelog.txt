@@ -1,3 +1,34 @@
+[B]4.3.0[/B]
+added: fetch disambiguation for GetArtistSearchResults
+
+
+[B]4.2.1[/B]
+fixed: dependency error
+
+[B]4.2.0[/B]
+added: scraping extra artwork from theaudiodb.com
+
+[B]4.1.5[/B]
+added: artist sort name from Musicbrainz and artist banner from fanart.tv
+
+[B]4.1.4[/B]
+changed: include some other valid MB artist types in the previous fix
+
+[B]4.1.3[/B]
+fixed: artist types sometimes scrapes incorrectly
+
+[B]4.1.2[/B]
+fixed: search results after MB API changes
+
+[B]4.1.1[/B]
+changed: dash is not replaced with /- any longer
+
+[B]4.1.0[/B]
+added: Artist type, gender and disambiguation from MusicBrainz
+
+[B]4.0.0[/B]
+added: Artist Clearlogo from fanart.tv; bump version for Leia
+
 [B]3.7.3[/B]
 cleanup: sources and options what won't work
 

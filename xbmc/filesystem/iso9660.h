@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2003 by The Joker / Avalaunch team
- *      Copyright (C) 2003-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2003 by The Joker / Avalaunch team
+ *  Copyright (C) 2003-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef ISO9660_H
-#define ISO9660_H
 #pragma once
+
 #include <vector>
 #include <string>
-#include "system.h" // for win32 types
+#include "PlatformDefs.h" // for win32 types
 
 #ifdef TARGET_WINDOWS
 // Ideally we should just be including iso9660.h, but it's not win32-ified at this point,
@@ -47,10 +34,10 @@ struct iso9660_VolumeDescriptor
   DWORD dwTotalSectorsLE;       //80-83
   DWORD dwTotalSectorsBE;       //84-87
   unsigned char byZero3[32];         //88-119
-  WORD wVolumeSetSizeLE;       //120-121
-  WORD wVolumeSetSizeBE;       //122-123
-  WORD wVolumeSequenceNumberLE;   //124-125
-  WORD wVolumeSequenceNumberBE;   //126-127
+  unsigned short wVolumeSetSizeLE;       //120-121
+  unsigned short wVolumeSetSizeBE;       //122-123
+  unsigned short wVolumeSequenceNumberLE;   //124-125
+  unsigned short wVolumeSequenceNumberBE;   //126-127
   iso723_t logical_block_size;    // sector size, e.g. 2048 (128-129 LE - 130-131 BE)
   DWORD dwPathTableLengthLE;     //132-135
   DWORD dwPathTableLengthBE;     //136-139
@@ -78,13 +65,13 @@ struct iso9660_VolumeDescriptor
 
 
 struct  iso9660_Datetime {
-  BYTE year;   /* Number of years since 1900 */
-  BYTE month;  /* Has value in range 1..12. Note starts
+  unsigned char year;   /* Number of years since 1900 */
+  unsigned char month;  /* Has value in range 1..12. Note starts
                               at 1, not 0 like a tm struct. */
-  BYTE day;    /* Day of the month from 1 to 31 */
-  BYTE hour;   /* Hour of the day from 0 to 23 */
-  BYTE minute; /* Minute of the hour from 0 to 59 */
-  BYTE second; /* Second of the minute from 0 to 59 */
+  unsigned char day;    /* Day of the month from 1 to 31 */
+  unsigned char hour;   /* Hour of the day from 0 to 23 */
+  unsigned char minute; /* Minute of the hour from 0 to 59 */
+  unsigned char second; /* Second of the minute from 0 to 59 */
   char gmtoff; /* GMT values -48 .. + 52 in 15 minute intervals */
 };
 
@@ -94,21 +81,21 @@ struct iso9660_Directory
 #define Flag_NotExist  0x01     /* 1-file not exists */
  #define Flag_Directory 0x02     /* 0-normal file, 1-directory */
  #define Flag_Associated 0x03     /* 0-not associated file */
- #define Flag_Protection 0x04     /* 0-normal acces */
+ #define Flag_Protection 0x04     /* 0-normal access */
  #define Flag_Multi   0x07     /* 0-final Directory Record for the file */
 
-  BYTE ucRecordLength;      //0      the number of bytes in the record (which must be even)
-  BYTE ucExtendAttributeSectors; //1      [number of sectors in extended attribute record]
+  unsigned char ucRecordLength;      //0      the number of bytes in the record (which must be even)
+  unsigned char ucExtendAttributeSectors; //1      [number of sectors in extended attribute record]
   iso733_t extent;        // LBA of first local block allocated to the extent (2..5 LE - 6..9 BE)
   iso733_t size;          // data length of File Section.  This does not include the length of any XA Records. (10..13 LE - 14..17 BE)
   iso9660_Datetime DateTime;      //18..24 date
-  BYTE byFlags;         //25     flags
-  BYTE UnitSize;         //26     file unit size for an interleaved file
-  BYTE InterleaveGapSize;    //27     interleave gap size for an interleaved file
-  WORD VolSequenceLE;      //28..29 volume sequence number
-  WORD VolSequenceBE;            //30..31
-  BYTE Len_Fi;          //32     N, the identifier length
-  BYTE FileName[512];      //33     identifier
+  unsigned char byFlags;         //25     flags
+  unsigned char UnitSize;         //26     file unit size for an interleaved file
+  unsigned char InterleaveGapSize;    //27     interleave gap size for an interleaved file
+  unsigned short VolSequenceLE;      //28..29 volume sequence number
+  unsigned short VolSequenceBE;            //30..31
+  unsigned char Len_Fi;          //32     N, the identifier length
+  unsigned char FileName[512];      //33     identifier
 
 };
 #pragma pack()
@@ -172,16 +159,16 @@ public:
     DWORD m_dwStartBlock;
     DWORD m_dwCurrentBlock;    // Current being read Block
     int64_t m_dwFilePos;
-    BYTE* m_pBuffer;
+    unsigned char* m_pBuffer;
     int64_t m_dwFileSize;
   };
   iso9660( );
   virtual ~iso9660( );
 
-  HANDLE FindFirstFile( char *szLocalFolder, WIN32_FIND_DATA *wfdFile );
+  HANDLE FindFirstFile9660(const char *szLocalFolder, WIN32_FIND_DATA *wfdFile );
   int FindNextFile( HANDLE szLocalFolder, WIN32_FIND_DATA *wfdFile );
   bool FindClose( HANDLE szLocalFolder );
-  DWORD SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod );
+  DWORD SetFilePointer(HANDLE hFile, long lDistanceToMove, long* lpDistanceToMoveHigh, DWORD dwMoveMethod );
   int64_t GetFileSize(HANDLE hFile);
   int64_t GetFilePosition(HANDLE hFile);
   int64_t Seek(HANDLE hFile, int64_t lOffset, int whence);
@@ -195,8 +182,8 @@ public:
 protected:
   void IsoDateTimeToFileTime(iso9660_Datetime* isoDateTime, FILETIME* filetime);
   struct iso_dirtree* ReadRecursiveDirFromSector( DWORD sector, const char * );
-  struct iso_dirtree* FindFolder( char *Folder );
-  std::string GetThinText(BYTE* strTxt, int iLen );
+  struct iso_dirtree* FindFolder(const char *Folder );
+  std::string GetThinText(unsigned char* strTxt, int iLen );
   bool ReadSectorFromCache(iso9660::isofile* pContext, DWORD sector, uint8_t** ppBuffer);
   void ReleaseSectorFromCache(iso9660::isofile* pContext, DWORD sector);
   const std::string ParseName(struct iso9660_Directory& isodir);
@@ -226,10 +213,10 @@ protected:
    DWORD    m_dwStartBlock;
    DWORD    m_dwCurrentBlock;    // Current being read Block
    int64_t   m_dwFilePos;
-   BYTE*       m_pBuffer;
+   unsigned char*  m_pBuffer;
    int64_t   m_dwFileSize;
   */
 
 };
 extern class iso9660 m_isoReader;
-#endif
+

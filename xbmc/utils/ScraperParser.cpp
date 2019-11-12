@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ScraperParser.h"
 
 #include "addons/AddonManager.h"
+#include "guilib/LocalizeStrings.h"
 #include "RegExp.h"
 #include "HTMLUtil.h"
 #include "addons/Scraper.h"
@@ -284,7 +273,7 @@ void CScraperParser::ParseExpression(const std::string& input, std::string& dest
 
       if (iOptional > -1) // check that required param is there
       {
-        char temp[4];
+        char temp[12];
         sprintf(temp,"\\%i",iOptional);
         std::string szParam = reg.GetReplaceString(temp);
         CRegExp reg2;
@@ -581,8 +570,8 @@ void CScraperParser::ConvertJSON(std::string &string)
 void CScraperParser::ClearBuffers()
 {
   //clear all m_param strings
-  for (int i=0;i<MAX_SCRAPER_BUFFERS;++i)
-    m_param[i].clear();
+  for (std::string& param : m_param)
+    param.clear();
 }
 
 void CScraperParser::GetBufferParams(bool* result, const char* attribute, bool defvalue)

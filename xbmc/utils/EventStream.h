@@ -1,28 +1,18 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "EventStreamDetail.h"
 #include "JobManager.h"
 #include "threads/CriticalSection.h"
 #include "threads/SingleLock.h"
+
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -75,6 +65,8 @@ template<typename Event>
 class CEventSource : public CEventStream<Event>
 {
 public:
+  explicit CEventSource() : m_queue(false, 1, CJob::PRIORITY_HIGH) {};
+
   template<typename A>
   void Publish(A event)
   {
@@ -85,6 +77,24 @@ public:
         s->HandleEvent(event);
     };
     lock.Leave();
-    CJobManager::GetInstance().Submit(std::move(task));
+    m_queue.Submit(std::move(task));
+  }
+
+private:
+  CJobQueue m_queue;
+};
+
+template<typename Event>
+class CBlockingEventSource : public CEventStream<Event>
+{
+public:
+  template<typename A>
+  void HandleEvent(A event)
+  {
+    CSingleLock lock(this->m_criticalSection);
+    for (const auto& subscription : this->m_subscriptions)
+    {
+      subscription->HandleEvent(event);
+    }
   }
 };

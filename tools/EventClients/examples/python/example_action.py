@@ -13,7 +13,7 @@ def main():
 
     host = "localhost"
     port = 9777
-    
+
     # Create an XBMCClient object and connect
     xbmc = XBMCClient("Example Remote", "../../icons/bluetooth.png")
     xbmc.connect()
@@ -25,10 +25,10 @@ def main():
     except:
         try:
             xbmc.send_action(sys.argv[1], ACTION_EXECBUILTIN)
-        except Exception, e:
-            print str(e)
+        except Exception as e:
+            print(str(e))
             xbmc.send_action("ActivateWindow(ShutdownMenu)")
-    
+
 
     # ok we're done, close the connection
     # Note that closing the connection clears any repeat key that is

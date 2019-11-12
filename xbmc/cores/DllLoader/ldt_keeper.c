@@ -5,7 +5,7 @@
  * - avifile includes this file from C++ code
  * and initializes it at the start of player!
  * it might sound like a hack and it really is - but
- * as aviplay is deconding video with more than just one
+ * as aviplay is decoding video with more than just one
  * thread currently it's necessary to do it this way
  * this might change in the future
  */
@@ -27,11 +27,13 @@
     !defined(__SH4__) && \
     !defined(__sparc__) && \
     !defined(__arc__) && \
+    !defined(__or1k__) && \
     !defined(__xtensa__)
 
 #include "ldt_keeper.h"
 
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -43,24 +45,14 @@
 #if defined( __linux__ ) && !defined(__powerpc__)
 #include <asm/unistd.h>
 #include <asm/ldt.h>
-/* 2.5.xx+ calls this user_desc: */
-#include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,47)
-#define modify_ldt_ldt_s user_desc
-#endif
 /* prototype it here, so we won't depend on kernel headers */
 #ifdef  __cplusplus
 extern "C" {
 #endif
-/* declare modify_ldt with the _syscall3 macro for older glibcs */
-#if defined(__GLIBC__) &&  (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 0))
-_syscall3( int, modify_ldt, int, func, void *, ptr, unsigned long, bytecount );
-#else
 #if defined(TARGET_ANDROID) && defined(__i386__) && !defined(modify_ldt)
 #define modify_ldt(a,b,c) syscall( __NR_modify_ldt,  a, b, c);
 #else
 int modify_ldt(int func, void *ptr, unsigned long bytecount);
-#endif
 #endif
 #ifdef  __cplusplus
 }
@@ -99,7 +91,7 @@ int sysi86(int, void*);
 #define LDT_ENTRIES     8192
 #define LDT_ENTRY_SIZE  8
 #pragma pack(4)
-struct modify_ldt_ldt_s {
+struct user_desc {
   unsigned int  entry_number;
   unsigned long base_addr;
   unsigned int  limit;
@@ -151,7 +143,7 @@ void Setup_FS_Segment(void)
 }
 
 #if defined(__NetBSD__) || defined(TARGET_FREEBSD) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(TARGET_DARWIN)
-static void LDT_EntryToBytes( unsigned long *buffer, const struct modify_ldt_ldt_s *content )
+static void LDT_EntryToBytes( unsigned long *buffer, const struct user_desc *content )
 {
   *buffer++ = ((content->base_addr & 0x0000ffff) << 16) |
 	  (content->limit & 0x0ffff);
@@ -170,7 +162,7 @@ void* fs_seg=0;
 
 ldt_fs_t* Setup_LDT_Keeper(void)
 {
-  struct modify_ldt_ldt_s array;
+  struct user_desc array;
   int ret;
   int sret;
   ldt_fs_t* ldt_fs = (ldt_fs_t*) malloc(sizeof(ldt_fs_t));
@@ -182,7 +174,7 @@ ldt_fs_t* Setup_LDT_Keeper(void)
   if (getenv("DYLD_BIND_AT_LAUNCH") == NULL)
     printf("DYLD_BIND_AT_LAUNCH");
 #endif // TARGET_DARWIN
-    
+
   sret = sysconf(_SC_PAGE_SIZE);
   if (sret == -1)
   {
@@ -209,8 +201,8 @@ ldt_fs_t* Setup_LDT_Keeper(void)
   array.contents=MODIFY_LDT_CONTENTS_DATA;
   array.limit_in_pages = 0;
 #ifdef __linux__
-  /* ret=LDT_Modify(0x1, &array, sizeof(struct modify_ldt_ldt_s)); */
-  ret = modify_ldt(0x1, &array, sizeof(struct modify_ldt_ldt_s));
+  /* ret=LDT_Modify(0x1, &array, sizeof(struct user_desc)); */
+  ret = modify_ldt(0x1, &array, sizeof(struct user_desc));
   if (ret < 0)
   {
 	  perror("install_fs");
@@ -263,7 +255,7 @@ ldt_fs_t* Setup_LDT_Keeper(void)
   Setup_FS_Segment();
 
   ldt_fs->prev_struct = malloc(8);
-  *(void**)array.base_addr = ldt_fs->prev_struct;
+  array.base_addr = (uintptr_t)(ldt_fs->prev_struct);
 
   return ldt_fs;
 }
@@ -274,7 +266,7 @@ void Restore_LDT_Keeper(ldt_fs_t* ldt_fs)
 	  return;
   if (ldt_fs->prev_struct)
 	  free(ldt_fs->prev_struct);
-  
+
   int sret = sysconf(_SC_PAGE_SIZE);
   if (sret != -1)
     munmap((char*)ldt_fs->fs_seg, sret);

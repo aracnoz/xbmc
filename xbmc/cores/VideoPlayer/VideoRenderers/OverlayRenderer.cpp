@@ -1,25 +1,12 @@
 /*
  *      Initial code sponsored by: Voddler Inc (voddler.com)
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "OverlayRenderer.h"
 #include "cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlay.h"
 #include "cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlayImage.h"
@@ -27,13 +14,15 @@
 #include "cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlaySSA.h"
 #include "cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlayText.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
-#include "guilib/GraphicContext.h"
+#include "windowing/GraphicContext.h"
 #include "guilib/GUIFontManager.h"
 #include "Application.h"
-#include "settings/Settings.h"
+#include "ServiceBroker.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "threads/SingleLock.h"
-#include "utils/MathUtils.h"
+#include "utils/ColorUtils.h"
 #include "OverlayRendererUtil.h"
 #include "OverlayRendererGUI.h"
 #if defined(HAS_GL) || defined(HAS_GLES)
@@ -43,6 +32,14 @@
 #endif
 
 using namespace OVERLAY;
+
+const std::string OVERLAY::SETTING_SUBTITLES_OPACITY = "subtitles.opacity";
+
+static UTILS::Color bgcolors[5] = { UTILS::COLOR::BLACK,
+  UTILS::COLOR::YELLOW,
+  UTILS::COLOR::WHITE,
+  UTILS::COLOR::LIGHTGREY,
+  UTILS::COLOR::GREY };
 
 COverlay::COverlay()
 {
@@ -55,9 +52,7 @@ COverlay::COverlay()
   m_pos    = POSITION_RELATIVE;
 }
 
-COverlay::~COverlay()
-{
-}
+COverlay::~COverlay() = default;
 
 unsigned int CRenderer::m_textureid = 1;
 
@@ -98,8 +93,8 @@ void CRenderer::Flush()
 {
   CSingleLock lock(m_section);
 
-  for(int i = 0; i < NUM_BUFFERS; i++)
-    Release(m_buffers[i]);
+  for(std::vector<SElement>& buffer : m_buffers)
+    Release(buffer);
 
   ReleaseCache();
 
@@ -166,24 +161,40 @@ void CRenderer::Render(int idx)
 
     if(!o)
       continue;
- 
+
     render.push_back(o);
   }
 
+  const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+
   float total_height = 0.0f;
   float cur_height = 0.0f;
-  int subalign = CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_ALIGN);
+  int subalign = settings->GetInt(CSettings::SETTING_SUBTITLES_ALIGN);
   for (std::vector<COverlay*>::iterator it = render.begin(); it != render.end(); ++it)
   {
     COverlay* o = nullptr;
     COverlayText *text = dynamic_cast<COverlayText*>(*it);
     if (text)
     {
-      text->PrepareRender(CSettings::GetInstance().GetString(CSettings::SETTING_SUBTITLES_FONT),
-                          CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_COLOR),
-                          CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_HEIGHT),
-                          CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_STYLE),
-                          m_font, m_fontBorder);
+      
+      // Compute the color to be used for the overlay background (depending on the opacity)
+      UTILS::Color bgcolor = bgcolors[settings->GetInt(CSettings::SETTING_SUBTITLES_BGCOLOR)];
+      int bgopacity = settings->GetInt(CSettings::SETTING_SUBTITLES_BGOPACITY);
+      if (bgopacity > 0 && bgopacity < 100)
+      {
+        bgcolor = ColorUtils::ChangeOpacity(bgcolor, bgopacity / 100.0f);
+      }
+      else if (bgopacity == 0)
+      {
+        bgcolor = UTILS::COLOR::NONE;
+      }
+      
+      text->PrepareRender(settings->GetString(CSettings::SETTING_SUBTITLES_FONT),
+                          settings->GetInt(CSettings::SETTING_SUBTITLES_COLOR),
+                          settings->GetInt(SETTING_SUBTITLES_OPACITY),
+                          settings->GetInt(CSettings::SETTING_SUBTITLES_HEIGHT),
+                          settings->GetInt(CSettings::SETTING_SUBTITLES_STYLE),
+                          m_font, m_fontBorder, bgcolor, m_rv);
       o = text;
     }
     else
@@ -240,8 +251,8 @@ void CRenderer::Render(COverlay* o, float adjust_height)
     if(align == COverlay::ALIGN_SCREEN
     || align == COverlay::ALIGN_SUBTITLE)
     {
-      scale_x = (float)m_rv.Width();
-      scale_y = (float)m_rv.Height();
+      scale_x = m_rv.Width();
+      scale_y = m_rv.Height();
     }
 
     if(align == COverlay::ALIGN_VIDEO)
@@ -265,7 +276,7 @@ void CRenderer::Render(COverlay* o, float adjust_height)
     {
       if(align == COverlay::ALIGN_SUBTITLE)
       {
-        RESOLUTION_INFO res = g_graphicsContext.GetResInfo(g_graphicsContext.GetVideoResolution());
+        RESOLUTION_INFO res = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution());
         state.x += m_rv.x1 + m_rv.Width() * 0.5f;
         state.y += m_rv.y1  + (res.iSubtitles - res.Overscan.top);
       }
@@ -323,21 +334,40 @@ void CRenderer::SetVideoRect(CRect &source, CRect &dest, CRect &view)
   m_rv = view;
 }
 
+void CRenderer::SetStereoMode(const std::string &stereomode)
+{
+  m_stereomode = stereomode;
+}
+
 COverlay* CRenderer::Convert(CDVDOverlaySSA* o, double pts)
 {
   // libass render in a target area which named as frame. the frame size may bigger than video size,
   // and including margins between video to frame edge. libass allow to render subtitles into the margins.
   // this has been used to show subtitles in the top or bottom "black bar" between video to frame border.
-  int videoWidth = MathUtils::round_int(m_rd.Width());
-  int videoHeight = MathUtils::round_int(m_rd.Height());
-  int targetWidth = MathUtils::round_int(m_rv.Width());
-  int targetHeight = MathUtils::round_int(m_rv.Height());
+  int sourceWidth = m_rs.Width();
+  int sourceHeight = m_rs.Height();
+  int videoWidth = m_rd.Width();
+  int videoHeight = m_rd.Height();
+  int targetWidth = m_rv.Width();
+  int targetHeight = m_rv.Height();
   int useMargin;
-
-  int subalign = CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_ALIGN);
+  // Render subtitle of half-sbs and half-ou video in full screen, not in half screen
+  if (m_stereomode == "left_right" || m_stereomode == "right_left")
+  {
+    // only half-sbs video, sbs video don't need to change source size
+    if (static_cast<double>(sourceWidth) / sourceHeight < 1.2)
+      sourceWidth = m_rs.Width() * 2;
+  }
+  else if (m_stereomode == "top_bottom" || m_stereomode == "bottom_top")
+  {
+    // only half-ou video, ou video don't need to change source size
+    if (static_cast<double>(sourceWidth) / sourceHeight > 2.5)
+      sourceHeight = m_rs.Height() * 2;
+  }
+  int subalign = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SUBTITLES_ALIGN);
   if(subalign == SUBTITLE_ALIGN_BOTTOM_OUTSIDE
   || subalign == SUBTITLE_ALIGN_TOP_OUTSIDE
-  ||(subalign == SUBTITLE_ALIGN_MANUAL && g_advancedSettings.m_videoAssFixedWorks))
+  ||(subalign == SUBTITLE_ALIGN_MANUAL && CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoAssFixedWorks))
     useMargin = 1;
   else
     useMargin = 0;
@@ -347,16 +377,17 @@ COverlay* CRenderer::Convert(CDVDOverlaySSA* o, double pts)
   if(subalign == SUBTITLE_ALIGN_TOP_INSIDE
   || subalign == SUBTITLE_ALIGN_TOP_OUTSIDE)
     position = 100.0;
-  else if (subalign == SUBTITLE_ALIGN_MANUAL && g_advancedSettings.m_videoAssFixedWorks)
+  else if (subalign == SUBTITLE_ALIGN_MANUAL && CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoAssFixedWorks)
   {
     RESOLUTION_INFO res;
-    res = g_graphicsContext.GetResInfo(g_graphicsContext.GetVideoResolution());
+    res = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution());
     position = 100.0 - (res.iSubtitles - res.Overscan.top) * 100 / res.iHeight;
   }
   else
     position = 0.0;
   int changes = 0;
-  ASS_Image* images = o->m_libass->RenderImage(targetWidth, targetHeight, videoWidth, videoHeight, pts, useMargin, position, &changes);
+  ASS_Image* images = o->m_libass->RenderImage(targetWidth, targetHeight, videoWidth, videoHeight, sourceWidth, sourceHeight,
+                                               pts, useMargin, position, &changes);
 
   if(o->m_textureid)
   {
@@ -394,7 +425,7 @@ COverlay* CRenderer::Convert(CDVDOverlay* o, double pts)
   COverlay* r = NULL;
 
   if(o->IsOverlayType(DVDOVERLAY_TYPE_SSA))
-    r = Convert((CDVDOverlaySSA*)o, pts);
+    r = Convert(static_cast<CDVDOverlaySSA*>(o), pts);
   else if(o->m_textureid)
   {
     std::map<unsigned int, COverlay*>::iterator it = m_textureCache.find(o->m_textureid);
@@ -409,18 +440,18 @@ COverlay* CRenderer::Convert(CDVDOverlay* o, double pts)
 
 #if defined(HAS_GL) || defined(HAS_GLES)
   if (o->IsOverlayType(DVDOVERLAY_TYPE_IMAGE))
-    r = new COverlayTextureGL((CDVDOverlayImage*)o);
+    r = new COverlayTextureGL(static_cast<CDVDOverlayImage*>(o));
   else if(o->IsOverlayType(DVDOVERLAY_TYPE_SPU))
-    r = new COverlayTextureGL((CDVDOverlaySpu*)o);
+    r = new COverlayTextureGL(static_cast<CDVDOverlaySpu*>(o));
 #elif defined(HAS_DX)
   if (o->IsOverlayType(DVDOVERLAY_TYPE_IMAGE))
-    r = new COverlayImageDX((CDVDOverlayImage*)o);
+    r = new COverlayImageDX(static_cast<CDVDOverlayImage*>(o));
   else if(o->IsOverlayType(DVDOVERLAY_TYPE_SPU))
-    r = new COverlayImageDX((CDVDOverlaySpu*)o);
+    r = new COverlayImageDX(static_cast<CDVDOverlaySpu*>(o));
 #endif
 
   if(!r && o->IsOverlayType(DVDOVERLAY_TYPE_TEXT))
-    r = new COverlayText((CDVDOverlayText*)o);
+    r = new COverlayText(static_cast<CDVDOverlayText*>(o));
 
   m_textureCache[m_textureid] = r;
   o->m_textureid = m_textureid;

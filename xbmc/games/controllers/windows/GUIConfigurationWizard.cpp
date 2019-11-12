@@ -1,35 +1,29 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIConfigurationWizard.h"
-#include "games/controllers/guicontrols/GUIFeatureButton.h"
+
+#include "ServiceBroker.h"
 #include "games/controllers/Controller.h"
 #include "games/controllers/ControllerFeature.h"
-#include "input/joysticks/IButtonMap.h"
-#include "input/joysticks/IButtonMapCallback.h"
-#include "input/keyboard/KeymapActionMap.h"
+#include "games/controllers/dialogs/GUIDialogAxisDetection.h"
+#include "games/controllers/guicontrols/GUIFeatureButton.h"
+#include "input/IKeymap.h"
 #include "input/InputManager.h"
+#include "input/joysticks/JoystickUtils.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
+#include "input/joysticks/interfaces/IButtonMapCallback.h"
+#include "input/keyboard/KeymapActionMap.h"
 #include "peripherals/Peripherals.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 
+using namespace KODI;
 using namespace GAME;
 
 #define ESC_KEY_CODE  27
@@ -40,25 +34,25 @@ using namespace GAME;
 
 CGUIConfigurationWizard::CGUIConfigurationWizard() :
   CThread("GUIConfigurationWizard"),
-  m_callback(nullptr),
   m_actionMap(new KEYBOARD::CKeymapActionMap)
 {
   InitializeState();
 }
 
-CGUIConfigurationWizard::~CGUIConfigurationWizard(void)
-{
-}
+CGUIConfigurationWizard::~CGUIConfigurationWizard(void) = default;
 
 void CGUIConfigurationWizard::InitializeState(void)
 {
   m_currentButton = nullptr;
-  m_currentDirection = JOYSTICK::ANALOG_STICK_DIRECTION::UNKNOWN;
+  m_cardinalDirection = INPUT::CARDINAL_DIRECTION::NONE;
+  m_wheelDirection = JOYSTICK::WHEEL_DIRECTION::NONE;
+  m_throttleDirection = JOYSTICK::THROTTLE_DIRECTION::NONE;
   m_history.clear();
-  m_lastMappingActionMs = 0;
+  m_lateAxisDetected = false;
+  m_deviceName.clear();
 }
 
-void CGUIConfigurationWizard::Run(const std::string& strControllerId, const std::vector<IFeatureButton*>& buttons, IConfigurationWizardCallback* callback)
+void CGUIConfigurationWizard::Run(const std::string& strControllerId, const std::vector<IFeatureButton*>& buttons)
 {
   Abort();
 
@@ -68,7 +62,6 @@ void CGUIConfigurationWizard::Run(const std::string& strControllerId, const std:
     // Set Run() parameters
     m_strControllerId = strControllerId;
     m_buttons = buttons;
-    m_callback = callback;
 
     // Reset synchronization variables
     m_inputEvent.Reset();
@@ -105,13 +98,24 @@ bool CGUIConfigurationWizard::Abort(bool bWait /* = true */)
   return bWasRunning;
 }
 
+void CGUIConfigurationWizard::RegisterKey(const CControllerFeature &key)
+{
+  if (key.Keycode() != XBMCK_UNKNOWN)
+    m_keyMap[key.Keycode()] = key;
+}
+
+void CGUIConfigurationWizard::UnregisterKeys()
+{
+  m_keyMap.clear();
+}
+
 void CGUIConfigurationWizard::Process(void)
 {
   CLog::Log(LOGDEBUG, "Starting configuration wizard");
 
-  m_lastMappingActionMs = XbmcThreads::SystemClockMillis();
-
   InstallHooks();
+
+  bool bLateAxisDetected = false;
 
   {
     CSingleLock lock(m_stateMutex);
@@ -122,14 +126,21 @@ void CGUIConfigurationWizard::Process(void)
 
       while (!button->IsFinished())
       {
-        // Allow other threads to access which direction the analog stick is on
-        m_currentDirection = button->GetDirection();
+        // Allow other threads to access which direction the prompt is on
+        m_cardinalDirection = button->GetCardinalDirection();
+        m_wheelDirection = button->GetWheelDirection();
+        m_throttleDirection = button->GetThrottleDirection();
 
         // Wait for input
         {
+          using namespace JOYSTICK;
+
           CSingleExit exit(m_stateMutex);
 
-          CLog::Log(LOGDEBUG, "%s: Waiting for input for feature \"%s\"", m_strControllerId.c_str(), button->Feature().Name().c_str());
+          if (button->Feature().Type() == FEATURE_TYPE::UNKNOWN)
+            CLog::Log(LOGDEBUG, "%s: Waiting for input", m_strControllerId.c_str());
+          else
+            CLog::Log(LOGDEBUG, "%s: Waiting for input for feature \"%s\"", m_strControllerId.c_str(), button->Feature().Name().c_str());
 
           if (!button->PromptForInput(m_inputEvent))
             Abort(false);
@@ -145,6 +156,8 @@ void CGUIConfigurationWizard::Process(void)
         break;
     }
 
+    bLateAxisDetected = m_lateAxisDetected;
+
     // Finished mapping
     InitializeState();
   }
@@ -152,17 +165,27 @@ void CGUIConfigurationWizard::Process(void)
   for (auto callback : ButtonMapCallbacks())
     callback.second->SaveButtonMap();
 
-  bool bInMotion;
-
+  if (bLateAxisDetected)
   {
-    CSingleLock lock(m_motionMutex);
-    bInMotion = !m_bInMotion.empty();
+    CGUIDialogAxisDetection dialog;
+    dialog.Show();
   }
-
-  if (bInMotion)
+  else
   {
-    CLog::Log(LOGDEBUG, "Configuration wizard: waiting %ums for axes to neutralize", POST_MAPPING_WAIT_TIME_MS);
-    m_motionlessEvent.WaitMSec(POST_MAPPING_WAIT_TIME_MS);
+    // Wait for motion to stop to avoid sending analog actions for the button
+    // that is pressed immediately after button mapping finishes.
+    bool bInMotion;
+
+    {
+      CSingleLock lock(m_motionMutex);
+      bInMotion = !m_bInMotion.empty();
+    }
+
+    if (bInMotion)
+    {
+      CLog::Log(LOGDEBUG, "Configuration wizard: waiting %ums for axes to neutralize", POST_MAPPING_WAIT_TIME_MS);
+      m_motionlessEvent.WaitMSec(POST_MAPPING_WAIT_TIME_MS);
+    }
   }
 
   RemoveHooks();
@@ -171,18 +194,35 @@ void CGUIConfigurationWizard::Process(void)
 }
 
 bool CGUIConfigurationWizard::MapPrimitive(JOYSTICK::IButtonMap* buttonMap,
-                                           JOYSTICK::IActionMap* actionMap,
+                                           IKeymap* keymap,
                                            const JOYSTICK::CDriverPrimitive& primitive)
 {
+  using namespace INPUT;
   using namespace JOYSTICK;
 
   bool bHandled = false;
 
-  // Handle esc key separately
-  if (primitive.Type() == PRIMITIVE_TYPE::BUTTON &&
-      primitive.Index() == ESC_KEY_CODE)
+  // Abort if another controller cancels the prompt
+  if (IsMapping() && !IsMapping(buttonMap->DeviceName()))
   {
-    bHandled = Abort(false);
+    //! @todo This only succeeds for game.controller.default; no actions are
+    //        currently defined for other controllers
+    if (keymap)
+    {
+      std::string feature;
+      if (buttonMap->GetFeature(primitive, feature))
+      {
+        const auto &actions = keymap->GetActions(CJoystickUtils::MakeKeyName(feature)).actions;
+        if (!actions.empty())
+        {
+          //! @todo Handle multiple actions mapped to the same key
+          OnAction(actions.begin()->actionId);
+        }
+      }
+    }
+
+    // Discard input
+    bHandled = true;
   }
   else if (m_history.find(primitive) != m_history.end())
   {
@@ -197,58 +237,115 @@ bool CGUIConfigurationWizard::MapPrimitive(JOYSTICK::IButtonMap* buttonMap,
   {
     // Get the current state of the thread
     IFeatureButton* currentButton;
-    ANALOG_STICK_DIRECTION currentDirection;
+    CARDINAL_DIRECTION cardinalDirection;
+    WHEEL_DIRECTION wheelDirection;
+    THROTTLE_DIRECTION throttleDirection;
     {
       CSingleLock lock(m_stateMutex);
       currentButton = m_currentButton;
-      currentDirection = m_currentDirection;
+      cardinalDirection = m_cardinalDirection;
+      wheelDirection = m_wheelDirection;
+      throttleDirection = m_throttleDirection;
     }
 
     if (currentButton)
     {
-      const CControllerFeature& feature = currentButton->Feature();
-
-      CLog::Log(LOGDEBUG, "%s: mapping feature \"%s\" for device %s",
-        m_strControllerId.c_str(), feature.Name().c_str(), buttonMap->DeviceName().c_str());
-
-      switch (feature.Type())
+      // Check if we were expecting a keyboard key
+      if (currentButton->NeedsKey())
       {
-        case FEATURE_TYPE::SCALAR:
+        if (primitive.Type() == PRIMITIVE_TYPE::KEY)
         {
-          buttonMap->AddScalar(feature.Name(), primitive);
-          bHandled = true;
-          break;
+          auto it = m_keyMap.find(primitive.Keycode());
+          if (it != m_keyMap.end())
+          {
+            const CControllerFeature &key = it->second;
+            currentButton->SetKey(key);
+            m_inputEvent.Set();
+          }
         }
-        case FEATURE_TYPE::ANALOG_STICK:
+        else
         {
-          buttonMap->AddAnalogStick(feature.Name(), currentDirection, primitive);
-          bHandled = true;
-          break;
+          //! @todo Check if primitive is a cancel or motion action
         }
-        default:
-          break;
+        bHandled = true;
       }
-
-      if (bHandled)
+      else
       {
-        m_history.insert(primitive);
+        const CControllerFeature& feature = currentButton->Feature();
 
-        // Detect button skipping
-        unsigned int elapsed = XbmcThreads::SystemClockMillis() - m_lastMappingActionMs;
-        if (elapsed <= SKIPPING_DETECTION_MS)
+        if (primitive.Type() == PRIMITIVE_TYPE::RELATIVE_POINTER &&
+            feature.Type() != FEATURE_TYPE::RELPOINTER)
         {
-          CLog::Log(LOGDEBUG, "%s: Possible skip detected after %ums", m_strControllerId.c_str(), elapsed);
-          if (m_callback)
-            m_callback->OnSkipDetected();
+          // Don't allow relative pointers to map to other features
         }
-        m_lastMappingActionMs = XbmcThreads::SystemClockMillis();
+        else
+        {
+          CLog::Log(LOGDEBUG, "%s: mapping feature \"%s\" for device %s",
+            m_strControllerId.c_str(), feature.Name().c_str(), buttonMap->DeviceName().c_str());
 
-        OnMotion(buttonMap);
-        m_inputEvent.Set();
+          switch (feature.Type())
+          {
+            case FEATURE_TYPE::SCALAR:
+            {
+              buttonMap->AddScalar(feature.Name(), primitive);
+              bHandled = true;
+              break;
+            }
+            case FEATURE_TYPE::ANALOG_STICK:
+            {
+              buttonMap->AddAnalogStick(feature.Name(), cardinalDirection, primitive);
+              bHandled = true;
+              break;
+            }
+            case FEATURE_TYPE::RELPOINTER:
+            {
+              buttonMap->AddRelativePointer(feature.Name(), cardinalDirection, primitive);
+              bHandled = true;
+              break;
+            }
+            case FEATURE_TYPE::WHEEL:
+            {
+              buttonMap->AddWheel(feature.Name(), wheelDirection, primitive);
+              bHandled = true;
+              break;
+            }
+            case FEATURE_TYPE::THROTTLE:
+            {
+              buttonMap->AddThrottle(feature.Name(), throttleDirection, primitive);
+              bHandled = true;
+              break;
+            }
+            case FEATURE_TYPE::KEY:
+            {
+              buttonMap->AddKey(feature.Name(), primitive);
+              bHandled = true;
+              break;
+            }
+            default:
+              break;
+          }
+        }
+
+        if (bHandled)
+        {
+          m_history.insert(primitive);
+
+          // Don't record motion for relative pointers
+          if (primitive.Type() != PRIMITIVE_TYPE::RELATIVE_POINTER)
+            OnMotion(buttonMap);
+
+          m_inputEvent.Set();
+
+          if (m_deviceName.empty())
+          {
+            m_deviceName = buttonMap->DeviceName();
+            m_bIsKeyboard = (primitive.Type() == PRIMITIVE_TYPE::KEY);
+          }
+        }
       }
     }
   }
-  
+
   return bHandled;
 }
 
@@ -262,7 +359,10 @@ void CGUIConfigurationWizard::OnEventFrame(const JOYSTICK::IButtonMap* buttonMap
 
 void CGUIConfigurationWizard::OnLateAxis(const JOYSTICK::IButtonMap* buttonMap, unsigned int axisIndex)
 {
-  //! @todo
+  CSingleLock lock(m_stateMutex);
+
+  m_lateAxisDetected = true;
+  Abort(false);
 }
 
 void CGUIConfigurationWizard::OnMotion(const JOYSTICK::IButtonMap* buttonMap)
@@ -282,14 +382,33 @@ void CGUIConfigurationWizard::OnMotionless(const JOYSTICK::IButtonMap* buttonMap
 
 bool CGUIConfigurationWizard::OnKeyPress(const CKey& key)
 {
-  using namespace KEYBOARD;
-
   bool bHandled = false;
 
   if (!m_bStop)
   {
-    switch (m_actionMap->GetActionID(key))
+    // Only allow key to abort the prompt if we know for sure that we're mapping
+    // a controller
+    const bool bIsMappingController = (IsMapping() && !m_bIsKeyboard);
+
+    if (bIsMappingController)
     {
+      bHandled = OnAction(m_actionMap->GetActionID(key));
+    }
+    else
+    {
+      // Allow key press to fall through to the button mapper
+    }
+  }
+
+  return bHandled;
+}
+
+bool CGUIConfigurationWizard::OnAction(unsigned int actionId)
+{
+  bool bHandled = false;
+
+  switch (actionId)
+  {
     case ACTION_MOVE_LEFT:
     case ACTION_MOVE_RIGHT:
     case ACTION_MOVE_UP:
@@ -304,6 +423,7 @@ bool CGUIConfigurationWizard::OnKeyPress(const CKey& key)
     case ACTION_PARENT_DIR:
     case ACTION_PREVIOUS_MENU:
     case ACTION_STOP:
+    case ACTION_NAV_BACK:
       // Abort and prevent action
       Abort(false);
       bHandled = true;
@@ -313,40 +433,48 @@ bool CGUIConfigurationWizard::OnKeyPress(const CKey& key)
       // Absorb keypress
       bHandled = true;
       break;
-    }
   }
 
   return bHandled;
 }
 
+bool CGUIConfigurationWizard::IsMapping() const
+{
+  return !m_deviceName.empty();
+}
+
+bool CGUIConfigurationWizard::IsMapping(const std::string &deviceName) const
+{
+  return m_deviceName == deviceName;
+}
+
 void CGUIConfigurationWizard::InstallHooks(void)
 {
-  using namespace PERIPHERALS;
+  // Install button mapper with lowest priority
+  CServiceBroker::GetPeripherals().RegisterJoystickButtonMapper(this);
 
-  g_peripherals.RegisterJoystickButtonMapper(this);
-  g_peripherals.RegisterObserver(this);
-  CInputManager::GetInstance().RegisterKeyboardHandler(this);
+  // Install hook to reattach button mapper when peripherals change
+  CServiceBroker::GetPeripherals().RegisterObserver(this);
+
+  // Install hook to cancel the button mapper
+  CServiceBroker::GetInputManager().RegisterKeyboardDriverHandler(this);
 }
 
 void CGUIConfigurationWizard::RemoveHooks(void)
 {
-  using namespace PERIPHERALS;
-
-  CInputManager::GetInstance().UnregisterKeyboardHandler(this);
-  g_peripherals.UnregisterObserver(this);
-  g_peripherals.UnregisterJoystickButtonMapper(this);
+  CServiceBroker::GetInputManager().UnregisterKeyboardDriverHandler(this);
+  CServiceBroker::GetPeripherals().UnregisterObserver(this);
+  CServiceBroker::GetPeripherals().UnregisterJoystickButtonMapper(this);
 }
 
 void CGUIConfigurationWizard::Notify(const Observable& obs, const ObservableMessage msg)
 {
-  using namespace PERIPHERALS;
-
   switch (msg)
   {
     case ObservableMessagePeripheralsChanged:
     {
-      g_peripherals.UnregisterJoystickButtonMapper(this);
-      g_peripherals.RegisterJoystickButtonMapper(this);
+      CServiceBroker::GetPeripherals().UnregisterJoystickButtonMapper(this);
+      CServiceBroker::GetPeripherals().RegisterJoystickButtonMapper(this);
       break;
     }
     default:

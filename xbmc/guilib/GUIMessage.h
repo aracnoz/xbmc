@@ -1,32 +1,17 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIMessage.h
 \brief
 */
-
-#ifndef GUILIB_MESSAGE_H
-#define GUILIB_MESSAGE_H
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team Kodi
- *      http://kodi.tv
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
 
 #define GUI_MSG_WINDOW_INIT     1   // initialize window
 #define GUI_MSG_WINDOW_DEINIT   2   // deinit window
@@ -70,8 +55,6 @@
 
 #define GUI_MSG_LABEL_BIND     24   // bind label control (for controls supporting more then 1 label)
 
-#define GUI_MSG_SELCHANGED  25  // selection within the control has changed
-
 #define GUI_MSG_FOCUSED     26  // a control has become focused
 
 #define GUI_MSG_PAGE_CHANGE 28  // a page control has changed the page number
@@ -80,7 +63,7 @@
 
 #define GUI_MSG_PAGE_UP      30 // page up
 #define GUI_MSG_PAGE_DOWN    31 // page down
-#define GUI_MSG_MOVE_OFFSET  32 // Instruct the contorl to MoveUp or MoveDown by offset amount
+#define GUI_MSG_MOVE_OFFSET  32 // Instruct the control to MoveUp or MoveDown by offset amount
 
 #define GUI_MSG_SET_TYPE     33 ///< Instruct a control to set it's type appropriately
 
@@ -160,6 +143,22 @@
  \brief The user interface is ready for usage
  */
 #define GUI_MSG_UI_READY       49
+
+ /*!
+ \brief Called every 500ms to allow time dependent updates
+ */
+#define GUI_MSG_REFRESH_TIMER  50
+
+ /*!
+ \brief Called if state has changed wich could lead to GUI changes
+ */
+#define GUI_MSG_STATE_CHANGED  51
+
+/*!
+ \brief Called when a subtitle download has finished
+ */
+#define GUI_MSG_SUBTITLE_DOWNLOADED  52
+
 
 #define GUI_MSG_USER         1000
 
@@ -253,7 +252,7 @@ do { \
  if(g_application.IsCurrentThread()) \
    OnMessage(msg); \
  else \
-   g_windowManager.SendThreadMessage(msg, GetID()); \
+   CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(msg, GetID()); \
 }
 
 /*!
@@ -347,14 +346,14 @@ class CFileItemList;
  \ingroup winmsg
  \brief
  */
-class CGUIMessage
+class CGUIMessage final
 {
 public:
   CGUIMessage(int dwMsg, int senderID, int controlID, int param1 = 0, int param2 = 0);
   CGUIMessage(int msg, int senderID, int controlID, int param1, int param2, CFileItemList* item);
   CGUIMessage(int msg, int senderID, int controlID, int param1, int param2, const CGUIListItemPtr &item);
   CGUIMessage(const CGUIMessage& msg);
-  virtual ~CGUIMessage(void);
+  ~CGUIMessage(void);
   CGUIMessage& operator = (const CGUIMessage& msg);
 
   int GetControlId() const ;
@@ -368,7 +367,7 @@ public:
   void SetParam2(int param2);
   void SetPointer(void* pointer);
   void SetLabel(const std::string& strLabel);
-  void SetLabel(int iString);               // for convience - looks up in strings.xml
+  void SetLabel(int iString);               // for convenience - looks up in strings.po
   const std::string& GetLabel() const;
   void SetStringParam(const std::string &strParam);
   void SetStringParams(const std::vector<std::string> &params);
@@ -388,4 +387,4 @@ private:
 
   static std::string empty_string;
 };
-#endif
+

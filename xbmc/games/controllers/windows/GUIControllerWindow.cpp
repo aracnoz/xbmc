@@ -1,53 +1,40 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIControllerWindow.h"
+#include "ControllerInstaller.h"
 #include "GUIControllerDefines.h"
 #include "GUIControllerList.h"
 #include "GUIFeatureList.h"
-#include "IConfigurationWindow.h"
 #include "addons/GUIWindowAddonBrowser.h"
 #include "addons/IAddon.h"
 #include "addons/AddonManager.h"
-#include "games/controllers/dialogs/GUIDialogButtonCapture.h"
+#include "cores/RetroPlayer/guibridge/GUIGameRenderManager.h"
+#include "cores/RetroPlayer/guibridge/GUIGameSettingsHandle.h"
+#include "games/addons/GameClient.h"
+#include "games/controllers/dialogs/GUIDialogIgnoreInput.h"
 #include "guilib/GUIButtonControl.h"
 #include "guilib/GUIControl.h"
 #include "guilib/GUIMessage.h"
 #include "guilib/WindowIDs.h"
+#include "messaging/helpers/DialogOKHelper.h"
+#include "ServiceBroker.h"
 
-// To check for button mapping support
-#include "dialogs/GUIDialogOK.h"
-#include "peripherals/bus/virtual/PeripheralBusAddon.h"
+// To enable button mapping support
 #include "peripherals/Peripherals.h"
-#include "utils/log.h"
 
-// To check for installable controllers
-#include "addons/AddonDatabase.h"
-#include "addons/AddonManager.h"
-
+using namespace KODI;
 using namespace GAME;
+using namespace KODI::MESSAGING;
 
 CGUIControllerWindow::CGUIControllerWindow(void) :
   CGUIDialog(WINDOW_DIALOG_GAME_CONTROLLERS, "DialogGameControllers.xml"),
-  m_controllerList(nullptr),
-  m_featureList(nullptr)
+  m_installer(new CControllerInstaller)
 {
   // initialize CGUIWindow
   m_loadType = KEEP_IN_MEMORY;
@@ -99,12 +86,6 @@ bool CGUIControllerWindow::OnMessage(CGUIMessage& message)
 
   switch (message.GetMessage())
   {
-    case GUI_MSG_WINDOW_INIT:
-    {
-      //! @todo Process parameter
-      //std::string strParam = message.GetStringParam();
-      break;
-    }
     case GUI_MSG_CLICKED:
     {
       int controlId = message.GetSenderId();
@@ -117,6 +98,11 @@ bool CGUIControllerWindow::OnMessage(CGUIMessage& message)
       else if (controlId == CONTROL_GET_MORE)
       {
         GetMoreControllers();
+        bHandled = true;
+      }
+      else if (controlId == CONTROL_GET_ALL)
+      {
+        GetAllControllers();
         bHandled = true;
       }
       else if (controlId == CONTROL_RESET_BUTTON)
@@ -179,7 +165,8 @@ bool CGUIControllerWindow::OnMessage(CGUIMessage& message)
 
       if (controlId == CONTROL_CONTROLLER_LIST)
       {
-        if (m_controllerList && m_controllerList->Refresh())
+        const std::string controllerId = message.GetStringParam();
+        if (m_controllerList && m_controllerList->Refresh(controllerId))
         {
           CGUIDialog::OnMessage(message);
           bHandled = true;
@@ -202,15 +189,42 @@ void CGUIControllerWindow::OnEvent(const ADDON::CRepositoryUpdater::RepositoryUp
   UpdateButtons();
 }
 
+void CGUIControllerWindow::OnEvent(const ADDON::AddonEvent& event)
+{
+  using namespace ADDON;
+
+  if (typeid(event) == typeid(AddonEvents::Enabled) || // also called on install,
+      typeid(event) == typeid(AddonEvents::Disabled) || // not called on uninstall
+      typeid(event) == typeid(AddonEvents::UnInstalled) ||
+      typeid(event) == typeid(AddonEvents::ReInstalled))
+  {
+    if (CServiceBroker::GetAddonMgr().HasType(event.id, ADDON_GAME_CONTROLLER))
+    {
+      UpdateButtons();
+    }
+  }
+}
+
 void CGUIControllerWindow::OnInitWindow(void)
 {
-  using namespace PERIPHERALS;
+  // Get active game add-on
+  GameClientPtr gameClient;
+  {
+    auto gameSettingsHandle = CServiceBroker::GetGameRenderManager().RegisterGameSettingsDialog();
+    if (gameSettingsHandle)
+    {
+      ADDON::AddonPtr addon;
+      if (CServiceBroker::GetAddonMgr().GetAddon(gameSettingsHandle->GameClientID(), addon, ADDON::ADDON_GAMEDLL))
+        gameClient = std::static_pointer_cast<CGameClient>(addon);
+    }
+  }
+  m_gameClient = std::move(gameClient);
 
   CGUIDialog::OnInitWindow();
 
   if (!m_featureList)
   {
-    m_featureList = new CGUIFeatureList(this);
+    m_featureList = new CGUIFeatureList(this, m_gameClient);
     if (!m_featureList->Initialize())
     {
       delete m_featureList;
@@ -220,7 +234,7 @@ void CGUIControllerWindow::OnInitWindow(void)
 
   if (!m_controllerList && m_featureList)
   {
-    m_controllerList = new CGUIControllerList(this, m_featureList);
+    m_controllerList = new CGUIControllerList(this, m_featureList, m_gameClient);
     if (!m_controllerList->Initialize())
     {
       delete m_controllerList;
@@ -233,18 +247,19 @@ void CGUIControllerWindow::OnInitWindow(void)
   OnMessage(msgFocus);
 
   // Enable button mapping support
-  if (!g_peripherals.GetInstance().EnableButtonMapping())
-    CLog::Log(LOGDEBUG, "Joystick support not found");
-
-  // FIXME: not thread safe
-//  ADDON::CRepositoryUpdater::GetInstance().Events().Subscribe(this, &CGUIControllerWindow::OnEvent);
+  CServiceBroker::GetPeripherals().EnableButtonMapping();
 
   UpdateButtons();
+
+  // subscribe to events
+  CServiceBroker::GetRepositoryUpdater().Events().Subscribe(this, &CGUIControllerWindow::OnEvent);
+  CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CGUIControllerWindow::OnEvent);
 }
 
 void CGUIControllerWindow::OnDeinitWindow(int nextWindowID)
 {
-  ADDON::CRepositoryUpdater::GetInstance().Events().Unsubscribe(this);
+  CServiceBroker::GetRepositoryUpdater().Events().Unsubscribe(this);
+  CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
 
   if (m_controllerList)
   {
@@ -261,6 +276,8 @@ void CGUIControllerWindow::OnDeinitWindow(int nextWindowID)
   }
 
   CGUIDialog::OnDeinitWindow(nextWindowID);
+
+  m_gameClient.reset();
 }
 
 void CGUIControllerWindow::OnControllerFocused(unsigned int controllerIndex)
@@ -275,16 +292,16 @@ void CGUIControllerWindow::OnControllerSelected(unsigned int controllerIndex)
     m_controllerList->OnSelect(controllerIndex);
 }
 
-void CGUIControllerWindow::OnFeatureFocused(unsigned int featureIndex)
+void CGUIControllerWindow::OnFeatureFocused(unsigned int buttonIndex)
 {
   if (m_featureList)
-    m_featureList->OnFocus(featureIndex);
+    m_featureList->OnFocus(buttonIndex);
 }
 
-void CGUIControllerWindow::OnFeatureSelected(unsigned int featureIndex)
+void CGUIControllerWindow::OnFeatureSelected(unsigned int buttonIndex)
 {
   if (m_featureList)
-    m_featureList->OnSelect(featureIndex);
+    m_featureList->OnSelect(buttonIndex);
 }
 
 void CGUIControllerWindow::UpdateButtons(void)
@@ -292,7 +309,17 @@ void CGUIControllerWindow::UpdateButtons(void)
   using namespace ADDON;
 
   VECADDONS addons;
-  CONTROL_ENABLE_ON_CONDITION(CONTROL_GET_MORE, CAddonMgr::GetInstance().GetInstallableAddons(addons, ADDON::ADDON_GAME_CONTROLLER) && !addons.empty());
+  if (m_gameClient)
+  {
+    SET_CONTROL_HIDDEN(CONTROL_GET_MORE);
+    SET_CONTROL_HIDDEN(CONTROL_GET_ALL);
+  }
+  else
+  {
+    const bool bEnable = CServiceBroker::GetAddonMgr().GetInstallableAddons(addons, ADDON::ADDON_GAME_CONTROLLER) && !addons.empty();
+    CONTROL_ENABLE_ON_CONDITION(CONTROL_GET_MORE, bEnable);
+    CONTROL_ENABLE_ON_CONDITION(CONTROL_GET_ALL, bEnable);
+  }
 }
 
 void CGUIControllerWindow::GetMoreControllers(void)
@@ -302,9 +329,17 @@ void CGUIControllerWindow::GetMoreControllers(void)
   {
     // "Controller profiles"
     // "All available controller profiles are installed."
-    CGUIDialogOK::ShowAndGetInput(CVariant{ 35050 }, CVariant{ 35062 });
+    HELPERS::ShowOKDialogText(CVariant{ 35050 }, CVariant{ 35062 });
     return;
   }
+}
+
+void CGUIControllerWindow::GetAllControllers()
+{
+  if (m_installer->IsRunning())
+    return;
+
+  m_installer->Create(false);
 }
 
 void CGUIControllerWindow::ResetController(void)
@@ -317,11 +352,11 @@ void CGUIControllerWindow::ShowHelp(void)
 {
   // "Help"
   // <help text>
-  CGUIDialogOK::ShowAndGetInput(CVariant{10043}, CVariant{35055});
+  HELPERS::ShowOKDialogText(CVariant{10043}, CVariant{35055});
 }
 
 void CGUIControllerWindow::ShowButtonCaptureDialog(void)
 {
-  CGUIDialogButtonCapture dialog;
+  CGUIDialogIgnoreInput dialog;
   dialog.Show();
 }

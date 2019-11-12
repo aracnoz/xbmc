@@ -1,43 +1,32 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
+#pragma once
 
 #include "XBDateTime.h"
 #include "filesystem/File.h"
 #include "network/httprequesthandler/IHTTPRequestHandler.h"
 
+#include <string>
+
 class CHTTPFileHandler : public IHTTPRequestHandler
 {
 public:
-  virtual ~CHTTPFileHandler() { }
+  ~CHTTPFileHandler() override = default;
 
-  virtual int HandleRequest();
+  int HandleRequest() override;
 
-  virtual bool CanHandleRanges() const { return m_canHandleRanges; }
-  virtual bool CanBeCached() const { return m_canBeCached; }
-  virtual bool GetLastModifiedDate(CDateTime &lastModified) const;
+  bool CanHandleRanges() const override { return m_canHandleRanges; }
+  bool CanBeCached() const override { return m_canBeCached; }
+  bool GetLastModifiedDate(CDateTime &lastModified) const override;
 
-  virtual std::string GetRedirectUrl() const { return m_url; }
-  virtual std::string GetResponseFile() const { return m_url; }
+  std::string GetRedirectUrl() const override { return m_url; }
+  std::string GetResponseFile() const override { return m_url; }
 
 protected:
   CHTTPFileHandler();
@@ -52,8 +41,8 @@ protected:
 private:
   std::string m_url;
 
-  bool m_canHandleRanges;
-  bool m_canBeCached;
+  bool m_canHandleRanges = true;
+  bool m_canBeCached = true;
 
   CDateTime m_lastModified;
 

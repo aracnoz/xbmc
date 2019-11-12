@@ -1,34 +1,23 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "gtest/gtest.h"
-#include "music/tags/TagLoaderTagLib.h"
 #include "music/tags/MusicInfoTag.h"
-#include <taglib/tpropertymap.h>
+#include "music/tags/TagLoaderTagLib.h"
+
+#include <gtest/gtest.h>
+#include <taglib/apetag.h>
+#include <taglib/asftag.h>
+#include <taglib/id3v1genres.h>
 #include <taglib/id3v1tag.h>
 #include <taglib/id3v2tag.h>
-#include <taglib/apetag.h>
-#include <taglib/xiphcomment.h>
-#include <taglib/id3v1genres.h>
-#include <taglib/asftag.h>
 #include <taglib/mp4tag.h>
+#include <taglib/tpropertymap.h>
+#include <taglib/xiphcomment.h>
 
 using namespace TagLib;
 using namespace MUSIC_INFO;
@@ -61,11 +50,17 @@ TYPED_TEST(TestTagParser, ParsesBasicTag) {
   EXPECT_EQ(1985, tag.GetYear());
   EXPECT_EQ(2, tag.GetTrackNumber());
   EXPECT_EQ(1u, tag.GetArtist().size());
-  if (!tag.GetArtist().empty()) EXPECT_EQ("artist", tag.GetArtist().front());
+  if (!tag.GetArtist().empty())
+  {
+    EXPECT_EQ("artist", tag.GetArtist().front());
+  }
   EXPECT_EQ("album", tag.GetAlbum());
   EXPECT_EQ("comment", tag.GetComment());
   EXPECT_EQ(1u, tag.GetGenre().size());
-  if (!tag.GetGenre().empty()) EXPECT_EQ("Jazz", tag.GetGenre().front());
+  if (!tag.GetGenre().empty())
+  {
+    EXPECT_EQ("Jazz", tag.GetGenre().front());
+  }
   EXPECT_EQ("title", tag.GetTitle());
 }
 
@@ -142,15 +137,21 @@ TYPED_TEST(TestTagParser, FooProperties) {
   EXPECT_EQ(0, tag.GetYear());
   EXPECT_EQ(0, tag.GetTrackNumber());
   EXPECT_EQ(1u, tag.GetArtist().size());
-  if (!tag.GetArtist().empty()) EXPECT_EQ("foo", tag.GetArtist().front());
+  if (!tag.GetArtist().empty())
+  {
+    EXPECT_EQ("foo", tag.GetArtist().front());
+  }
   EXPECT_EQ("foo", tag.GetAlbum());
   EXPECT_EQ("foo", tag.GetComment());
-  if (!tag.GetGenre().empty()) EXPECT_EQ("foo", tag.GetGenre().front());
+  if (!tag.GetGenre().empty())
+  {
+    EXPECT_EQ("foo", tag.GetGenre().front());
+  }
   EXPECT_EQ("foo", tag.GetTitle());
 }
 
-class TestCTagLoaderTagLib : public ::testing::Test, public CTagLoaderTagLib {};
-TEST_F(TestCTagLoaderTagLib, SetGenre)
+class TestTagLoaderTagLib : public ::testing::Test, public CTagLoaderTagLib {};
+TEST_F(TestTagLoaderTagLib, SetGenre)
 {
   CMusicInfoTag tag, tag2;
   const char *genre_nr[] = {"0", "2", "4"};
@@ -171,7 +172,7 @@ TEST_F(TestCTagLoaderTagLib, SetGenre)
 
 }
 
-TEST(TestTagLoaderTagLib, SplitMBID)
+TEST_F(TestTagLoaderTagLib, SplitMBID)
 {
   CTagLoaderTagLib lib;
 
@@ -179,49 +180,49 @@ TEST(TestTagLoaderTagLib, SplitMBID)
   std::vector<std::string> values;
   EXPECT_TRUE(lib.SplitMBID(values).empty());
 
-  values.push_back("1");
-  values.push_back("2");
+  values.emplace_back("1");
+  values.emplace_back("2");
   EXPECT_EQ(values, lib.SplitMBID(values));
 
   // length 1 and invalid should return empty
   values.clear();
-  values.push_back("invalid");
+  values.emplace_back("invalid");
   EXPECT_TRUE(lib.SplitMBID(values).empty());
 
   // length 1 and valid should return the valid id
   values.clear();
-  values.push_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
+  values.emplace_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
   EXPECT_EQ(lib.SplitMBID(values), values);
 
   // case shouldn't matter
   values.clear();
-  values.push_back("0383DaDf-2A4e-4d10-a46a-e9e041da8eb3");
+  values.emplace_back("0383DaDf-2A4e-4d10-a46a-e9e041da8eb3");
   EXPECT_EQ(lib.SplitMBID(values).size(), 1u);
   EXPECT_STREQ(lib.SplitMBID(values)[0].c_str(), "0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
 
   // valid with some stuff off the end or start should return valid
   values.clear();
-  values.push_back("foo0383dadf-2a4e-4d10-a46a-e9e041da8eb3 blah");
+  values.emplace_back("foo0383dadf-2a4e-4d10-a46a-e9e041da8eb3 blah");
   EXPECT_EQ(lib.SplitMBID(values).size(), 1u);
   EXPECT_STREQ(lib.SplitMBID(values)[0].c_str(), "0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
 
   // two valid with various separators
   values.clear();
-  values.push_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3;53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
+  values.emplace_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3;53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
   std::vector<std::string> result = lib.SplitMBID(values);
   EXPECT_EQ(result.size(), 2u);
   EXPECT_STREQ(result[0].c_str(), "0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
   EXPECT_STREQ(result[1].c_str(), "53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
 
   values.clear();
-  values.push_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3/53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
+  values.emplace_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3/53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
   result = lib.SplitMBID(values);
   EXPECT_EQ(result.size(), 2u);
   EXPECT_STREQ(result[0].c_str(), "0383dadf-2a4e-4d10-a46a-e9e041da8eb3");
   EXPECT_STREQ(result[1].c_str(), "53b106e7-0cc6-42cc-ac95-ed8d30a3a98e");
 
   values.clear();
-  values.push_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3 / 53b106e7-0cc6-42cc-ac95-ed8d30a3a98e; ");
+  values.emplace_back("0383dadf-2a4e-4d10-a46a-e9e041da8eb3 / 53b106e7-0cc6-42cc-ac95-ed8d30a3a98e; ");
   result = lib.SplitMBID(values);
   EXPECT_EQ(result.size(), 2u);
   EXPECT_STREQ(result[0].c_str(), "0383dadf-2a4e-4d10-a46a-e9e041da8eb3");

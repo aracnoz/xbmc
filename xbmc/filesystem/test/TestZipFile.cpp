@@ -1,60 +1,34 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#include "FileItem.h"
+#include "ServiceBroker.h"
+#include "URL.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "test/TestUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
-#include "FileItem.h"
-#include "settings/Settings.h"
-#include "test/TestUtils.h"
-#include "URL.h"
 
 #include <errno.h>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 class TestZipFile : public testing::Test
 {
 protected:
-  TestZipFile()
-  {
-    /* Add default settings for locale.
-     * Settings here are taken from CGUISettings::Initialize()
-     */
-    //! @todo implement
-    /*
-    CSettingsCategory *loc = CSettings::GetInstance().AddCategory(7, "locale", 14090);
-    CSettings::GetInstance().AddString(loc, CSettings::SETTING_LOCALE_LANGUAGE,248,"english",
-                            SPIN_CONTROL_TEXT);
-    CSettings::GetInstance().AddString(loc, CSettings::SETTING_LOCALE_COUNTRY, 20026, "USA",
-                            SPIN_CONTROL_TEXT);
-    CSettings::GetInstance().AddString(loc, CSettings::SETTING_LOCALE_CHARSET, 14091, "DEFAULT",
-                            SPIN_CONTROL_TEXT); // charset is set by the
-                                                // language file
-    */
-  }
+  TestZipFile() = default;
 
-  ~TestZipFile()
+  ~TestZipFile() override
   {
-    CSettings::GetInstance().Unload();
+    CServiceBroker::GetSettingsComponent()->GetSettings()->Unload();
   }
 };
 
@@ -76,7 +50,7 @@ TEST_F(TestZipFile, Read)
   ASSERT_TRUE(file.Open(strpathinzip));
   EXPECT_EQ(0, file.GetPosition());
   EXPECT_EQ(1616, file.GetLength());
-  EXPECT_EQ(sizeof(buf), file.Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(buf), static_cast<size_t>(file.Read(buf, sizeof(buf))));
   file.Flush();
   EXPECT_EQ(20, file.GetPosition());
   EXPECT_TRUE(!memcmp("About\n-----\nXBMC is ", buf, sizeof(buf) - 1));
@@ -85,26 +59,26 @@ TEST_F(TestZipFile, Read)
   EXPECT_STREQ("an award-winning fr", buf);
   EXPECT_EQ(100, file.Seek(100));
   EXPECT_EQ(100, file.GetPosition());
-  EXPECT_EQ(sizeof(buf), file.Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(buf), static_cast<size_t>(file.Read(buf, sizeof(buf))));
   file.Flush();
   EXPECT_EQ(120, file.GetPosition());
   EXPECT_TRUE(!memcmp("ent hub for digital ", buf, sizeof(buf) - 1));
   EXPECT_EQ(220, file.Seek(100, SEEK_CUR));
   EXPECT_EQ(220, file.GetPosition());
-  EXPECT_EQ(sizeof(buf), file.Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(buf), static_cast<size_t>(file.Read(buf, sizeof(buf))));
   file.Flush();
   EXPECT_EQ(240, file.GetPosition());
   EXPECT_TRUE(!memcmp("rs, XBMC is a non-pr", buf, sizeof(buf) - 1));
   EXPECT_EQ(1596, file.Seek(-(int64_t)sizeof(buf), SEEK_END));
   EXPECT_EQ(1596, file.GetPosition());
-  EXPECT_EQ(sizeof(buf), file.Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(buf), static_cast<size_t>(file.Read(buf, sizeof(buf))));
   file.Flush();
   EXPECT_EQ(1616, file.GetPosition());
   EXPECT_TRUE(!memcmp("multimedia jukebox.\n", buf, sizeof(buf) - 1));
   EXPECT_EQ(-1, file.Seek(100, SEEK_CUR));
   EXPECT_EQ(1616, file.GetPosition());
   EXPECT_EQ(0, file.Seek(0, SEEK_SET));
-  EXPECT_EQ(sizeof(buf), file.Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(buf), static_cast<size_t>(file.Read(buf, sizeof(buf))));
   file.Flush();
   EXPECT_EQ(20, file.GetPosition());
   EXPECT_TRUE(!memcmp("About\n-----\nXBMC is ", buf, sizeof(buf) - 1));
@@ -154,7 +128,7 @@ TEST_F(TestZipFile, CorruptedFile)
   memset(&buf, 0, sizeof(buf));
   std::string reffilepath, strpathinzip, str;
   CFileItemList itemlist;
-  unsigned int size, i;
+  ssize_t size, i;
   int64_t count = 0;
 
   reffilepath = XBMC_REF_FILE_PATH("xbmc/filesystem/test/reffile.txt.zip");
@@ -202,7 +176,7 @@ TEST_F(TestZipFile, CorruptedFile)
       str = StringUtils::Format("%02X ", buf[i]);
       std::cout << str;
     }
-    while (i++ < sizeof(buf))
+    while (i++ < static_cast<ssize_t> (sizeof(buf)))
       std::cout << "   ";
     std::cout << " [";
     for (i = 0; i < size; i++)

@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "Addon.h"
@@ -24,19 +13,18 @@
 namespace ADDON
 {
 
+typedef std::map<std::string, std::vector<std::string>> ContentPathMap;
+
 class CPluginSource : public CAddon
 {
 public:
 
-  enum Content { UNKNOWN, AUDIO, IMAGE, EXECUTABLE, VIDEO };
+  enum Content { UNKNOWN, AUDIO, IMAGE, EXECUTABLE, VIDEO, GAME };
 
-  static std::unique_ptr<CPluginSource> FromExtension(AddonProps props, const cp_extension_t* ext);
+  explicit CPluginSource(const AddonInfoPtr& addonInfo, TYPE addonType);
 
-  explicit CPluginSource(AddonProps props);
-  CPluginSource(AddonProps props, const std::string& provides);
-
-  virtual TYPE FullType() const;
-  virtual bool IsType(TYPE type) const;
+  TYPE FullType() const override;
+  bool IsType(TYPE type) const override;
   bool Provides(const Content& content) const
   {
     return content == UNKNOWN ? false : m_providedContent.count(content) > 0;
@@ -47,6 +35,11 @@ public:
     return m_providedContent.size() > 1;
   }
 
+  const ContentPathMap& MediaLibraryScanPaths() const
+  {
+    return m_mediaLibraryScanPaths;
+  }
+
   static Content Translate(const std::string &content);
 private:
   /*! \brief Set the provided content for this plugin
@@ -55,6 +48,7 @@ private:
    */
   void SetProvides(const std::string &content);
   std::set<Content> m_providedContent;
+  ContentPathMap m_mediaLibraryScanPaths;
 };
 
 } /*namespace ADDON*/

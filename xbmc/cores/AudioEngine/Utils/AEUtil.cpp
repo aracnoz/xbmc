@@ -1,28 +1,12 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 #ifndef __STDC_LIMIT_MACROS
   #define __STDC_LIMIT_MACROS
-#endif
-
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-#include "config.h"
 #endif
 
 #include "AEUtil.h"
@@ -32,7 +16,7 @@
 #include <cassert>
 
 extern "C" {
-#include "libavutil/channel_layout.h"
+#include <libavutil/channel_layout.h>
 }
 
 /* declare the rng seed and initialize it */
@@ -49,7 +33,7 @@ void AEDelayStatus::SetDelay(double d)
   tick = CurrentHostCounter();
 }
 
-double AEDelayStatus::GetDelay()
+double AEDelayStatus::GetDelay() const
 {
   double d = 0;
   if (tick)
@@ -99,7 +83,7 @@ const char* CAEUtil::GetStdChLayoutName(const enum AEStdChLayout layout)
   return layouts[layout];
 }
 
-const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
+unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
 {
   if (dataFormat < 0 || dataFormat >= AE_FMT_MAX)
     return 0;
@@ -111,20 +95,20 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
     16,                  /* S16BE  */
     16,                  /* S16LE  */
     16,                  /* S16NE  */
-    
+
     32,                  /* S32BE  */
     32,                  /* S32LE  */
     32,                  /* S32NE  */
-    
+
     32,                  /* S24BE  */
     32,                  /* S24LE  */
     32,                  /* S24NE  */
     32,                  /* S24NER */
-    
+
     24,                  /* S24BE3 */
     24,                  /* S24LE3 */
     24,                  /* S24NE3 */
-    
+
     sizeof(double) << 3, /* DOUBLE */
     sizeof(float ) << 3, /* FLOAT  */
 
@@ -143,7 +127,7 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
   return formats[dataFormat];
 }
 
-const unsigned int CAEUtil::DataFormatToUsedBits(const enum AEDataFormat dataFormat)
+unsigned int CAEUtil::DataFormatToUsedBits(const enum AEDataFormat dataFormat)
 {
   if (dataFormat == AE_FMT_S24BE4 || dataFormat == AE_FMT_S24LE4 ||
       dataFormat == AE_FMT_S24NE4 || dataFormat == AE_FMT_S24NE4MSB)
@@ -152,7 +136,7 @@ const unsigned int CAEUtil::DataFormatToUsedBits(const enum AEDataFormat dataFor
     return DataFormatToBits(dataFormat);
 }
 
-const unsigned int CAEUtil::DataFormatToDitherBits(const enum AEDataFormat dataFormat)
+unsigned int CAEUtil::DataFormatToDitherBits(const enum AEDataFormat dataFormat)
 {
   if (dataFormat == AE_FMT_S24NE4MSB)
     return 8;
@@ -170,6 +154,8 @@ const char* CAEUtil::StreamTypeToStr(const enum CAEStreamInfo::DataType dataType
       return "STREAM_TYPE_AC3";
     case CAEStreamInfo::STREAM_TYPE_DTSHD:
       return "STREAM_TYPE_DTSHD";
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
+      return "STREAM_TYPE_DTSHD_MA";
     case CAEStreamInfo::STREAM_TYPE_DTSHD_CORE:
       return "STREAM_TYPE_DTSHD_CORE";
     case CAEStreamInfo::STREAM_TYPE_DTS_1024:
@@ -202,23 +188,23 @@ const char* CAEUtil::DataFormatToStr(const enum AEDataFormat dataFormat)
     "AE_FMT_S16BE",
     "AE_FMT_S16LE",
     "AE_FMT_S16NE",
-    
+
     "AE_FMT_S32BE",
     "AE_FMT_S32LE",
     "AE_FMT_S32NE",
-    
+
     "AE_FMT_S24BE4",
     "AE_FMT_S24LE4",
     "AE_FMT_S24NE4",  /* S24 in 4 bytes */
     "AE_FMT_S24NE4MSB",
-    
+
     "AE_FMT_S24BE3",
     "AE_FMT_S24LE3",
     "AE_FMT_S24NE3", /* S24 in 3 bytes */
-    
+
     "AE_FMT_DOUBLE",
     "AE_FMT_FLOAT",
-    
+
     "AE_FMT_RAW",
 
     /* planar formats */
@@ -448,90 +434,6 @@ void CAEUtil::ClampArray(float *data, uint32_t count)
     }
   }
 #endif
-}
-
-/*
-  Rand implementations based on:
-  http://software.intel.com/en-us/articles/fast-random-number-generator-on-the-intel-pentiumr-4-processor/
-  This is NOT safe for crypto work, but perfectly fine for audio usage (dithering)
-*/
-float CAEUtil::FloatRand1(const float min, const float max)
-{
-  const float delta  = (max - min) / 2;
-  const float factor = delta / (float)INT32_MAX;
-  return ((float)(m_seed = (214013 * m_seed + 2531011)) * factor) - delta;
-}
-
-void CAEUtil::FloatRand4(const float min, const float max, float result[4], __m128 *sseresult/* = NULL */)
-{
-  #if defined(HAVE_SSE2) && defined(__SSE2__)
-    /*
-      this method may be called from other SSE code, we need
-      to calculate the delta & factor using SSE as the FPU
-      state is unknown and _mm_clear() is expensive.
-    */
-    MEMALIGN(16, static const __m128 point5  ) = _mm_set_ps1(0.5f);
-    MEMALIGN(16, static const __m128 int32max) = _mm_set_ps1((const float)INT32_MAX);
-    MEMALIGN(16, __m128 f) = _mm_div_ps(
-      _mm_mul_ps(
-        _mm_sub_ps(
-          _mm_set_ps1(max),
-          _mm_set_ps1(min)
-        ),
-        point5
-      ),
-      int32max
-    );
-
-    MEMALIGN(16, __m128i cur_seed_split);
-    MEMALIGN(16, __m128i multiplier);
-    MEMALIGN(16, __m128i adder);
-    MEMALIGN(16, __m128i mod_mask);
-    MEMALIGN(16, __m128 res);
-    MEMALIGN(16, static const unsigned int mult  [4]) = {214013, 17405, 214013, 69069};
-    MEMALIGN(16, static const unsigned int gadd  [4]) = {2531011, 10395331, 13737667, 1};
-    MEMALIGN(16, static const unsigned int mask  [4]) = {0xFFFFFFFF, 0, 0xFFFFFFFF, 0};
-
-    adder          = _mm_load_si128((__m128i*)gadd);
-    multiplier     = _mm_load_si128((__m128i*)mult);
-    mod_mask       = _mm_load_si128((__m128i*)mask);
-    cur_seed_split = _mm_shuffle_epi32(m_sseSeed, _MM_SHUFFLE(2, 3, 0, 1));
-
-    m_sseSeed      = _mm_mul_epu32(m_sseSeed, multiplier);
-    multiplier     = _mm_shuffle_epi32(multiplier, _MM_SHUFFLE(2, 3, 0, 1));
-    cur_seed_split = _mm_mul_epu32(cur_seed_split, multiplier);
-
-    m_sseSeed      = _mm_and_si128(m_sseSeed, mod_mask);
-    cur_seed_split = _mm_and_si128(cur_seed_split, mod_mask);
-    cur_seed_split = _mm_shuffle_epi32(cur_seed_split, _MM_SHUFFLE(2, 3, 0, 1));
-    m_sseSeed      = _mm_or_si128(m_sseSeed, cur_seed_split);
-    m_sseSeed      = _mm_add_epi32(m_sseSeed, adder);
-
-    /* adjust the value to the range requested */
-    res = _mm_cvtepi32_ps(m_sseSeed);
-    if (sseresult)
-      *sseresult = _mm_mul_ps(res, f);
-    else
-    {
-      res = _mm_mul_ps(res, f);
-      _mm_storeu_ps(result, res);
-
-      /* returning a float array, so cleanup */
-      _mm_empty();
-    }
-
-  #else
-    const float delta  = (max - min) / 2.0f;
-    const float factor = delta / (float)INT32_MAX;
-
-    /* cant return sseresult if we are not using SSE intrinsics */
-    assert(result && !sseresult);
-
-    result[0] = ((float)(m_seed = (214013 * m_seed + 2531011)) * factor) - delta;
-    result[1] = ((float)(m_seed = (214013 * m_seed + 2531011)) * factor) - delta;
-    result[2] = ((float)(m_seed = (214013 * m_seed + 2531011)) * factor) - delta;
-    result[3] = ((float)(m_seed = (214013 * m_seed + 2531011)) * factor) - delta;
-  #endif
 }
 
 bool CAEUtil::S16NeedsByteSwap(AEDataFormat in, AEDataFormat out)

@@ -1,32 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-
-#include "system.h"
-
-#ifdef HAS_GL
-
 #include "RenderSystemGL.h"
-#include "guilib/GraphicContext.h"
+#include "filesystem/File.h"
+#include "rendering/MatrixGL.h"
+#include "windowing/GraphicContext.h"
 #include "settings/AdvancedSettings.h"
-#include "guilib/MatrixGLES.h"
 #include "settings/DisplaySettings.h"
 #include "utils/log.h"
 #include "utils/GLUtils.h"
@@ -35,90 +19,24 @@
 #include "utils/MathUtils.h"
 #include "utils/StringUtils.h"
 #ifdef TARGET_POSIX
-#include "linux/XTimeUtils.h"
+#include "platform/posix/XTimeUtils.h"
 #endif
 
 CRenderSystemGL::CRenderSystemGL() : CRenderSystemBase()
 {
-  m_enumRenderingSystem = RENDERING_SYSTEM_OPENGL;
 }
 
-CRenderSystemGL::~CRenderSystemGL()
-{
-}
-
-void CRenderSystemGL::CheckOpenGLQuirks()
-
-{
-#ifdef TARGET_DARWIN_OSX
-  if (m_RenderVendor.find("NVIDIA") != std::string::npos)
-  {             
-    // Nvidia 7300 (AppleTV) and 7600 cannot do DXT with NPOT under OSX
-    // Nvidia 9400M is slow as a dog
-    if (m_renderCaps & RENDER_CAPS_DXT_NPOT)
-    {
-      const char *arr[3]= { "7300","7600","9400M" };
-      for(int j = 0; j < 3; j++)
-      {
-        if((int(m_RenderRenderer.find(arr[j])) > -1))
-        {
-          m_renderCaps &= ~ RENDER_CAPS_DXT_NPOT;
-          break;
-        }
-      }
-    }
-  }
-#ifdef __ppc__
-  // ATI Radeon 9600 on osx PPC cannot do NPOT
-  if (m_RenderRenderer.find("ATI Radeon 9600") != std::string::npos)
-  {
-    m_renderCaps &= ~ RENDER_CAPS_NPOT;
-    m_renderCaps &= ~ RENDER_CAPS_DXT_NPOT;
-  }
-#endif
-#endif
-  if (StringUtils::EqualsNoCase(m_RenderVendor, "nouveau"))
-    m_renderQuirks |= RENDER_QUIRKS_YV12_PREFERED;
-
-  if (StringUtils::EqualsNoCase(m_RenderVendor, "Tungsten Graphics, Inc.")
-  ||  StringUtils::EqualsNoCase(m_RenderVendor, "Tungsten Graphics, Inc"))
-  {
-    unsigned major, minor, micro;
-    if (sscanf(m_RenderVersion.c_str(), "%*s Mesa %u.%u.%u", &major, &minor, &micro) == 3)
-    {
-
-      if((major  < 7)
-      || (major == 7 && minor  < 7)
-      || (major == 7 && minor == 7 && micro < 1))
-        m_renderQuirks |= RENDER_QUIRKS_MAJORMEMLEAK_OVERLAYRENDERER;
-    }
-    else
-      CLog::Log(LOGNOTICE, "CRenderSystemGL::CheckOpenGLQuirks - unable to parse mesa version string");
-
-    if(m_RenderRenderer.find("Poulsbo") != std::string::npos)
-      m_renderCaps &= ~RENDER_CAPS_DXT_NPOT;
-
-    m_renderQuirks |= RENDER_QUIRKS_BROKEN_OCCLUSION_QUERY;
-  }
-}	
+CRenderSystemGL::~CRenderSystemGL() = default;
 
 bool CRenderSystemGL::InitRenderSystem()
 {
   m_bVSync = false;
   m_bVsyncInit = false;
   m_maxTextureSize = 2048;
-  m_renderCaps = 0;
-
-  m_RenderExtensions  = " ";
-  m_RenderExtensions += (const char*) glGetString(GL_EXTENSIONS);
-  m_RenderExtensions += " ";
-
-  LogGraphicsInfo();
 
   // Get the GL version number
   m_RenderVersionMajor = 0;
   m_RenderVersionMinor = 0;
-
   const char* ver = (const char*)glGetString(GL_VERSION);
   if (ver != 0)
   {
@@ -126,19 +44,46 @@ bool CRenderSystemGL::InitRenderSystem()
     m_RenderVersion = ver;
   }
 
-  if (IsExtSupported("GL_ARB_shading_language_100"))
+  CLog::Log(LOGNOTICE, "CRenderSystemGL::%s - Version: %s, Major: %d, Minor: %d", __FUNCTION__, ver, m_RenderVersionMajor, m_RenderVersionMinor);
+
+  m_RenderExtensions  = " ";
+  if (m_RenderVersionMajor > 3 ||
+      (m_RenderVersionMajor == 3 && m_RenderVersionMinor >= 2))
   {
-    ver = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-    if (ver)
+    GLint n = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+    if (n > 0)
     {
-      sscanf(ver, "%d.%d", &m_glslMajor, &m_glslMinor);
-    }
-    else
-    {
-      m_glslMajor = 1;
-      m_glslMinor = 0;
+      GLint i;
+      for (i = 0; i < n; i++)
+      {
+        m_RenderExtensions += (const char*) glGetStringi(GL_EXTENSIONS, i);
+        m_RenderExtensions += " ";
+      }
     }
   }
+  else
+  {
+    auto extensions = (const char*) glGetString(GL_EXTENSIONS);
+    if (extensions)
+    {
+      m_RenderExtensions += extensions;
+    }
+  }
+  m_RenderExtensions += " ";
+
+  ver = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+  if (ver)
+  {
+    sscanf(ver, "%d.%d", &m_glslMajor, &m_glslMinor);
+  }
+  else
+  {
+    m_glslMajor = 1;
+    m_glslMinor = 0;
+  }
+
+  LogGraphicsInfo();
 
   // Get our driver vendor and renderer
   const char* tmpVendor = (const char*) glGetString(GL_VENDOR);
@@ -151,28 +96,39 @@ bool CRenderSystemGL::InitRenderSystem()
   if (tmpRenderer != NULL)
     m_RenderRenderer = tmpRenderer;
 
-  // grab our capabilities
-  if (IsExtSupported("GL_EXT_texture_compression_s3tc"))
-    m_renderCaps |= RENDER_CAPS_DXT;
-
-  if (IsExtSupported("GL_ARB_texture_non_power_of_two"))
-  {
-    m_renderCaps |= RENDER_CAPS_NPOT;
-    if (m_renderCaps & RENDER_CAPS_DXT) 
-      m_renderCaps |= RENDER_CAPS_DXT_NPOT;
-  }
-  //Check OpenGL quirks and revert m_renderCaps as needed
-  CheckOpenGLQuirks();
-	
   m_bRenderCreated = true;
+
+  if (m_RenderVersionMajor > 3 ||
+      (m_RenderVersionMajor == 3 && m_RenderVersionMinor >= 2))
+  {
+    glGenVertexArrays(1, &m_vertexArray);
+    glBindVertexArray(m_vertexArray);
+  }
+
+  InitialiseShaders();
 
   return true;
 }
 
-bool CRenderSystemGL::ResetRenderSystem(int width, int height, bool fullScreen, float refreshRate)
+bool CRenderSystemGL::ResetRenderSystem(int width, int height)
 {
+  if (!m_bRenderCreated)
+    return false;
+
   m_width = width;
   m_height = height;
+
+  if (m_RenderVersionMajor > 3 ||
+      (m_RenderVersionMajor == 3 && m_RenderVersionMinor >= 2))
+  {
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &m_vertexArray);
+    glGenVertexArrays(1, &m_vertexArray);
+    glBindVertexArray(m_vertexArray);
+  }
+
+  ReleaseShaders();
+  InitialiseShaders();
 
   glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 
@@ -181,7 +137,6 @@ bool CRenderSystemGL::ResetRenderSystem(int width, int height, bool fullScreen, 
   CRect rect( 0, 0, width, height );
   SetViewPort( rect );
 
-  glEnable(GL_TEXTURE_2D);
   glEnable(GL_SCISSOR_TEST);
 
   glMatrixProject.Clear();
@@ -203,28 +158,28 @@ bool CRenderSystemGL::ResetRenderSystem(int width, int height, bool fullScreen, 
     ResetGLErrors();
 
     GLint maxtex;
-    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &maxtex);
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxtex);
 
     //some sanity checks
     GLenum error = glGetError();
     if (error != GL_NO_ERROR)
     {
-      CLog::Log(LOGERROR, "ResetRenderSystem() GL_MAX_TEXTURE_IMAGE_UNITS_ARB returned error %i", (int)error);
+      CLog::Log(LOGERROR, "ResetRenderSystem() GL_MAX_TEXTURE_IMAGE_UNITS returned error %i", (int)error);
       maxtex = 3;
     }
     else if (maxtex < 1 || maxtex > 32)
     {
-      CLog::Log(LOGERROR, "ResetRenderSystem() GL_MAX_TEXTURE_IMAGE_UNITS_ARB returned invalid value %i", (int)maxtex);
+      CLog::Log(LOGERROR, "ResetRenderSystem() GL_MAX_TEXTURE_IMAGE_UNITS returned invalid value %i", (int)maxtex);
       maxtex = 3;
     }
 
     //reset texture matrix for all textures
     for (GLint i = 0; i < maxtex; i++)
     {
-      glActiveTextureARB(GL_TEXTURE0 + i);
+      glActiveTexture(GL_TEXTURE0 + i);
       glMatrixTexture.Load();
     }
-    glActiveTextureARB(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0);
   }
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -236,6 +191,12 @@ bool CRenderSystemGL::ResetRenderSystem(int width, int height, bool fullScreen, 
 
 bool CRenderSystemGL::DestroyRenderSystem()
 {
+  if (m_vertexArray != GL_NONE)
+  {
+    glDeleteVertexArrays(1, &m_vertexArray);
+  }
+
+  ReleaseShaders();
   m_bRenderCreated = false;
 
   return true;
@@ -246,6 +207,15 @@ bool CRenderSystemGL::BeginRender()
   if (!m_bRenderCreated)
     return false;
 
+  bool useLimited = CServiceBroker::GetWinSystem()->UseLimitedColor();
+
+  if (m_limitedColorRange != useLimited)
+  {
+    ReleaseShaders();
+    InitialiseShaders();
+  }
+
+  m_limitedColorRange = useLimited;
   return true;
 }
 
@@ -257,7 +227,7 @@ bool CRenderSystemGL::EndRender()
   return true;
 }
 
-bool CRenderSystemGL::ClearBuffers(color_t color)
+bool CRenderSystemGL::ClearBuffers(UTILS::Color color)
 {
   if (!m_bRenderCreated)
     return false;
@@ -279,14 +249,32 @@ bool CRenderSystemGL::ClearBuffers(color_t color)
   return true;
 }
 
-bool CRenderSystemGL::IsExtSupported(const char* extension)
+bool CRenderSystemGL::IsExtSupported(const char* extension) const
 {
+  if (m_RenderVersionMajor > 3 ||
+      (m_RenderVersionMajor == 3 && m_RenderVersionMinor >= 2))
+  {
+    if (strcmp( extension, "GL_EXT_framebuffer_object") == 0)
+    {
+      return true;
+    }
+    if (strcmp( extension, "GL_ARB_texture_non_power_of_two") == 0)
+    {
+      return true;
+    }
+  }
+
   std::string name;
   name  = " ";
   name += extension;
   name += " ";
 
   return m_RenderExtensions.find(name) != std::string::npos;
+}
+
+bool CRenderSystemGL::SupportsNPOT(bool dxt) const
+{
+  return true;
 }
 
 void CRenderSystemGL::PresentRender(bool rendered, bool videoLayer)
@@ -331,10 +319,7 @@ void CRenderSystemGL::CaptureStateBlock()
   glMatrixTexture.Push();
 
   glDisable(GL_SCISSOR_TEST); // fixes FBO corruption on Macs
-  glActiveTextureARB(GL_TEXTURE0_ARB);
-  glDisable(GL_TEXTURE_2D);
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-  glColor3f(1.0, 1.0, 1.0);
+  glActiveTexture(GL_TEXTURE0);
 }
 
 void CRenderSystemGL::ApplyStateBlock()
@@ -342,15 +327,15 @@ void CRenderSystemGL::ApplyStateBlock()
   if (!m_bRenderCreated)
     return;
 
+  glBindVertexArray(m_vertexArray);
+
   glViewport(m_viewPort[0], m_viewPort[1], m_viewPort[2], m_viewPort[3]);
 
   glMatrixProject.PopLoad();
   glMatrixModview.PopLoad();
   glMatrixTexture.PopLoad();
 
-  glActiveTextureARB(GL_TEXTURE0_ARB);
-  glEnable(GL_TEXTURE_2D);
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+  glActiveTexture(GL_TEXTURE0);
   glEnable(GL_BLEND);
   glEnable(GL_SCISSOR_TEST);
 }
@@ -387,53 +372,6 @@ void CRenderSystemGL::Project(float &x, float &y, float &z)
   }
 }
 
-bool CRenderSystemGL::TestRender()
-{
-  static float theta = 0.0;
-
-  glPushMatrix();
-  glRotatef( theta, 0.0f, 0.0f, 1.0f );
-  glBegin( GL_TRIANGLES );
-  glColor3f( 1.0f, 0.0f, 0.0f ); glVertex2f( 0.0f, 1.0f );
-  glColor3f( 0.0f, 1.0f, 0.0f ); glVertex2f( 0.87f, -0.5f );
-  glColor3f( 0.0f, 0.0f, 1.0f ); glVertex2f( -0.87f, -0.5f );
-  glEnd();
-  glPopMatrix();
-
-  theta += 1.0f;
-
-  return true;
-}
-
-void CRenderSystemGL::ApplyHardwareTransform(const TransformMatrix &finalMatrix)
-{
-  if (!m_bRenderCreated)
-    return;
-
-  glMatrixModview.Push();
-  GLfloat matrix[4][4];
-
-  for(int i = 0; i < 3; i++)
-    for(int j = 0; j < 4; j++)
-      matrix[j][i] = finalMatrix.m[i][j];
-
-  matrix[0][3] = 0.0f;
-  matrix[1][3] = 0.0f;
-  matrix[2][3] = 0.0f;
-  matrix[3][3] = 1.0f;
-
-  glMatrixModview->MultMatrixf(&matrix[0][0]);
-  glMatrixModview.Load();
-}
-
-void CRenderSystemGL::RestoreHardwareTransform()
-{
-  if (!m_bRenderCreated)
-    return;
-
-  glMatrixModview.PopLoad();
-}
-
 void CRenderSystemGL::CalculateMaxTexturesize()
 {
   GLint width = 256;
@@ -444,7 +382,7 @@ void CRenderSystemGL::CalculateMaxTexturesize()
   // max out at 2^(8+8)
   for (int i = 0 ; i<8 ; i++)
   {
-    glTexImage2D(GL_PROXY_TEXTURE_2D, 0, 4, width, width, 0, GL_BGRA,
+    glTexImage2D(GL_PROXY_TEXTURE_2D, 0, GL_RGBA, width, width, 0, GL_BGRA,
                  GL_UNSIGNED_BYTE, NULL);
     glGetTexLevelParameteriv(GL_PROXY_TEXTURE_2D, 0, GL_TEXTURE_WIDTH,
                              &width);
@@ -491,7 +429,7 @@ void CRenderSystemGL::GetViewPort(CRect& viewPort)
   viewPort.y2 = viewPort.y1 + m_viewPort[3];
 }
 
-void CRenderSystemGL::SetViewPort(CRect& viewPort)
+void CRenderSystemGL::SetViewPort(const CRect& viewPort)
 {
   if (!m_bRenderCreated)
     return;
@@ -502,6 +440,28 @@ void CRenderSystemGL::SetViewPort(CRect& viewPort)
   m_viewPort[1] = m_height - viewPort.y1 - viewPort.Height();
   m_viewPort[2] = viewPort.Width();
   m_viewPort[3] = viewPort.Height();
+}
+
+bool CRenderSystemGL::ScissorsCanEffectClipping()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->HardwareClipIsPossible();
+
+  return false;
+}
+
+CRect CRenderSystemGL::ClipRectToScissorRect(const CRect &rect)
+{
+  if (!m_pShader[m_method])
+    return CRect();
+  float xFactor = m_pShader[m_method]->GetClipXFactor();
+  float xOffset = m_pShader[m_method]->GetClipXOffset();
+  float yFactor = m_pShader[m_method]->GetClipYFactor();
+  float yOffset = m_pShader[m_method]->GetClipYOffset();
+  return CRect(rect.x1 * xFactor + xOffset,
+               rect.y1 * yFactor + yOffset,
+               rect.x2 * xFactor + xOffset,
+               rect.y2 * yFactor + yOffset);
 }
 
 void CRenderSystemGL::SetScissors(const CRect &rect)
@@ -580,7 +540,6 @@ void CRenderSystemGL::SetStereoMode(RENDER_STEREO_MODE mode, RENDER_STEREO_VIEW 
   CRenderSystemBase::SetStereoMode(mode, view);
 
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDisable(GL_POLYGON_STIPPLE);
   glDrawBuffer(GL_BACK);
 
   if(m_stereoMode == RENDER_STEREO_MODE_ANAGLYPH_RED_CYAN)
@@ -647,5 +606,189 @@ bool CRenderSystemGL::SupportsStereo(RENDER_STEREO_MODE mode) const
   }
 }
 
+// -----------------------------------------------------------------------------
+// shaders
+// -----------------------------------------------------------------------------
+void CRenderSystemGL::InitialiseShaders()
+{
+  std::string defines;
+  m_limitedColorRange = CServiceBroker::GetWinSystem()->UseLimitedColor();
+  if (m_limitedColorRange)
+  {
+    defines += "#define KODI_LIMITED_RANGE 1\n";
+  }
 
-#endif
+  m_pShader[SM_DEFAULT].reset(new CGLShader("gl_shader_vert_default.glsl", "gl_shader_frag_default.glsl", defines));
+  if (!m_pShader[SM_DEFAULT]->CompileAndLink())
+  {
+    m_pShader[SM_DEFAULT]->Free();
+    m_pShader[SM_DEFAULT].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_default.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE].reset(new CGLShader("gl_shader_frag_texture.glsl", defines));
+  if (!m_pShader[SM_TEXTURE]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE]->Free();
+    m_pShader[SM_TEXTURE].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_texture.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_LIM].reset(new CGLShader("gl_shader_frag_texture_lim.glsl", defines));
+  if (!m_pShader[SM_TEXTURE_LIM]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_LIM]->Free();
+    m_pShader[SM_TEXTURE_LIM].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_texture_lim.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_MULTI].reset(new CGLShader("gl_shader_frag_multi.glsl", defines));
+  if (!m_pShader[SM_MULTI]->CompileAndLink())
+  {
+    m_pShader[SM_MULTI]->Free();
+    m_pShader[SM_MULTI].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_multi.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_FONTS].reset(new CGLShader("gl_shader_frag_fonts.glsl", defines));
+  if (!m_pShader[SM_FONTS]->CompileAndLink())
+  {
+    m_pShader[SM_FONTS]->Free();
+    m_pShader[SM_FONTS].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_fonts.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_NOBLEND].reset(new CGLShader("gl_shader_frag_texture_noblend.glsl", defines));
+  if (!m_pShader[SM_TEXTURE_NOBLEND]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_NOBLEND]->Free();
+    m_pShader[SM_TEXTURE_NOBLEND].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_texture_noblend.glsl - compile and link failed");
+  }
+
+  m_pShader[SM_MULTI_BLENDCOLOR].reset(new CGLShader("gl_shader_frag_multi_blendcolor.glsl", defines));
+  if (!m_pShader[SM_MULTI_BLENDCOLOR]->CompileAndLink())
+  {
+    m_pShader[SM_MULTI_BLENDCOLOR]->Free();
+    m_pShader[SM_MULTI_BLENDCOLOR].reset();
+    CLog::Log(LOGERROR, "GUI Shader gl_shader_frag_multi_blendcolor.glsl - compile and link failed");
+  }
+}
+
+void CRenderSystemGL::ReleaseShaders()
+{
+  if (m_pShader[SM_DEFAULT])
+    m_pShader[SM_DEFAULT]->Free();
+  m_pShader[SM_DEFAULT].reset();
+
+  if (m_pShader[SM_TEXTURE])
+    m_pShader[SM_TEXTURE]->Free();
+  m_pShader[SM_TEXTURE].reset();
+
+  if (m_pShader[SM_TEXTURE_LIM])
+    m_pShader[SM_TEXTURE_LIM]->Free();
+  m_pShader[SM_TEXTURE_LIM].reset();
+
+  if (m_pShader[SM_MULTI])
+    m_pShader[SM_MULTI]->Free();
+  m_pShader[SM_MULTI].reset();
+
+  if (m_pShader[SM_FONTS])
+    m_pShader[SM_FONTS]->Free();
+  m_pShader[SM_FONTS].reset();
+
+  if (m_pShader[SM_TEXTURE_NOBLEND])
+    m_pShader[SM_TEXTURE_NOBLEND]->Free();
+  m_pShader[SM_TEXTURE_NOBLEND].reset();
+
+  if (m_pShader[SM_MULTI_BLENDCOLOR])
+    m_pShader[SM_MULTI_BLENDCOLOR]->Free();
+  m_pShader[SM_MULTI_BLENDCOLOR].reset();
+}
+
+void CRenderSystemGL::EnableShader(ESHADERMETHOD method)
+{
+  m_method = method;
+  if (m_pShader[m_method])
+  {
+    m_pShader[m_method]->Enable();
+  }
+  else
+  {
+    CLog::Log(LOGERROR, "Invalid GUI Shader selected %d", method);
+  }
+}
+
+void CRenderSystemGL::DisableShader()
+{
+  if (m_pShader[m_method])
+  {
+    m_pShader[m_method]->Disable();
+  }
+  m_method = SM_DEFAULT;
+}
+
+GLint CRenderSystemGL::ShaderGetPos()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetPosLoc();
+
+  return -1;
+}
+
+GLint CRenderSystemGL::ShaderGetCol()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetColLoc();
+
+  return -1;
+}
+
+GLint CRenderSystemGL::ShaderGetCoord0()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetCord0Loc();
+
+  return -1;
+}
+
+GLint CRenderSystemGL::ShaderGetCoord1()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetCord1Loc();
+
+  return -1;
+}
+
+GLint CRenderSystemGL::ShaderGetUniCol()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetUniColLoc();
+
+  return -1;
+}
+
+GLint CRenderSystemGL::ShaderGetModel()
+{
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetModelLoc();
+
+  return -1;
+}
+
+std::string CRenderSystemGL::GetShaderPath(const std::string &filename)
+{
+  std::string path = "GL/1.2/";
+
+  if (m_glslMajor >= 4)
+  {
+    std::string file = "special://xbmc/system/shaders/GL/4.0/" + filename;
+    const CURL pathToUrl(file);
+    if (XFILE::CFile::Exists(pathToUrl))
+      return "GL/4.0/";
+  }
+  if (m_glslMajor >= 2 || (m_glslMajor == 1 && m_glslMinor >= 50))
+    path = "GL/1.5/";
+
+  return path;
+}

@@ -43,7 +43,7 @@
 					<ondown>5199</ondown>
 					<onright>51</onright>
 					<hitrect x="100" y="0" w="800" h="400" />
-					<visible>Container.Content(movies) | Container.Content(seasons) | Container.Content(sets) | Container.Content(tvshows)</visible>
+					<visible>Container.Content(movies) | Container.Content(seasons) | Container.Content(sets) | Container.Content(tvshows) | Container.Content(games)</visible>
 					<preloaditems>1</preloaditems>
 					<viewtype label="20021">icon</viewtype>
 					<itemlayout width="317">
@@ -80,11 +80,11 @@
 						<left>635</left>
 						<top>480</top>
 						<height>245</height>
-						<visible>ListItem.IsCollection</visible>
+						<visible>ListItem.IsCollection + String.IsEmpty(ListItem.Plot)</visible>
 						<include content="InfoList">
 							<param name="bottom" value="0" />
 							<param name="sortby" value="year" />
-							<param name="sortorder" value="descending" />
+							<param name="sortorder" value="ascending" />
 							<param name="font" value="font13" />
 						</include>
 					</control>
@@ -109,10 +109,10 @@
 						<top>480</top>
 						<height>250</height>
 						<right>115</right>
-						<autoscroll time="3000" delay="7000" repeat="5000">!System.HasModalDialog + Skin.HasSetting(AutoScroll)</autoscroll>
+						<autoscroll time="3000" delay="7000" repeat="5000">!System.HasActiveModalDialog + Skin.HasSetting(AutoScroll)</autoscroll>
 						<label>$INFO[ListItem.Plot]</label>
 						<shadowcolor>text_shadow</shadowcolor>
-						<visible>!ListItem.IsCollection</visible>
+						<visible>![ListItem.IsCollection + String.IsEmpty(ListItem.Plot)]</visible>
 					</control>
 				</control>
 			</control>
@@ -155,7 +155,7 @@
 			<control type="group">
 				<left>216</left>
 				<top>-18</top>
-				<include content="UserRatingCircle">
+				<include content="RatingCircle">
 					<param name="animation" value="True" />
 				</include>
 			</control>

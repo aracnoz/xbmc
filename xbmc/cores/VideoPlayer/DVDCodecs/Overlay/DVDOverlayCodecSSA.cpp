@@ -1,33 +1,22 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDOverlayCodecSSA.h"
-#include <memory>
 
+#include "DVDCodecs/DVDCodecs.h"
 #include "DVDOverlaySSA.h"
 #include "DVDStreamInfo.h"
-#include "DVDCodecs/DVDCodecs.h"
-#include "DVDClock.h"
-#include "DVDDemuxers/DVDDemuxPacket.h"
 #include "Util.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "utils/StringUtils.h"
+
+#include <memory>
 
 
 CDVDOverlayCodecSSA::CDVDOverlayCodecSSA() : CDVDOverlayCodec("SSA Subtitle Decoder")
@@ -69,7 +58,7 @@ int CDVDOverlayCodecSSA::Decode(DemuxPacket *pPacket)
 {
   if(!pPacket)
     return OC_ERROR;
-  
+
   double pts = pPacket->dts != DVD_NOPTS_VALUE ? pPacket->dts : pPacket->pts;
   if (pts == DVD_NOPTS_VALUE)
     pts = 0;
@@ -108,7 +97,7 @@ int CDVDOverlayCodecSSA::Decode(DemuxPacket *pPacket)
 
       line2 = StringUtils::Format("%d,%s,%s", m_order++, layer.get(), line.substr(pos+1).c_str());
 
-      m_libass->DecodeDemuxPkt((char*)line2.c_str(), line2.length(), beg, end - beg);
+      m_libass->DecodeDemuxPkt(line2.c_str(), line2.length(), beg, end - beg);
 
       /* setup time spanning all dialogs */
       if(pts == DVD_NOPTS_VALUE || beg < pts)
@@ -129,7 +118,7 @@ int CDVDOverlayCodecSSA::Decode(DemuxPacket *pPacket)
 
   if(m_pOverlay)
   {
-    /* there will only ever be one active, so we 
+    /* there will only ever be one active, so we
      * must always make sure any new one overlap
      * include the full duration of the old one */
     if(m_pOverlay->iPTSStopTime > pts + duration)

@@ -1,6 +1,6 @@
 ADDON_DEPS_DIR := $(BUILDDIR)/$(PLATFORM)/build/depends
 TOOLCHAIN_FILE = $(ADDON_DEPS_DIR)/share/Toolchain_binaddons.cmake
-ADDON_PROJECT_DIR = $(BUILDDIR)/../../../../project/cmake/addons
+ADDON_PROJECT_DIR = $(BUILDDIR)/../../../../cmake/addons
 
 ifeq ($(CROSS_COMPILING),yes)
   DEPS = $(TOOLCHAIN_FILE) $(abs_top_srcdir)/target/config-binaddons.site $(abs_top_srcdir)/target/Toolchain_binaddons.cmake $(CONFIG_SUB) $(CONFIG_GUESS)
@@ -33,8 +33,24 @@ ifneq ($(PREFIX),)
   CMAKE_EXTRA += -DAUTOCONF_FILES="$(CONFIG_SUB) $(CONFIG_GUESS)"
 endif
 
+ifneq ($(TARBALLS_LOCATION),)
+  CMAKE_EXTRA += -DTARBALL_DIR=$(TARBALLS_LOCATION)
+endif
+
 ifneq ($(ADDON_SRC_PREFIX),)
-  SRC_OVERRIDE = -DADDON_SRC_PREFIX=$(ADDON_SRC_PREFIX)
+  CMAKE_EXTRA += -DADDON_SRC_PREFIX=$(ADDON_SRC_PREFIX)
+endif
+
+ifneq ($(ADDONS_DEFINITION_DIR),)
+  CMAKE_EXTRA += -DADDONS_DEFINITION_DIR=$(ADDONS_DEFINITION_DIR)
+endif
+
+ifneq ($(EXTRA_CMAKE_ARGS),)
+  CMAKE_EXTRA += $(EXTRA_CMAKE_ARGS)
+endif
+
+ifeq ($(PACKAGE),1)
+  MAKE_PACKAGE = package-
 endif
 
 all: .installed-$(PLATFORM)
@@ -51,7 +67,7 @@ distclean:
 	mkdir -p $(PLATFORM)
 ifeq ($(PREFIX),)
 	@echo
-	@echo "ERROR: please set PREFIX to the xbmc install path e.g. make PREFIX=/usr/local"
+	@echo "ERROR: please set PREFIX to the xbmc install path e.g. $(MAKE) PREFIX=/usr/local"
 	@exit 1
 endif
 ifeq ($(CROSS_COMPILING),yes)
@@ -60,10 +76,10 @@ ifeq ($(CROSS_COMPILING),yes)
 endif
 	cd $(PLATFORM); \
          $(CMAKE) -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) $(CMAKE_EXTRA) \
-         $(TOOLCHAIN) $(SRC_OVERRIDE) \
+         $(TOOLCHAIN) \
          -DADDONS_TO_BUILD="$(ADDONS)" $(ADDON_PROJECT_DIR) -DBUILD_DIR=$(BUILDDIR)/$(PLATFORM)/build ;\
-         for addon in $$(make supported_addons | awk '/^ALL_ADDONS_BUILDING: .*$$/ { first = $$1; $$1 = ""; print $$0 }'); do \
-           $(MAKE) $$addon && echo $$addon >> $(ADDON_PROJECT_DIR)/.success || echo $$addon >> $(ADDON_PROJECT_DIR)/.failure ;\
+         for addon in $$($(MAKE) supported_addons | awk '/^ALL_ADDONS_BUILDING: .*$$/ { first = $$1; $$1 = ""; print $$0 }'); do \
+           $(MAKE) $(MAKE_PACKAGE)$$addon && echo $$addon >> $(ADDON_PROJECT_DIR)/.success || echo $$addon >> $(ADDON_PROJECT_DIR)/.failure ;\
          done
 ifneq ($(CROSS_COMPILING),yes)
 	@[ -f $(ADDON_PROJECT_DIR)/.failure ] && echo "Following Addons failed to build:" $(shell cat $(ADDON_PROJECT_DIR)/.failure) || :
@@ -90,8 +106,6 @@ linux-system-libs:
 	[ -f $(ADDON_DEPS_DIR)/lib/pkgconfig/libdrm.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/libdrm.pc $(ADDON_DEPS_DIR)/lib/pkgconfig/libdrm.pc
 	[ -f $(ADDON_DEPS_DIR)/lib/pkgconfig/gl.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/gl.pc $(ADDON_DEPS_DIR)/lib/pkgconfig/gl.pc
 	[ -f $(ADDON_DEPS_DIR)/lib/pkgconfig/glu.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/glu.pc $(ADDON_DEPS_DIR)/lib/pkgconfig/glu.pc
-	[ -f $(ADDON_DEPS_DIR)/lib/libGL.so ] || \
-          (ln -sf /usr/lib/$(HOST)/mesa $(ADDON_DEPS_DIR)/lib/mesa && ln -sf $(ADDON_DEPS_DIR)/lib/mesa/libGL.so $(ADDON_DEPS_DIR)/lib/libGL.so)
+	[ -f $(ADDON_DEPS_DIR)/lib/libGL.so ] || ln -sf /usr/lib/$(HOST)/libGL.so $(ADDON_DEPS_DIR)/lib/libGL.so
 	[ -L $(ADDON_DEPS_DIR)/include/GL ] || ln -sf /usr/include/GL $(ADDON_DEPS_DIR)/include/GL
 	[ -f $(ADDON_DEPS_DIR)/lib/libm.so ] || ln -sf /usr/lib/$(HOST)/libm.so $(ADDON_DEPS_DIR)/lib/
-

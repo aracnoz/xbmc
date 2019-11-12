@@ -1,63 +1,50 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIAction.h"
-#include "utils/StringUtils.h"
-#include "GUIWindowManager.h"
-#include "GUIControl.h"
-#include "GUIInfoManager.h"
 
-CGUIAction::CGUIAction()
-{
-  m_sendThreadMessages = false;
-}
+#include "GUIComponent.h"
+#include "GUIInfoManager.h"
+#include "GUIWindowManager.h"
+#include "ServiceBroker.h"
+#include "utils/StringUtils.h"
 
 CGUIAction::CGUIAction(int controlID)
 {
-  m_sendThreadMessages = false;
   SetNavigation(controlID);
 }
 
 bool CGUIAction::ExecuteActions(int controlID, int parentID, const CGUIListItemPtr &item /* = NULL */) const
 {
-  if (m_actions.empty()) return false;
+  if (m_actions.empty())
+    return false;
+
+  CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
   // take a copy of actions that satisfy our conditions
   std::vector<std::string> actions;
-  for (ciActions it = m_actions.begin() ; it != m_actions.end() ; ++it)
+  for (const auto &i : m_actions)
   {
-    if (it->condition.empty() || g_infoManager.EvaluateBool(it->condition, 0, item))
+    if (i.condition.empty() || infoMgr.EvaluateBool(i.condition, 0, item))
     {
-      if (!StringUtils::IsInteger(it->action))
-        actions.push_back(it->action);
+      if (!StringUtils::IsInteger(i.action))
+        actions.emplace_back(i.action);
     }
   }
   // execute them
   bool retval = false;
-  for (std::vector<std::string>::iterator i = actions.begin(); i != actions.end(); ++i)
+  for (const auto &i : actions)
   {
     CGUIMessage msg(GUI_MSG_EXECUTE, controlID, parentID, 0, 0, item);
-    msg.SetStringParam(*i);
+    msg.SetStringParam(i);
     if (m_sendThreadMessages)
-      g_windowManager.SendThreadMessage(msg);
+      CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(msg);
     else
-      g_windowManager.SendMessage(msg);
+      CServiceBroker::GetGUI()->GetWindowManager().SendMessage(msg);
     retval = true;
   }
   return retval;
@@ -65,12 +52,13 @@ bool CGUIAction::ExecuteActions(int controlID, int parentID, const CGUIListItemP
 
 int CGUIAction::GetNavigation() const
 {
-  for (ciActions it = m_actions.begin() ; it != m_actions.end() ; ++it)
+  CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
+  for (const auto &i : m_actions)
   {
-    if (StringUtils::IsInteger(it->action))
+    if (StringUtils::IsInteger(i.action))
     {
-      if (it->condition.empty() || g_infoManager.EvaluateBool(it->condition))
-        return atoi(it->action.c_str());
+      if (i.condition.empty() || infoMgr.EvaluateBool(i.condition))
+        return atoi(i.action.c_str());
     }
   }
   return 0;
@@ -78,26 +66,28 @@ int CGUIAction::GetNavigation() const
 
 void CGUIAction::SetNavigation(int id)
 {
-  if (id == 0) return;
+  if (id == 0)
+    return;
+
   std::string strId = StringUtils::Format("%i", id);
-  for (iActions it = m_actions.begin() ; it != m_actions.end() ; ++it)
+  for (auto &i : m_actions)
   {
-    if (StringUtils::IsInteger(it->action) && it->condition.empty())
+    if (StringUtils::IsInteger(i.action) && i.condition.empty())
     {
-      it->action = strId;
+      i.action = std::move(strId);
       return;
     }
   }
-  cond_action_pair pair;
-  pair.action = strId;
-  m_actions.push_back(pair);
+  m_actions.emplace_back();
+  m_actions.back().action = std::move(strId);
 }
 
 bool CGUIAction::HasActionsMeetingCondition() const
 {
-  for (ciActions it = m_actions.begin() ; it != m_actions.end() ; ++it)
+  CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
+  for (const auto &i : m_actions)
   {
-    if (it->condition.empty() || g_infoManager.EvaluateBool(it->condition))
+    if (i.condition.empty() || infoMgr.EvaluateBool(i.condition))
       return true;
   }
   return false;

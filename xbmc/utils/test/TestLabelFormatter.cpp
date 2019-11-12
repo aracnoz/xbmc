@@ -1,53 +1,30 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "utils/LabelFormatter.h"
+#include "FileItem.h"
+#include "ServiceBroker.h"
 #include "filesystem/File.h"
 #include "settings/Settings.h"
-#include "FileItem.h"
-
+#include "settings/SettingsComponent.h"
 #include "test/TestUtils.h"
+#include "utils/LabelFormatter.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 /* Set default settings used by CLabelFormatter. */
 class TestLabelFormatter : public testing::Test
 {
 protected:
-  TestLabelFormatter()
-  {
-    //! @todo implement
-    /* TODO
-    CSettingsCategory* fl = CSettings::GetInstance().AddCategory(7, "filelists", 14081);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_SHOWPARENTDIRITEMS, 13306, true);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_SHOWEXTENSIONS, 497, true);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_IGNORETHEWHENSORTING, 13399, true);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_ALLOWFILEDELETION, 14071, false);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_SHOWADDSOURCEBUTTONS, 21382,  true);
-    CSettings::GetInstance().AddBool(fl, CSettings::SETTING_FILELISTS_SHOWHIDDEN, 21330, false);
-    */
-  }
+  TestLabelFormatter() = default;
 
-  ~TestLabelFormatter()
+  ~TestLabelFormatter() override
   {
-    CSettings::GetInstance().Unload();
+    CServiceBroker::GetSettingsComponent()->GetSettings()->Unload();
   }
 };
 

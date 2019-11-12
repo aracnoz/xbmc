@@ -1,30 +1,16 @@
-#ifndef UDF25_H
-#define UDF25_H
 /*
- *      Copyright (C) 2010 Team Boxee
+ *  Copyright (C) 2010 Team Boxee
  *      http://www.boxee.tv
  *
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- *  Note: parts of this code comes from libdvdread.
- *  Jorgen Lundman and team boxee did the necessary modifications to support udf 2.5
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
 #include "File.h"
 
 /**
@@ -57,7 +43,7 @@ struct AD {
 };
 
 /* Previously dvdread would assume files only had one AD chain, and since they
- * are 1GB or less, this is most problably true. However, now we handle chains
+ * are 1GB or less, this is most probably true. However, now we handle chains
  * for large files. ECMA_167 does not specify the maximum number of chains, is
  * it as many as can fit in a 2048 block (minus ID 266 size), or some other
  * limit. For now, I have assumed that;
@@ -188,7 +174,7 @@ public:
   udf25( );
   virtual ~udf25( );
 
-  DWORD SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod );
+  DWORD SetFilePointer(HANDLE hFile, long lDistanceToMove, long* lpDistanceToMoveHigh, DWORD dwMoveMethod );
   int64_t GetFileSize(HANDLE hFile);
   int64_t GetFilePosition(HANDLE hFile);
   int64_t Seek(HANDLE hFile, int64_t lOffset, int whence);
@@ -226,4 +212,3 @@ protected:
   XFILE::CFile* m_fp;
 };
 
-#endif

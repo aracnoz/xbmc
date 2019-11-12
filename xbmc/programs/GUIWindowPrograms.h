@@ -1,45 +1,33 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "windows/GUIMediaWindow.h"
-#include "dialogs/GUIDialogProgress.h"
+#pragma once
+
 #include "ThumbLoader.h"
+#include "dialogs/GUIDialogProgress.h"
+#include "windows/GUIMediaWindow.h"
 
 class CGUIWindowPrograms :
       public CGUIMediaWindow, public IBackgroundLoaderObserver
 {
 public:
   CGUIWindowPrograms(void);
-  virtual ~CGUIWindowPrograms(void);
-  virtual bool OnMessage(CGUIMessage& message) override;
+  ~CGUIWindowPrograms(void) override;
+  bool OnMessage(CGUIMessage& message) override;
   virtual void OnItemInfo(int iItem);
 protected:
-  virtual void OnItemLoaded(CFileItem* pItem) override {};
-  virtual bool Update(const std::string& strDirectory, bool updateFilterPath = true) override;
+  void OnItemLoaded(CFileItem* pItem) override {};
+  bool Update(const std::string& strDirectory, bool updateFilterPath = true) override;
   bool OnPlayMedia(int iItem, const std::string& = "") override;
-  virtual void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
-  virtual bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
+  void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
+  bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
   bool OnAddMediaSource() override;
-  virtual std::string GetStartFolder(const std::string &dir) override;
+  std::string GetStartFolder(const std::string &dir) override;
 
   CGUIDialogProgress* m_dlgProgress;
 

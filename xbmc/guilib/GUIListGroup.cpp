@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIListGroup.h"
+
 #include "GUIListLabel.h"
 #include "utils/log.h"
 
@@ -59,7 +48,7 @@ void CGUIListGroup::AddControl(CGUIControl *control, int position /*= -1*/)
 
 void CGUIListGroup::Process(unsigned int currentTime, CDirtyRegionList &dirtyregions)
 {
-  g_graphicsContext.SetOrigin(m_posX, m_posY);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX, m_posY);
 
   CRect rect;
   for (iControls it = m_children.begin(); it != m_children.end(); ++it)
@@ -72,7 +61,7 @@ void CGUIListGroup::Process(unsigned int currentTime, CDirtyRegionList &dirtyreg
       rect.Union(control->GetRenderRegion());
   }
 
-  g_graphicsContext.RestoreOrigin();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
   CGUIControl::Process(currentTime, dirtyregions);
   m_renderRegion = rect;
   m_item = NULL;
@@ -106,7 +95,7 @@ void CGUIListGroup::UpdateInfo(const CGUIListItem *item)
       for (unsigned int j = i + 1; j < m_children.size(); j++)
       {
         if (m_children[j]->GetControlType() == CGUIControl::GUICONTROL_LISTLABEL && m_children[j]->IsVisible())
-          CGUIListLabel::CheckAndCorrectOverlap(*(CGUIListLabel *)m_children[i], *(CGUIListLabel *)m_children[j]);
+          CGUIListLabel::CheckAndCorrectOverlap(*static_cast<CGUIListLabel*>(m_children[i]), *static_cast<CGUIListLabel*>(m_children[j]));
       }
     }
   }
@@ -185,7 +174,7 @@ unsigned int CGUIListGroup::GetFocusedItem() const
     if ((*it)->GetControlType() == CGUIControl::GUICONTROL_LISTGROUP && ((CGUIListGroup *)(*it))->GetFocusedItem())
       return ((CGUIListGroup *)(*it))->GetFocusedItem();
   }
-  return 0;
+  return m_bHasFocus ? 1 : 0;
 }
 
 bool CGUIListGroup::MoveLeft()
@@ -216,7 +205,6 @@ void CGUIListGroup::SetState(bool selected, bool focused)
     {
       CGUIListLabel *label = (CGUIListLabel *)(*it);
       label->SetSelected(selected);
-      label->SetScrolling(focused);
     }
     else if ((*it)->GetControlType() == CGUIControl::GUICONTROL_LISTGROUP)
       ((CGUIListGroup *)(*it))->SetState(selected, focused);
@@ -231,6 +219,6 @@ void CGUIListGroup::SelectItemFromPoint(const CPoint &point)
   {
     CGUIControl *child = *it;
     if (child->GetControlType() == CGUIControl::GUICONTROL_LISTGROUP)
-      ((CGUIListGroup *)child)->SelectItemFromPoint(point);
+      static_cast<CGUIListGroup*>(child)->SelectItemFromPoint(point);
   }
 }

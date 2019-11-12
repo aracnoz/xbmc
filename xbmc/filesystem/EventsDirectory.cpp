@@ -1,25 +1,15 @@
 /*
- *      Copyright (C) 2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 
 #include "EventsDirectory.h"
+
+#include "ServiceBroker.h"
 #include "URL.h"
 #include "events/EventLog.h"
 #include "utils/StringUtils.h"
@@ -31,7 +21,7 @@ bool CEventsDirectory::GetDirectory(const CURL& url, CFileItemList &items)
   items.ClearProperties();
   items.SetContent("events");
 
-  CEventLog& log = CEventLog::GetInstance();
+  CEventLog& log = CServiceBroker::GetEventLog();
   Events events;
 
   std::string hostname = url.GetHostName();
@@ -50,7 +40,7 @@ bool CEventsDirectory::GetDirectory(const CURL& url, CFileItemList &items)
       hostname = hostname.substr(0, hostname.size() - 1);
     }
 
-    EventLevel level = CEventLog::GetInstance().EventLevelFromString(hostname);
+    EventLevel level = CEventLog::EventLevelFromString(hostname);
 
     // get the events of the specified level(s)
     events = log.Get(level, includeHigherLevels);
@@ -70,7 +60,7 @@ CFileItemPtr CEventsDirectory::EventToFileItem(const EventPtr& eventItem)
   CFileItemPtr item(new CFileItem(eventItem));
 
   item->SetProperty(PROPERTY_EVENT_IDENTIFIER, eventItem->GetIdentifier());
-  item->SetProperty(PROPERTY_EVENT_LEVEL, CEventLog::GetInstance().EventLevelToString(eventItem->GetLevel()));
+  item->SetProperty(PROPERTY_EVENT_LEVEL, CEventLog::EventLevelToString(eventItem->GetLevel()));
   item->SetProperty(PROPERTY_EVENT_DESCRIPTION, eventItem->GetDescription());
 
   return item;

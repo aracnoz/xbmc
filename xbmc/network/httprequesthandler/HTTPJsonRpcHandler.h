@@ -1,56 +1,41 @@
-#pragma once
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
+#pragma once
 
 #include "interfaces/json-rpc/IClient.h"
 #include "interfaces/json-rpc/ITransportLayer.h"
 #include "network/httprequesthandler/IHTTPRequestHandler.h"
 
+#include <string>
+
 class CHTTPJsonRpcHandler : public IHTTPRequestHandler
 {
 public:
-  CHTTPJsonRpcHandler() { }
-  virtual ~CHTTPJsonRpcHandler() { }
-  
+  CHTTPJsonRpcHandler() = default;
+  ~CHTTPJsonRpcHandler() override = default;
+
   // implementations of IHTTPRequestHandler
-  virtual IHTTPRequestHandler* Create(const HTTPRequest &request) { return new CHTTPJsonRpcHandler(request); }
-  virtual bool CanHandleRequest(const HTTPRequest &request);
+  IHTTPRequestHandler* Create(const HTTPRequest &request) const override { return new CHTTPJsonRpcHandler(request); }
+  bool CanHandleRequest(const HTTPRequest &request) const override;
 
-  virtual int HandleRequest();
+  int HandleRequest() override;
 
-  virtual HttpResponseRanges GetResponseData() const;
+  HttpResponseRanges GetResponseData() const override;
 
-  virtual int GetPriority() const { return 5; }
+  int GetPriority() const override { return 5; }
 
 protected:
   explicit CHTTPJsonRpcHandler(const HTTPRequest &request)
     : IHTTPRequestHandler(request)
   { }
 
-#if (MHD_VERSION >= 0x00040001)
-  virtual bool appendPostData(const char *data, size_t size);
-#else
-  virtual bool appendPostData(const char *data, unsigned int size);
-#endif
+  bool appendPostData(const char *data, size_t size) override;
 
 private:
   std::string m_requestData;
@@ -61,7 +46,7 @@ private:
   {
   public:
     CHTTPTransportLayer() = default;
-    ~CHTTPTransportLayer() = default;
+    ~CHTTPTransportLayer() override = default;
 
     // implementations of JSONRPC::ITransportLayer
     bool PrepareDownload(const char *path, CVariant &details, std::string &protocol) override;
@@ -73,8 +58,14 @@ private:
   class CHTTPClient : public JSONRPC::IClient
   {
   public:
-    virtual int  GetPermissionFlags();
-    virtual int  GetAnnouncementFlags();
-    virtual bool SetAnnouncementFlags(int flags);
+    explicit CHTTPClient(HTTPMethod method);
+    ~CHTTPClient() override = default;
+
+    int GetPermissionFlags() override { return m_permissionFlags; }
+    int GetAnnouncementFlags() override;
+    bool SetAnnouncementFlags(int flags) override;
+
+  private:
+    int m_permissionFlags;
   };
 };

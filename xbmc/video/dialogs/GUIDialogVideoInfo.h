@@ -1,27 +1,16 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "guilib/GUIDialog.h"
+#pragma once
+
 #include "FileItem.h"
+#include "MediaSource.h"
+#include "guilib/GUIDialog.h"
 
 class CVideoDatabase;
 
@@ -30,7 +19,7 @@ class CGUIDialogVideoInfo :
 {
 public:
   CGUIDialogVideoInfo(void);
-  virtual ~CGUIDialogVideoInfo(void);
+  ~CGUIDialogVideoInfo(void) override;
   bool OnMessage(CGUIMessage& message) override;
   bool OnAction(const CAction &action) override;
   void SetMovie(const CFileItem *item);
@@ -44,7 +33,6 @@ public:
   const CFileItemList& CurrentDirectory() const { return *m_castList; };
   bool HasListItems() const override { return true; };
 
-  static std::string ChooseArtType(const CFileItem &item, std::map<std::string, std::string> &currentArt);
   static void AddItemPathToFileBrowserSources(VECSOURCES &sources, const CFileItem &item);
 
   static int ManageVideoItem(const CFileItemPtr &item);
@@ -108,10 +96,13 @@ protected:
 
   CFileItemPtr m_movieItem;
   CFileItemList *m_castList;
-  bool m_bViewReview;
-  bool m_bRefresh;
-  bool m_bRefreshAll;
-  bool m_hasUpdatedThumb;
-  bool m_hasUpdatedUserrating;
-  int m_startUserrating;
+  bool m_bViewReview = false;
+  bool m_bRefresh = false;
+  bool m_bRefreshAll = true;
+  bool m_hasUpdatedThumb = false;
+  bool m_hasUpdatedUserrating = false;
+  int m_startUserrating = -1;
+
+private:
+  static std::string ChooseArtType(const CFileItem& item);
 };

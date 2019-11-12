@@ -1,27 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2016 Team Kodi
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 extern "C" {
-#include "libavfilter/avfilter.h"
-#include "libavutil/frame.h"
+#include <libavfilter/avfilter.h>
+#include <libavutil/frame.h>
 }
 
 struct SwrContext;
@@ -37,11 +26,11 @@ public:
   void Init(AVSampleFormat fmt, int sampleRate, uint64_t channelLayout);
   int ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_t **src_buffer, int src_samples, int src_bufsize);
   bool SetTempo(float tempo);
-  bool NeedData();
-  bool IsEof();
-  bool IsActive();
-  int GetBufferedSamples();
-  
+  bool NeedData() const;
+  bool IsEof() const;
+  bool IsActive() const;
+  int GetBufferedSamples() const;
+
 protected:
   bool CreateFilterGraph();
   bool CreateAtempoFilter();
@@ -64,7 +53,8 @@ protected:
   bool m_hasData;
   bool m_needData;
   int m_sampleOffset;
-  int m_bufferedSamples;
+  int64_t m_SamplesIn;
+  int64_t m_SamplesOut;
 };
 
 }

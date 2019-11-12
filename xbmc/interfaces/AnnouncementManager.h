@@ -1,31 +1,22 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include <vector>
 
-#include "IAnnouncer.h"
+#pragma once
+
 #include "FileItem.h"
+#include "IAnnouncer.h"
 #include "threads/CriticalSection.h"
-#include "threads/Thread.h"
 #include "threads/Event.h"
+#include "threads/Thread.h"
 #include "utils/Variant.h"
+
+#include <list>
+#include <vector>
 
 class CVariant;
 
@@ -35,9 +26,7 @@ namespace ANNOUNCEMENT
   {
   public:
     CAnnouncementManager();
-    virtual ~CAnnouncementManager();
-
-    static CAnnouncementManager& GetInstance();
+    ~CAnnouncementManager() override;
 
     void Start();
     void Deinitialize();
@@ -53,7 +42,7 @@ namespace ANNOUNCEMENT
         const std::shared_ptr<const CFileItem>& item, const CVariant &data);
 
   protected:
-    void Process();
+    void Process() override;
     void DoAnnounce(AnnouncementFlag flag, const char *sender, const char *message, CFileItemPtr item, const CVariant &data);
     void DoAnnounce(AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
 
@@ -69,10 +58,11 @@ namespace ANNOUNCEMENT
     CEvent m_queueEvent;
 
   private:
-    CAnnouncementManager(const CAnnouncementManager&);
-    CAnnouncementManager const& operator=(CAnnouncementManager const&);
+    CAnnouncementManager(const CAnnouncementManager&) = delete;
+    CAnnouncementManager const& operator=(CAnnouncementManager const&) = delete;
 
-    CCriticalSection m_critSection;
+    CCriticalSection m_announcersCritSection;
+    CCriticalSection m_queueCritSection;
     std::vector<IAnnouncer *> m_announcers;
   };
 }

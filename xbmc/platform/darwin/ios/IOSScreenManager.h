@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 /*Class for managing the UIScreens/resolutions of an iOS device*/
@@ -30,13 +18,13 @@
 
   unsigned int  _screenIdx;
   bool _externalScreen;
-  IOSEAGLView *_glView;
+  IOSEAGLView* __weak _glView;
   IOSExternalTouchController *_externalTouchController;
   UIInterfaceOrientation _lastTouchControllerOrientation;
 }
 @property (readonly, getter=GetScreenIdx)unsigned int  _screenIdx;
 @property (readonly, getter=isExternalScreen)bool _externalScreen;
-@property (assign, setter=setView:) IOSEAGLView *_glView;
+@property(weak, setter=setView:) IOSEAGLView* _glView;
 @property UIInterfaceOrientation _lastTouchControllerOrientation;
 
 // init the screenmanager with our eaglview
@@ -47,8 +35,6 @@
 - (void)    screenDisconnect;
 // wrapper for g_Windowing.UpdateResolutions();
 + (void)    updateResolutions;
-// returns the landscape resolution for the given screen
-+ (CGRect)  getLandscapeResolution:(UIScreen *)screen;
 // fades the screen from black back to full alpha after delaySecs seconds
 - (void)    fadeFromBlack:(CGFloat) delaySecs;
 // returns true if switching to screenIdx will change from internal to external screen

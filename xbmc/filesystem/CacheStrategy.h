@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
 
-#ifndef XFILECACHESTRATEGY_H
-#define XFILECACHESTRATEGY_H
+#include "threads/Event.h"
 
 #include <stdint.h>
 #include <string>
-#include "threads/Event.h"
 
 namespace XFILE {
 
@@ -37,7 +24,6 @@ class IFile; // forward declaration
 
 class CCacheStrategy{
 public:
-  CCacheStrategy();
   virtual ~CCacheStrategy();
 
   virtual int Open() = 0;
@@ -71,7 +57,7 @@ public:
 
   CEvent m_space;
 protected:
-  bool  m_bEndOfInput;
+  bool  m_bEndOfInput = false;
 };
 
 /**
@@ -79,25 +65,25 @@ protected:
 class CSimpleFileCache : public CCacheStrategy {
 public:
   CSimpleFileCache();
-  virtual ~CSimpleFileCache();
+  ~CSimpleFileCache() override;
 
-  virtual int Open() ;
-  virtual void Close() ;
+  int Open() override;
+  void Close() override;
 
-  virtual size_t GetMaxWriteSize(const size_t& iRequestSize) ;
-  virtual int WriteToCache(const char *pBuffer, size_t iSize) ;
-  virtual int ReadFromCache(char *pBuffer, size_t iMaxSize) ;
-  virtual int64_t WaitForData(unsigned int iMinAvail, unsigned int iMillis) ;
+  size_t GetMaxWriteSize(const size_t& iRequestSize) override;
+  int WriteToCache(const char *pBuffer, size_t iSize) override;
+  int ReadFromCache(char *pBuffer, size_t iMaxSize) override;
+  int64_t WaitForData(unsigned int iMinAvail, unsigned int iMillis) override;
 
-  virtual int64_t Seek(int64_t iFilePosition);
-  virtual bool Reset(int64_t iSourcePosition, bool clearAnyway=true);
-  virtual void EndOfInput();
+  int64_t Seek(int64_t iFilePosition) override;
+  bool Reset(int64_t iSourcePosition, bool clearAnyway=true) override;
+  void EndOfInput() override;
 
-  virtual int64_t CachedDataEndPosIfSeekTo(int64_t iFilePosition);
-  virtual int64_t CachedDataEndPos();
-  virtual bool IsCachedPosition(int64_t iFilePosition);
+  int64_t CachedDataEndPosIfSeekTo(int64_t iFilePosition) override;
+  int64_t CachedDataEndPos() override;
+  bool IsCachedPosition(int64_t iFilePosition) override;
 
-  virtual CCacheStrategy *CreateNew();
+  CCacheStrategy *CreateNew() override;
 
   int64_t  GetAvailableRead();
 
@@ -106,35 +92,35 @@ protected:
   IFile*   m_cacheFileRead;
   IFile*   m_cacheFileWrite;
   CEvent*  m_hDataAvailEvent;
-  volatile int64_t m_nStartPosition;
-  volatile int64_t m_nWritePosition;
-  volatile int64_t m_nReadPosition;
+  volatile int64_t m_nStartPosition = 0;
+  volatile int64_t m_nWritePosition = 0;
+  volatile int64_t m_nReadPosition = 0;
 };
 
 class CDoubleCache : public CCacheStrategy{
 public:
-  CDoubleCache(CCacheStrategy *impl);
-  virtual ~CDoubleCache();
+  explicit CDoubleCache(CCacheStrategy *impl);
+  ~CDoubleCache() override;
 
-  virtual int Open() ;
-  virtual void Close() ;
+  int Open() override;
+  void Close() override;
 
-  virtual size_t GetMaxWriteSize(const size_t& iRequestSize) ;
-  virtual int WriteToCache(const char *pBuffer, size_t iSize) ;
-  virtual int ReadFromCache(char *pBuffer, size_t iMaxSize) ;
-  virtual int64_t WaitForData(unsigned int iMinAvail, unsigned int iMillis) ;
+  size_t GetMaxWriteSize(const size_t& iRequestSize) override;
+  int WriteToCache(const char *pBuffer, size_t iSize) override;
+  int ReadFromCache(char *pBuffer, size_t iMaxSize) override;
+  int64_t WaitForData(unsigned int iMinAvail, unsigned int iMillis) override;
 
-  virtual int64_t Seek(int64_t iFilePosition);
-  virtual bool Reset(int64_t iSourcePosition, bool clearAnyway=true);
-  virtual void EndOfInput();
-  virtual bool IsEndOfInput();
-  virtual void ClearEndOfInput();
+  int64_t Seek(int64_t iFilePosition) override;
+  bool Reset(int64_t iSourcePosition, bool clearAnyway=true) override;
+  void EndOfInput() override;
+  bool IsEndOfInput() override;
+  void ClearEndOfInput() override;
 
-  virtual int64_t CachedDataEndPosIfSeekTo(int64_t iFilePosition);
-  virtual int64_t CachedDataEndPos();
-  virtual bool IsCachedPosition(int64_t iFilePosition);
+  int64_t CachedDataEndPosIfSeekTo(int64_t iFilePosition) override;
+  int64_t CachedDataEndPos() override;
+  bool IsCachedPosition(int64_t iFilePosition) override;
 
-  virtual CCacheStrategy *CreateNew();
+  CCacheStrategy *CreateNew() override;
 
 protected:
   CCacheStrategy *m_pCache;
@@ -143,4 +129,3 @@ protected:
 
 }
 
-#endif

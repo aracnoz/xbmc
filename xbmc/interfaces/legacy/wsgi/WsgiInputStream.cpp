@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WsgiInputStream.h"
+
 #include "network/httprequesthandler/python/HTTPPythonRequest.h"
 #include "utils/StringUtils.h"
 
@@ -28,22 +17,18 @@ namespace XBMCAddon
   {
     WsgiInputStreamIterator::WsgiInputStreamIterator()
       : m_data(),
-        m_offset(0),
-        m_remaining(0),
         m_line()
     { }
 
 #ifndef SWIG
     WsgiInputStreamIterator::WsgiInputStreamIterator(const String& data, bool end /* = false */)
       : m_data(data),
-        m_offset(0),
         m_remaining(end ? 0 : data.size()),
         m_line()
     { }
 #endif
 
-    WsgiInputStreamIterator::~WsgiInputStreamIterator()
-    { }
+    WsgiInputStreamIterator::~WsgiInputStreamIterator() = default;
 
     String WsgiInputStreamIterator::read(unsigned long size /* = 0 */) const
     {

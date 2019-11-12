@@ -1,35 +1,25 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
-#include <string>
-#include <stdint.h>
+#pragma once
+
 #include "threads/CriticalSection.h"
+
+#include <map>
+#include <stdint.h>
+#include <string>
 
 class CURL;
 
 /*!
  \ingroup filesystem
  \brief Password Manager class for saving authentication details
- 
+
  Handles access to previously saved passwords for paths, translating normal URLs
  into authenticated URLs if the user has details about the username and password
  for a path previously saved. Should be accessed via CPasswordManager::GetInstance()
@@ -55,12 +45,12 @@ public:
 
   /*!
    \brief Prompt for a username and password for the particular URL.
-   
+
    This routine pops up a dialog, requesting the user enter a username and password
    to access the given URL.  The user may optionally save these details.  If saved
    we write the details into the users profile.  If not saved, the details are temporarily
    stored so that further access no longer requires prompting for authentication.
-   
+
    \param url the URL to authenticate.
    \return true if the user entered details, false if the user cancelled the dialog.
    \sa CURL, SaveAuthenticatedURL
@@ -80,16 +70,27 @@ public:
   void SaveAuthenticatedURL(const CURL &url, bool saveToProfile = true);
 
   /*!
+   \brief Is an URL is supported (by the manager)
+
+   This routine checks that an URL is supported by the manager
+
+   \param url the URL to check.
+   \return true if the URL is supported
+   \sa CURL, IsURLSupported
+   */
+  bool IsURLSupported(const CURL &url);
+
+  /*!
    \brief Clear any previously cached passwords
    */
   void Clear();
 
 private:
-  // private construction, and no assignements; use the provided singleton methods
+  // private construction, and no assignments; use the provided singleton methods
   CPasswordManager();
-  CPasswordManager(const CPasswordManager&);
-  CPasswordManager const & operator=(CPasswordManager const&);
-  ~CPasswordManager() {};
+  CPasswordManager(const CPasswordManager&) = delete;
+  CPasswordManager& operator=(CPasswordManager const&) = delete;
+  ~CPasswordManager() = default;
 
   void Load();
   void Save() const;

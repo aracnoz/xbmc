@@ -1,33 +1,20 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
-#include <sstream>
-
 #include "WebSocket.h"
+
 #include "utils/EndianSwap.h"
-#include "utils/log.h"
 #include "utils/HttpParser.h"
-#include "utils/Base64.h"
 #include "utils/StringUtils.h"
-#include "utils/HttpResponse.h"
+#include "utils/log.h"
+
+#include <sstream>
+#include <string>
 
 #define MASK_FIN      0x80
 #define MASK_RSV1     0x40
@@ -98,12 +85,12 @@ CWebSocketFrame::CWebSocketFrame(const char* data, uint64_t length)
   int offset = 0;
   if (m_length == 126)
   {
-    m_length = (uint64_t)Endian_SwapBE16(*(uint16_t *)(m_data + 2));
+    m_length = (uint64_t)Endian_SwapBE16(*(const uint16_t *)(m_data + 2));
     offset = 2;
   }
   else if (m_length == 127)
   {
-    m_length = Endian_SwapBE64(*(uint64_t *)(m_data + 2));
+    m_length = Endian_SwapBE64(*(const uint64_t *)(m_data + 2));
     offset = 8;
   }
 
@@ -117,7 +104,7 @@ CWebSocketFrame::CWebSocketFrame(const char* data, uint64_t length)
   // Get the mask
   if (m_masked)
   {
-    m_mask = *(uint32_t *)(m_data + LENGTH_MIN + offset);
+    m_mask = *(const uint32_t *)(m_data + LENGTH_MIN + offset);
     offset += 4;
   }
 
@@ -126,7 +113,7 @@ CWebSocketFrame::CWebSocketFrame(const char* data, uint64_t length)
 
   // Get application data
   if (m_length > 0)
-    m_applicationData = (char *)(m_data + LENGTH_MIN + offset);
+    m_applicationData = const_cast<char *>(m_data + LENGTH_MIN + offset);
   else
     m_applicationData = NULL;
 
@@ -197,7 +184,7 @@ CWebSocketFrame::CWebSocketFrame(WebSocketFrameOpcode opcode, const char* data /
   {
     dataByte |= 127 & MASK_LENGTH;
     buffer.push_back(dataByte);
-    
+
     uint64_t dataLength = Endian_SwapBE64(m_length);
     buffer.append((const char*)&dataLength, 8);
   }
@@ -224,11 +211,11 @@ CWebSocketFrame::CWebSocketFrame(WebSocketFrameOpcode opcode, const char* data /
   // Get the whole data
   m_lengthFrame = buffer.size();
   m_data = new char[(uint32_t)m_lengthFrame];
-  memcpy((char *)m_data, buffer.c_str(), (uint32_t)m_lengthFrame);
+  memcpy(const_cast<char *>(m_data), buffer.c_str(), (uint32_t)m_lengthFrame);
 
   if (data)
   {
-    m_applicationData = (char *)m_data;
+    m_applicationData = const_cast<char *>(m_data);
     m_applicationData += applicationDataOffset;
   }
 
@@ -242,7 +229,7 @@ CWebSocketFrame::~CWebSocketFrame()
 
   if (m_free && m_data != NULL)
   {
-    delete m_data;
+    delete[] m_data;
     m_data = NULL;
   }
 }
@@ -336,7 +323,7 @@ const CWebSocketMessage* CWebSocket::Handle(const char* &buffer, size_t &length,
               if (msg != NULL)
                 msg->AddFrame(Pong(frame->GetApplicationData()));
               break;
-            
+
             case WebSocketConnectionClose:
               CLog::Log(LOGINFO, "WebSocket: connection closed by client");
 

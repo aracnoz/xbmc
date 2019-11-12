@@ -38,10 +38,10 @@ class NPT_PosixQueue : public NPT_GenericQueue
 public:
     // methods
                NPT_PosixQueue(NPT_Cardinal max_items);
-              ~NPT_PosixQueue();
-    NPT_Result Push(NPT_QueueItem* item, NPT_Timeout timeout); 
-    NPT_Result Pop(NPT_QueueItem*& item, NPT_Timeout timeout);
-    NPT_Result Peek(NPT_QueueItem*& item, NPT_Timeout timeout);
+              ~NPT_PosixQueue() override;
+    NPT_Result Push(NPT_QueueItem* item, NPT_Timeout timeout) override; 
+    NPT_Result Pop(NPT_QueueItem*& item, NPT_Timeout timeout) override;
+    NPT_Result Peek(NPT_QueueItem*& item, NPT_Timeout timeout) override;
 
 private:
     void       Abort();
@@ -321,7 +321,7 @@ NPT_PosixQueue::Peek(NPT_QueueItem*& item, NPT_Timeout timeout)
 NPT_GenericQueue*
 NPT_GenericQueue::CreateInstance(NPT_Cardinal max_items)
 {
-    NPT_LOG_FINER_1("queue max_items = %ld", max_items);
+    NPT_LOG_FINER_1("queue max_items = %d", (int)max_items);
     return new NPT_PosixQueue(max_items);
 }
 

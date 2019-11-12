@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="hello">bruhahaha</string>
     <string name="app_name">@APP_NAME@</string>
+    <string name="search_hint">@APP_NAME@</string>
 
+    <string name="suggestion_channel">Suggestions</string>
 </resources>

@@ -1,33 +1,23 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "InputHandling.h"
-#include "input/joysticks/dialogs/GUIDialogNewJoystick.h"
+
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMap.h"
 #include "input/joysticks/JoystickUtils.h"
+#include "input/joysticks/dialogs/GUIDialogNewJoystick.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
 #include "utils/log.h"
 
 #include <array>
 #include <cmath>
 
+using namespace KODI;
 using namespace JOYSTICK;
 
 CGUIDialogNewJoystick* const CInputHandling::m_dialog = new CGUIDialogNewJoystick;
@@ -38,9 +28,7 @@ CInputHandling::CInputHandling(IInputHandler* handler, IButtonMap* buttonMap)
 {
 }
 
-CInputHandling::~CInputHandling(void)
-{
-}
+CInputHandling::~CInputHandling(void) = default;
 
 bool CInputHandling::OnButtonMotion(unsigned int buttonIndex, bool bPressed)
 {
@@ -92,8 +80,8 @@ bool CInputHandling::OnAxisMotion(unsigned int axisIndex, float position, int ce
 
 void CInputHandling::ProcessAxisMotions(void)
 {
-  for (std::map<FeatureName, FeaturePtr>::iterator it = m_features.begin(); it != m_features.end(); ++it)
-    it->second->ProcessMotions();
+  for (auto& it : m_features)
+    it.second->ProcessMotions();
 }
 
 bool CInputHandling::OnDigitalMotion(const CDriverPrimitive& source, bool bPressed)
@@ -168,6 +156,6 @@ CJoystickFeature* CInputHandling::CreateFeature(const FeatureName& featureName)
     default:
       break;
   }
-  
+
   return feature;
 }

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ZeroconfBrowserMDNS.h"
@@ -23,19 +11,18 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIMessage.h"
 #include "guilib/GUIWindowManager.h"
 #include "GUIUserMessages.h"
 #include "network/DNSNameCache.h"
-#include "system.h"
+#include "ServiceBroker.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 
 #if defined(TARGET_WINDOWS)
 #include "platform/win32/WIN32Util.h"
 #endif //TARGET_WINDOWS
-
-#pragma comment(lib, "dnssd.lib")
 
 extern HWND g_hWnd;
 
@@ -49,11 +36,14 @@ CZeroconfBrowserMDNS::~CZeroconfBrowserMDNS()
 {
   CSingleLock lock(m_data_guard);
   //make sure there are no browsers anymore
-  for(tBrowserMap::iterator it = m_service_browsers.begin(); it != m_service_browsers.end(); ++it )
-    doRemoveServiceType(it->first);
+  for (const auto& it : m_service_browsers)
+    doRemoveServiceType(it.first);
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   WSAAsyncSelect( (SOCKET) DNSServiceRefSockFD( m_browser ), g_hWnd, BONJOUR_BROWSER_EVENT, 0 );
+#elif  defined(TARGET_WINDOWS_STORE)
+  // need to modify this code to use WSAEventSelect since WSAAsyncSelect is not supported
+  CLog::Log(LOGDEBUG, "%s is not implemented for TARGET_WINDOWS_STORE", __FUNCTION__);
 #endif //TARGET_WINDOWS
 
   if (m_browser)
@@ -92,7 +82,7 @@ void DNSSD_API CZeroconfBrowserMDNS::BrowserCallback(DNSServiceRef browser,
     {
       CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE_PATH);
       message.SetStringParam("zeroconf://");
-      g_windowManager.SendThreadMessage(message);
+      CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
       CLog::Log(LOGDEBUG, "ZeroconfBrowserMDNS::BrowserCallback sent gui update for path zeroconf://");
     }
   }
@@ -149,7 +139,7 @@ void DNSSD_API CZeroconfBrowserMDNS::ResolveCallback(DNSServiceRef              
   }
 
   DNSServiceErrorType err;
-  CZeroconfBrowser::ZeroconfService::tTxtRecordMap recordMap; 
+  CZeroconfBrowser::ZeroconfService::tTxtRecordMap recordMap;
   std::string strIP;
   CZeroconfBrowserMDNS* p_instance = static_cast<CZeroconfBrowserMDNS*> ( context );
 
@@ -239,11 +229,14 @@ bool CZeroconfBrowserMDNS::doAddServiceType(const std::string& fcr_service_type)
       CLog::Log(LOGERROR, "ZeroconfBrowserMDNS: DNSServiceCreateConnection failed with error = %ld", (int) err);
       return false;
     }
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
     err = WSAAsyncSelect( (SOCKET) DNSServiceRefSockFD( m_browser ), g_hWnd, BONJOUR_BROWSER_EVENT, FD_READ | FD_CLOSE );
     if (err != kDNSServiceErr_NoError)
       CLog::Log(LOGERROR, "ZeroconfBrowserMDNS: WSAAsyncSelect failed with error = %ld", (int) err);
-#endif //TARGET_WINDOWS
+#elif defined(TARGET_WINDOWS_STORE)
+    // need to modify this code to use WSAEventSelect since WSAAsyncSelect is not supported
+    CLog::Log(LOGERROR, "%s is not implemented for TARGET_WINDOWS_STORE", __FUNCTION__);
+#endif // TARGET_WINDOWS_STORE
   }
 #endif //!HAS_MDNS_EMBEDDED
 
@@ -304,10 +297,9 @@ std::vector<CZeroconfBrowser::ZeroconfService> CZeroconfBrowserMDNS::doGetFoundS
 {
   std::vector<CZeroconfBrowser::ZeroconfService> ret;
   CSingleLock lock(m_data_guard);
-  for(tDiscoveredServicesMap::const_iterator it = m_discovered_services.begin();
-      it != m_discovered_services.end(); ++it)
+  for (const auto& it : m_discovered_services)
   {
-    const std::vector<std::pair<CZeroconfBrowser::ZeroconfService, unsigned int> >& services = it->second;
+    auto& services = it.second;
     for(unsigned int i = 0; i < services.size(); ++i)
     {
       ret.push_back(services[i].first);
@@ -320,7 +312,7 @@ bool CZeroconfBrowserMDNS::doResolveService(CZeroconfBrowser::ZeroconfService& f
 {
   DNSServiceErrorType err;
   DNSServiceRef sdRef = NULL;
-  
+
   //start resolving
   m_resolving_service = fr_service;
   m_resolved_event.Reset();
@@ -344,7 +336,7 @@ bool CZeroconfBrowserMDNS::doResolveService(CZeroconfBrowser::ZeroconfService& f
 #if defined(HAS_MDNS_EMBEDDED)
   // when using the embedded mdns service the call to DNSServiceProcessResult
   // above will not block until the resolving was finished - instead we have to
-  // wait for resolve to return or timeout  
+  // wait for resolve to return or timeout
   m_resolved_event.WaitMSec(f_timeout * 1000);
 #endif //HAS_MDNS_EMBEDDED
   fr_service = m_resolving_service;

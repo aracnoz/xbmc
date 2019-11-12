@@ -1,46 +1,33 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#if defined(HAVE_LIBCEC)
 #include "PeripheralCecAdapter.h"
-#include "input/XBIRRemote.h"
+
 #include "Application.h"
-#include "messaging/ApplicationMessenger.h"
-#include "DynamicDll.h"
-#include "threads/SingleLock.h"
+#include "ServiceBroker.h"
 #include "dialogs/GUIDialogKaiToast.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
-#include "input/Key.h"
 #include "guilib/LocalizeStrings.h"
+#include "input/Key.h"
+#include "input/remote/IRRemote.h"
+#include "messaging/ApplicationMessenger.h"
 #include "pictures/GUIWindowSlideShow.h"
-#include "settings/AdvancedSettings.h"
+#include "threads/SingleLock.h"
 #include "utils/JobManager.h"
-#include "utils/log.h"
 #include "utils/Variant.h"
+#include "utils/log.h"
 
 #include <libcec/cec.h>
 
-using namespace KODI::MESSAGING;
+using namespace KODI;
+using namespace MESSAGING;
 using namespace PERIPHERALS;
-using namespace ANNOUNCEMENT;
 using namespace CEC;
 
 #define CEC_LIB_SUPPORTED_VERSION LIBCEC_VERSION_TO_UINT(4, 0, 0)
@@ -57,6 +44,7 @@ using namespace CEC;
 #define LOCALISED_ID_PAUSE        36045
 #define LOCALISED_ID_POWEROFF     13005
 #define LOCALISED_ID_SUSPEND      13011
+#define LOCALISED_ID_HIBERNATE    13010
 #define LOCALISED_ID_QUIT         13009
 #define LOCALISED_ID_IGNORE       36028
 
@@ -65,31 +53,9 @@ using namespace CEC;
 /* time in seconds to suppress source activation after receiving OnStop */
 #define CEC_SUPPRESS_ACTIVATE_SOURCE_AFTER_ON_STOP 2
 
-class DllLibCECInterface
-{
-public:
-  virtual ~DllLibCECInterface() {}
-  virtual ICECAdapter* CECInitialise(libcec_configuration *configuration)=0;
-  virtual void*        CECDestroy(ICECAdapter *adapter)=0;
-};
-
-class DllLibCEC : public DllDynamic, DllLibCECInterface
-{
-  DECLARE_DLL_WRAPPER(DllLibCEC, DLL_PATH_LIBCEC)
-
-  DEFINE_METHOD1(ICECAdapter*, CECInitialise, (libcec_configuration *p1))
-  DEFINE_METHOD1(void*       , CECDestroy,    (ICECAdapter *p1))
-
-  BEGIN_METHOD_RESOLVE()
-    RESOLVE_METHOD_RENAME(CECInitialise,  CECInitialise)
-    RESOLVE_METHOD_RENAME(CECDestroy, CECDestroy)
-  END_METHOD_RESOLVE()
-};
-
-CPeripheralCecAdapter::CPeripheralCecAdapter(const PeripheralScanResult& scanResult, CPeripheralBus* bus) :
-  CPeripheralHID(scanResult, bus),
+CPeripheralCecAdapter::CPeripheralCecAdapter(CPeripherals& manager, const PeripheralScanResult& scanResult, CPeripheralBus* bus) :
+  CPeripheralHID(manager, scanResult, bus),
   CThread("CECAdapter"),
-  m_dll(NULL),
   m_cecAdapter(NULL)
 {
   ResetMembers();
@@ -101,29 +67,25 @@ CPeripheralCecAdapter::~CPeripheralCecAdapter(void)
 {
   {
     CSingleLock lock(m_critSection);
-    CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
+    CServiceBroker::GetAnnouncementManager()->RemoveAnnouncer(this);
     m_bStop = true;
   }
 
   StopThread(true);
   delete m_queryThread;
 
-  if (m_dll && m_cecAdapter)
+  if (m_cecAdapter)
   {
-    m_dll->CECDestroy(m_cecAdapter);
+    CECDestroy(m_cecAdapter);
     m_cecAdapter = NULL;
-    delete m_dll;
-    m_dll = NULL;
   }
 }
 
 void CPeripheralCecAdapter::ResetMembers(void)
 {
-  if (m_cecAdapter && m_dll)
-    m_dll->CECDestroy(m_cecAdapter);
+  if (m_cecAdapter)
+    CECDestroy(m_cecAdapter);
   m_cecAdapter               = NULL;
-  delete m_dll;
-  m_dll                        = NULL;
   m_bStarted                   = false;
   m_bHasButton                 = false;
   m_bIsReady                   = false;
@@ -154,16 +116,16 @@ void CPeripheralCecAdapter::ResetMembers(void)
   m_configuration.Clear();
 }
 
-void CPeripheralCecAdapter::Announce(AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
+void CPeripheralCecAdapter::Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
 {
-  if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnQuit") && m_bIsReady)
+  if (flag == ANNOUNCEMENT::System && !strcmp(sender, "xbmc") && !strcmp(message, "OnQuit") && m_bIsReady)
   {
     CSingleLock lock(m_critSection);
     m_iExitCode = static_cast<int>(data["exitcode"].asInteger(EXITCODE_QUIT));
-    CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
+    CServiceBroker::GetAnnouncementManager()->RemoveAnnouncer(this);
     StopThread(false);
   }
-  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && m_bIsReady)
+  else if (flag == ANNOUNCEMENT::GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && m_bIsReady)
   {
     bool bIgnoreDeactivate(false);
     if (data["shuttingdown"].isBoolean())
@@ -181,17 +143,17 @@ void CPeripheralCecAdapter::Announce(AnnouncementFlag flag, const char *sender, 
       ActivateSource();
     }
   }
-  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && m_bIsReady)
+  else if (flag == ANNOUNCEMENT::GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && m_bIsReady)
   {
     // Don't put devices to standby if application is currently playing
-    if (!g_application.m_pPlayer->IsPlaying() && m_bPowerOffScreensaver)
+    if (!g_application.GetAppPlayer().IsPlaying() && m_bPowerOffScreensaver)
     {
       // only power off when we're the active source
       if (m_cecAdapter->IsLibCECActiveSource())
         StandbyDevices();
     }
   }
-  else if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnSleep"))
+  else if (flag == ANNOUNCEMENT::System && !strcmp(sender, "xbmc") && !strcmp(message, "OnSleep"))
   {
     // this will also power off devices when we're the active source
     {
@@ -200,7 +162,7 @@ void CPeripheralCecAdapter::Announce(AnnouncementFlag flag, const char *sender, 
     }
     StopThread();
   }
-  else if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnWake"))
+  else if (flag == ANNOUNCEMENT::System && !strcmp(sender, "xbmc") && !strcmp(message, "OnWake"))
   {
     CLog::Log(LOGDEBUG, "%s - reconnecting to the CEC adapter after standby mode", __FUNCTION__);
     if (ReopenConnection())
@@ -215,13 +177,13 @@ void CPeripheralCecAdapter::Announce(AnnouncementFlag flag, const char *sender, 
         ActivateSource();
     }
   }
-  else if (flag == Player && !strcmp(sender, "xbmc") && !strcmp(message, "OnStop"))
+  else if (flag == ANNOUNCEMENT::Player && !strcmp(sender, "xbmc") && !strcmp(message, "OnStop"))
   {
     CSingleLock lock(m_critSection);
     m_preventActivateSourceOnPlay = CDateTime::GetCurrentDateTime();
     m_bOnPlayReceived = false;
   }
-  else if (flag == Player && !strcmp(sender, "xbmc") && !strcmp(message, "OnPlay"))
+  else if (flag == ANNOUNCEMENT::Player && !strcmp(sender, "xbmc") && (!strcmp(message, "OnPlay") || !strcmp(message, "OnResume")))
   {
     // activate the source when playback started, and the option is enabled
     bool bActivateSource(false);
@@ -259,19 +221,7 @@ bool CPeripheralCecAdapter::InitialiseFeature(const PeripheralFeature feature)
     m_configuration.callbackParam    = this;
     m_configuration.callbacks        = &m_callbacks;
 
-    m_dll = new DllLibCEC;
-    if (m_dll->Load() && m_dll->IsLoaded())
-      m_cecAdapter = m_dll->CECInitialise(&m_configuration);
-    else
-    {
-      // display warning: libCEC could not be loaded
-      CLog::Log(LOGERROR, "%s", g_localizeStrings.Get(36017).c_str());
-      CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), g_localizeStrings.Get(36017));
-      delete m_dll;
-      m_dll = NULL;
-      m_features.clear();
-      return false;
-    }
+    m_cecAdapter = CECInitialise(&m_configuration);
 
     if (m_configuration.serverVersion < CEC_LIB_SUPPORTED_VERSION)
     {
@@ -283,7 +233,7 @@ bool CPeripheralCecAdapter::InitialiseFeature(const PeripheralFeature feature)
       CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), strMessage);
       m_bError = true;
       if (m_cecAdapter)
-        m_dll->CECDestroy(m_cecAdapter);
+        CECDestroy(m_cecAdapter);
       m_cecAdapter = NULL;
 
       m_features.clear();
@@ -324,7 +274,7 @@ bool CPeripheralCecAdapter::OpenConnection(void)
     m_bStarted = false;
     return bIsOpen;
   }
-  
+
   // open the CEC adapter
   CLog::Log(LOGDEBUG, "%s - opening a connection to the CEC adapter: %s", __FUNCTION__, m_strComPort.c_str());
 
@@ -378,7 +328,7 @@ void CPeripheralCecAdapter::Process(void)
     m_bActiveSourceBeforeStandby = false;
   }
 
-  CAnnouncementManager::GetInstance().AddAnnouncer(this);
+  CServiceBroker::GetAnnouncementManager()->AddAnnouncer(this);
 
   m_queryThread = new CPeripheralCecAdapterUpdateThread(this, &m_configuration);
   m_queryThread->Create(false);
@@ -636,6 +586,10 @@ void CPeripheralCecAdapter::OnTvStandby(void)
     m_bStarted = false;
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_SUSPEND);
     break;
+  case LOCALISED_ID_HIBERNATE:
+    m_bStarted = false;
+    KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_HIBERNATE);
+    break;
   case LOCALISED_ID_QUIT:
     m_bStarted = false;
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_QUIT);
@@ -646,6 +600,8 @@ void CPeripheralCecAdapter::OnTvStandby(void)
   case LOCALISED_ID_STOP:
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_MEDIA_STOP);
     break;
+  case LOCALISED_ID_IGNORE:
+  break;
   default:
     CLog::Log(LOGERROR, "%s - Unexpected [standby_pc_on_tv_standby] setting value", __FUNCTION__);
     break;
@@ -768,7 +724,7 @@ void CPeripheralCecAdapter::CecAlert(void *cbParam, const libcec_alert alert, co
 
   if (bReopenConnection)
   {
-    // Reopen the connection asynchronously. Otherwise a deadlock may occure.
+    // Reopen the connection asynchronously. Otherwise a deadlock may occur.
     // Reconnect means destruction and recreation of our libcec instance, but libcec
     // calls this callback function synchronously and must not be destroyed meanwhile.
     adapter->ReopenConnection(true);
@@ -803,7 +759,10 @@ void CPeripheralCecAdapter::PushCecKeypress(const CecButtonPress &key)
   CLog::Log(LOGDEBUG, "%s - received key %2x duration %d", __FUNCTION__, key.iButton, key.iDuration);
 
   CSingleLock lock(m_critSection);
-  if (key.iDuration > 0)
+  // avoid the queue getting too long
+  if (m_configuration.iButtonRepeatRateMs && m_buttonQueue.size() > 5)
+    return;
+  if (m_configuration.iButtonRepeatRateMs == 0 && key.iDuration > 0)
   {
     if (m_currentButton.iButton == key.iButton && m_currentButton.iDuration == 0)
     {
@@ -1189,12 +1148,12 @@ void CPeripheralCecAdapter::CecSourceActivated(void *cbParam, const CEC::cec_log
 
   if (adapter->GetSettingInt("pause_or_stop_playback_on_deactivate") != LOCALISED_ID_NONE)
   {
-    bool bShowingSlideshow = (g_windowManager.GetActiveWindow() == WINDOW_SLIDESHOW);
-    CGUIWindowSlideShow *pSlideShow = bShowingSlideshow ? (CGUIWindowSlideShow *)g_windowManager.GetWindow(WINDOW_SLIDESHOW) : NULL;
+    bool bShowingSlideshow = (CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow() == WINDOW_SLIDESHOW);
+    CGUIWindowSlideShow *pSlideShow = bShowingSlideshow ? CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIWindowSlideShow>(WINDOW_SLIDESHOW) : NULL;
     bool bPlayingAndDeactivated = activated == 0 && (
-        (pSlideShow && pSlideShow->IsPlaying()) || !g_application.m_pPlayer->IsPausedPlayback());
+        (pSlideShow && pSlideShow->IsPlaying()) || !g_application.GetAppPlayer().IsPausedPlayback());
     bool bPausedAndActivated = activated == 1 && adapter->m_bPlaybackPaused && (
-        (pSlideShow && pSlideShow->IsPaused()) || g_application.m_pPlayer->IsPausedPlayback());
+        (pSlideShow && pSlideShow->IsPaused()) || g_application.GetAppPlayer().IsPausedPlayback());
     if (bPlayingAndDeactivated)
       adapter->m_bPlaybackPaused = true;
     else if (bPausedAndActivated)
@@ -1247,8 +1206,8 @@ void CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message* 
     break;
   }
 
-  if (iLevel >= CEC_LOG_NOTICE || (iLevel >= 0 && CLog::IsLogLevelLogged(LOGDEBUG) && g_advancedSettings.CanLogComponent(LOGCEC)))
-    CLog::Log(iLevel, "%s - %s", __FUNCTION__, message->message);
+  if (iLevel >= CEC_LOG_NOTICE || (iLevel >= 0 && CLog::IsLogLevelLogged(LOGDEBUG)))
+    CLog::Log(iLevel, LOGCEC, "%s - %s", __FUNCTION__, message->message);
 }
 
 void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configuration &config)
@@ -1295,6 +1254,15 @@ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configu
   // set the boolean settings
   m_configuration.bActivateSource = config.bActivateSource;
   bChanged |= SetSetting("activate_source", m_configuration.bActivateSource == 1);
+
+  m_configuration.iDoubleTapTimeoutMs = config.iDoubleTapTimeoutMs;
+  bChanged |= SetSetting("double_tap_timeout_ms", (int)m_configuration.iDoubleTapTimeoutMs);
+
+  m_configuration.iButtonRepeatRateMs = config.iButtonRepeatRateMs;
+  bChanged |= SetSetting("button_repeat_rate_ms", (int)m_configuration.iButtonRepeatRateMs);
+
+  m_configuration.iButtonReleaseDelayMs = config.iButtonReleaseDelayMs;
+  bChanged |= SetSetting("button_release_delay_ms", (int)m_configuration.iButtonReleaseDelayMs);
 
   m_configuration.bPowerOffOnStandby = config.bPowerOffOnStandby;
 
@@ -1379,25 +1347,22 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
     ReadLogicalAddresses(GetSettingInt("standby_devices"), m_configuration.powerOffDevices);
 
   // read the boolean settings
-  m_bUseTVMenuLanguage                 = GetSettingBool("use_tv_menu_language") ? 1 : 0;
+  m_bUseTVMenuLanguage                 = GetSettingBool("use_tv_menu_language");
   m_configuration.bActivateSource      = GetSettingBool("activate_source") ? 1 : 0;
-  m_bPowerOffScreensaver               = GetSettingBool("cec_standby_screensaver") ? 1 : 0;
-  m_bPowerOnScreensaver                = GetSettingBool("cec_wake_screensaver") ? 1 : 0;
-  m_bSendInactiveSource                = GetSettingBool("send_inactive_source") ? 1 : 0;
+  m_bPowerOffScreensaver               = GetSettingBool("cec_standby_screensaver");
+  m_bPowerOnScreensaver                = GetSettingBool("cec_wake_screensaver");
+  m_bSendInactiveSource                = GetSettingBool("send_inactive_source");
   m_configuration.bAutoWakeAVR         = GetSettingBool("power_avr_on_as") ? 1 : 0;
 
   // read the mutually exclusive boolean settings
   int iStandbyAction(GetSettingInt("standby_pc_on_tv_standby"));
-  m_configuration.bPowerOffOnStandby = iStandbyAction == LOCALISED_ID_SUSPEND ? 1 : 0;
+  m_configuration.bPowerOffOnStandby = (iStandbyAction == LOCALISED_ID_SUSPEND || iStandbyAction == LOCALISED_ID_HIBERNATE) ? 1 : 0;
   m_bShutdownOnStandby = iStandbyAction == LOCALISED_ID_POWEROFF;
 
-#if defined(CEC_DOUBLE_TAP_TIMEOUT_MS_OLD)
-  // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
-  m_configuration.iDoubleTapTimeout50Ms = GetSettingInt("double_tap_timeout_ms") / 50;
-#else
-  // backwards compatibility. will be removed once the next major release of libCEC is out
+  // double tap prevention timeout in ms
   m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
-#endif
+  m_configuration.iButtonRepeatRateMs = GetSettingInt("button_repeat_rate_ms");
+  m_configuration.iButtonReleaseDelayMs = GetSettingInt("button_release_delay_ms");
 
   if (GetSettingBool("pause_playback_on_deactivate"))
   {
@@ -1688,9 +1653,9 @@ class CPeripheralCecAdapterReopenJob : public CJob
 public:
   CPeripheralCecAdapterReopenJob(CPeripheralCecAdapter *adapter)
     : m_adapter(adapter) {}
-  virtual ~CPeripheralCecAdapterReopenJob() {}
+  ~CPeripheralCecAdapterReopenJob() override = default;
 
-  bool DoWork(void)
+  bool DoWork(void) override
   {
     return m_adapter->ReopenConnection(false);
   }
@@ -1713,7 +1678,7 @@ bool CPeripheralCecAdapter::ReopenConnection(bool bAsync /* = false */)
   {
     CSingleLock lock(m_critSection);
     m_iExitCode = EXITCODE_RESTARTAPP;
-    CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
+    CServiceBroker::GetAnnouncementManager()->RemoveAnnouncer(this);
     StopThread(false);
   }
   StopThread();
@@ -1797,5 +1762,3 @@ bool CPeripheralCecAdapter::ToggleDeviceState(CecStateChange mode /*= STATE_SWIT
 
   return false;
 }
-
-#endif

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -34,7 +34,11 @@ msgstr "የ አገባብ ዝርዝር"
 
 msgctxt "#31009"
 msgid "Working..."
-msgstr "በመስራት ላይ "
+msgstr "በ መስራት ላይ "
+
+msgctxt "#31011"
+msgid "Recent"
+msgstr "የ ቅርብ ጊዜ"
 
 msgctxt "#31011"
 msgid "Recent"
@@ -48,13 +52,21 @@ msgctxt "#31016"
 msgid "Albums"
 msgstr "አልበም "
 
+msgctxt "#31017"
+msgid "PVR info"
+msgstr "የ PVR መረጃ "
+
+msgctxt "#31020"
+msgid "Pixel format"
+msgstr "የ ፒክስል አቀራረብ"
+
 msgctxt "#31024"
 msgid "Page"
 msgstr "ገጽ"
 
 msgctxt "#31030"
 msgid "Info List"
-msgstr "የመረጃ ዝርዝር"
+msgstr "የ መረጃ ዝርዝር"
 
 msgctxt "#31038"
 msgid "Login"
@@ -102,7 +114,7 @@ msgstr "ዝርዝሮችን መዝጊያ"
 
 msgctxt "#31058"
 msgid "System music files"
-msgstr "የስርአቱ ሙዚቃ ፋይሎች"
+msgstr "የ ስርአቱ ሙዚቃ ፋይሎች"
 
 msgctxt "#31059"
 msgid "Current playlist"
@@ -122,7 +134,7 @@ msgstr "መመልከቻ"
 
 msgctxt "#31300"
 msgid "Current Temp"
-msgstr "የአሁኑ የአየር ንብረት "
+msgstr "የ አሁኑ የአየር ንብረት "
 
 msgctxt "#31301"
 msgid "Last Updated"
@@ -146,7 +158,7 @@ msgstr "የተላለፈ"
 
 msgctxt "#31355"
 msgid "Video Menu"
-msgstr "የቪዲዮ ዝርዝር"
+msgstr "የ ቪዲዮ ዝርዝር"
 
 msgctxt "#31356"
 msgid "Download Subtitles"
@@ -238,4 +250,4 @@ msgstr "መጀመሪያ ማስኬጃ"
 
 msgctxt "#31904"
 msgid "Now Playing Title..."
-msgstr "አርእስት በ ማጫወት ላይ..."
+msgstr "አሁን የሚጫወተው አርእስት..."

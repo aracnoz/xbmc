@@ -1,28 +1,12 @@
 /*
- *      Copyright (C) 2007-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
-
-#include "system.h"
-
-#if defined(TARGET_ANDROID)
 
 #include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
 
@@ -30,29 +14,29 @@ class CRendererMediaCodec : public CLinuxRendererGLES
 {
 public:
   CRendererMediaCodec();
-  virtual ~CRendererMediaCodec();
-  
+  ~CRendererMediaCodec() override;
+
+  // Registration
+  static CBaseRenderer* Create(CVideoBuffer *buffer);
+  static bool Register();
+
   // Player functions
-  virtual void AddVideoPictureHW(DVDVideoPicture &picture, int index);
-  virtual bool RenderUpdateCheckForEmptyField();
-  virtual void ReleaseBuffer(int idx);
+  void AddVideoPicture(const VideoPicture& picture, int index) override;
+  void ReleaseBuffer(int idx) override;
 
   // Feature support
-  virtual bool Supports(EINTERLACEMETHOD method); 
-
-  virtual EINTERLACEMETHOD AutoInterlaceMethod();
-  virtual CRenderInfo GetRenderInfo();
+  CRenderInfo GetRenderInfo() override;
 
 protected:
   // textures
-  virtual bool UploadTexture(int index);
-  virtual void DeleteTexture(int index);
-  virtual bool CreateTexture(int index);
+  bool UploadTexture(int index) override;
+  void DeleteTexture(int index) override;
+  bool CreateTexture(int index) override;
 
   // hooks for hw dec renderer
-  virtual bool LoadShadersHook();
-  virtual bool RenderHook(int index);
-  virtual int  GetImageHook(YV12Image *image, int source = AUTOSOURCE, bool readonly = false);
-};
+  bool LoadShadersHook() override;
+  bool RenderHook(int index) override;
 
-#endif
+private:
+  float m_textureMatrix[16];
+};

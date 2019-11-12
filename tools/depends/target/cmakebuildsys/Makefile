@@ -1,6 +1,6 @@
 -include ../../Makefile.include
 
-VERSION.TXT := $(CORE_SOURCE_DIR)/version.txt
+VERSION.TXT := $(CMAKE_SOURCE_DIR)/version.txt
 APP_NAME=$(shell awk '/APP_NAME/ {print tolower($$2)}' $(VERSION.TXT))
 
 ifeq ($(Configuration),)
@@ -10,12 +10,30 @@ ifeq ($(Configuration),)
   endif
 endif
 
+ifeq ($(OS),darwin_embedded)
+  CMAKE_BUILD_ARGUMENTS = -G Xcode
+else ifeq ($(GEN),Xcode)
+  CMAKE_BUILD_ARGUMENTS = -G Xcode
+else
+  CMAKE_BUILD_ARGUMENTS = -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=$(Configuration)
+endif
+
+ifeq ($(BUILD_DIR),)
+  BUILD_DIR=$(CMAKE_SOURCE_DIR)/build
+endif
+
 all:
-	mkdir -p $(CORE_SOURCE_DIR)/build
-	cd $(CORE_SOURCE_DIR)/build; $(CMAKE) -DCMAKE_BUILD_TYPE=$(Configuration) -DENABLE_INTERNAL_CROSSGUID=OFF -DENABLE_INTERNAL_FFMPEG=OFF $(CORE_SOURCE_DIR)/project/cmake
+	mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR); $(CMAKE) $(CMAKE_BUILD_ARGUMENTS) -DENABLE_INTERNAL_CROSSGUID=OFF -DENABLE_INTERNAL_FFMPEG=OFF $(CMAKE_EXTRA_ARGUMENTS) $(CMAKE_SOURCE_DIR)
+
+kodi:
+	$(MAKE) -C $(BUILD_DIR)
+
+install:
+	$(MAKE) -C $(BUILD_DIR) install
 
 clean:
-	cd $(CORE_SOURCE_DIR)/build; $(MAKE) clean
+	$(MAKE) -C $(BUILD_DIR) clean
 
 distclean:
-	cd $(CORE_SOURCE_DIR)/build; $(MAKE) clean
+	cd $(BUILD_DIR) && rm -rf *

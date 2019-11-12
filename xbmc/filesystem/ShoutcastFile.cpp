@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 
@@ -23,16 +11,17 @@
 //
 //////////////////////////////////////////////////////////////////////
 
-#include "system.h"
 #include "ShoutcastFile.h"
-#include "guilib/GUIWindowManager.h"
-#include "URL.h"
-#include "utils/RegExp.h"
-#include "utils/HTMLUtil.h"
-#include "utils/CharsetConverter.h"
-#include "messaging/ApplicationMessenger.h"
+
 #include "FileCache.h"
 #include "FileItem.h"
+#include "URL.h"
+#include "guilib/GUIWindowManager.h"
+#include "messaging/ApplicationMessenger.h"
+#include "utils/CharsetConverter.h"
+#include "utils/HTMLUtil.h"
+#include "utils/RegExp.h"
+
 #include <climits>
 
 using namespace XFILE;
@@ -52,7 +41,6 @@ CShoutcastFile::CShoutcastFile() :
 
 CShoutcastFile::~CShoutcastFile()
 {
-  StopThread();
   Close();
 }
 
@@ -83,14 +71,13 @@ bool CShoutcastFile::Open(const CURL& url)
       m_tag.SetGenre(m_file.GetHttpHeader().GetValue("ice-genre")); // icecast
     m_tag.SetLoaded(true);
   }
-  m_fileCharset = m_file.GetServerReportedCharset();
+  m_fileCharset = m_file.GetProperty(XFILE::FILE_PROPERTY_CONTENT_CHARSET);
   m_metaint = atoi(m_file.GetHttpHeader().GetValue("icy-metaint").c_str());
   if (!m_metaint)
     m_metaint = -1;
   m_buffer = new char[16*255];
   m_tagPos = 1;
   m_tagChange.Set();
-  Create();
 
   return result;
 }
@@ -153,7 +140,7 @@ bool CShoutcastFile::ExtractTagInfo(const char* buf)
   }
   else
     g_charsetConverter.unknownToUTF8(strBuffer);
-  
+
   bool result=false;
 
   std::wstring wBuffer, wConverted;
@@ -188,17 +175,17 @@ void CShoutcastFile::ReadTruncated(char* buf2, int size)
 
 int CShoutcastFile::IoControl(EIoControl control, void* payload)
 {
-  if (control == IOCTRL_SET_CACHE)
+  if (control == IOCTRL_SET_CACHE && m_cacheReader == nullptr)
+  {
     m_cacheReader = (CFileCache*)payload;
+    Create();
+  }
 
   return IFile::IoControl(control, payload);
 }
 
 void CShoutcastFile::Process()
 {
-  if (!m_cacheReader)
-    return;
-
   while (!m_bStop)
   {
     if (m_tagChange.WaitMSec(500))

@@ -1,27 +1,19 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDDemuxSPU.h"
-#include "DVDClock.h"
+
 #include "DVDCodecs/Overlay/DVDOverlaySpu.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "utils/log.h"
+
+#include <locale.h>
+#include <stdlib.h>
 
 #undef ALIGN
 #define ALIGN(value, alignment) (((value)+((alignment)-1))&~((alignment)-1))
@@ -89,10 +81,10 @@ CDVDOverlaySpu* CDVDDemuxSPU::AddData(uint8_t* data, int iSize, double pts)
   // check if we are about to start a new packet
   if (pSPUData->iSize == pSPUData->iNeededSize)
   {
-    // for now we don't delete the memory assosiated with m_spuData.data
+    // for now we don't delete the memory associated with m_spuData.data
     pSPUData->iSize = 0;
 
-    // check spu data lenght, only needed / possible in the first spu pakcet
+    // check spu data length, only needed / possible in the first spu packet
     uint16_t length = data[0] << 8 | data[1];
     if (length == 0)
     {
@@ -179,7 +171,7 @@ CDVDOverlaySpu* CDVDDemuxSPU::ParsePacket(SPUData* pSPUData)
 
   pUnparsedData = pSPUData->data + 4;
 
-  // if it is set to 0 it means it's a menu overlay by defualt
+  // if it is set to 0 it means it's a menu overlay by default
   // this is not what we want too, cause you get strange results on a parse error
   pSPUInfo->iPTSStartTime = -1;
 
@@ -329,7 +321,7 @@ CDVDOverlaySpu* CDVDDemuxSPU::ParsePacket(SPUData* pSPUData)
   }
 
   // parse the rle.
-  // this should be chnaged so it get's converted to a yuv overlay
+  // this should be changed so it get's converted to a yuv overlay
   return ParseRLE(pSPUInfo, pUnparsedData);
 }
 
@@ -371,7 +363,7 @@ CDVDOverlaySpu* CDVDDemuxSPU::ParseRLE(CDVDOverlaySpu* pSPU, uint8_t* pUnparsedD
   /* The subtitles are interlaced, we need two offsets */
   unsigned int i_id = 0;                   /* Start on the even SPU layer */
   unsigned int pi_table[2];
-  
+
   /* Colormap statistics */
   int i_border = -1;
   int stats[4]; stats[0] = stats[1] = stats[2] = stats[3] = 0;
@@ -427,10 +419,10 @@ CDVDOverlaySpu* CDVDDemuxSPU::ParseRLE(CDVDOverlaySpu* pSPU, uint8_t* pUnparsedD
         return NULL;
       }
 
-      // keep trace of all occouring pixels, even keeping the background in mind
+      // keep trace of all occurring pixels, even keeping the background in mind
       stats[i_code & 0x3] += i_code >> 2;
 
-      // count the number of pixels for every occouring parts, without background
+      // count the number of pixels for every occurring parts, without background
       if (pSPU->alpha[i_code & 0x3] != 0x00)
       {
         // the last non background pixel is probably the border color
@@ -568,9 +560,9 @@ void CDVDDemuxSPU::FindSubtitleColor(int last_color, int stats[4], CDVDOverlaySp
 
 
   int nrOfUsedColors = 0;
-  for (int i = 0; i < 4; i++)
+  for (int alpha : pSPU->alpha)
   {
-    if (pSPU->alpha[i] > 0) nrOfUsedColors++;
+    if (alpha > 0) nrOfUsedColors++;
   }
 
   if (nrOfUsedColors == 0)

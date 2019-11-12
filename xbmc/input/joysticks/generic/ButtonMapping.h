@@ -1,36 +1,63 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMapCallback.h"
-#include "input/joysticks/IDriverHandler.h"
+#include "input/joysticks/interfaces/IButtonMapCallback.h"
+#include "input/joysticks/interfaces/IDriverHandler.h"
+#include "input/keyboard/interfaces/IKeyboardDriverHandler.h"
+#include "input/mouse/MouseTypes.h"
+#include "input/mouse/interfaces/IMouseDriverHandler.h"
 
 #include <map>
+#include <memory>
 #include <stdint.h>
 
+class IKeymap;
+
+namespace KODI
+{
 namespace JOYSTICK
 {
   class CButtonMapping;
+  class IButtonMap;
+  class IButtonMapper;
 
-  class CButtonDetector
+  /*!
+   * \brief Detects and dispatches mapping events
+   *
+   * A mapping event usually occurs when a driver primitive is pressed or
+   * exceeds a certain threshold.
+   *
+   * Detection can be quite complicated due to driver bugs, so each type of
+   * driver primitive is given its own detector class inheriting from this one.
+   */
+  class CPrimitiveDetector
+  {
+  protected:
+    CPrimitiveDetector(CButtonMapping* buttonMapping);
+
+    /*!
+     * \brief Dispatch a mapping event
+     *
+     * \return True if the primitive was mapped, false otherwise
+     */
+    bool MapPrimitive(const CDriverPrimitive &primitive);
+
+  private:
+    CButtonMapping* const m_buttonMapping;
+  };
+
+  /*!
+   * \brief Detects when a button should be mapped
+   */
+  class CButtonDetector : public CPrimitiveDetector
   {
   public:
     CButtonDetector(CButtonMapping* buttonMapping, unsigned int buttonIndex);
@@ -40,18 +67,20 @@ namespace JOYSTICK
      *
      * \param bPressed The new state
      *
-     * \return True if this press was absorbed, false if it should fall through
+     * \return True if this press was handled, false if it should fall through
      *         to the next driver handler
      */
     bool OnMotion(bool bPressed);
 
   private:
     // Construction parameters
-    CButtonMapping* const m_buttonMapping;
     const unsigned int m_buttonIndex;
   };
 
-  class CHatDetector
+  /*!
+   * \brief Detects when a D-pad direction should be mapped
+   */
+  class CHatDetector : public CPrimitiveDetector
   {
   public:
     CHatDetector(CButtonMapping* buttonMapping, unsigned int hatIndex);
@@ -67,7 +96,6 @@ namespace JOYSTICK
 
   private:
     // Construction parameters
-    CButtonMapping* const m_buttonMapping;
     const unsigned int m_hatIndex;
   };
 
@@ -79,7 +107,10 @@ namespace JOYSTICK
     bool bLateDiscovery = false;
   };
 
-  class CAxisDetector
+  /*!
+   * \brief Detects when an axis should be mapped
+   */
+  class CAxisDetector : public CPrimitiveDetector
   {
   public:
     CAxisDetector(CButtonMapping* buttonMapping, unsigned int axisIndex, const AxisConfiguration& config);
@@ -172,7 +203,6 @@ namespace JOYSTICK
     void DetectType(float position);
 
     // Construction parameters
-    CButtonMapping* const m_buttonMapping;
     const unsigned int m_axisIndex;
     AxisConfiguration m_config; // mutable
 
@@ -186,9 +216,83 @@ namespace JOYSTICK
     unsigned int m_activationTimeMs; // only used to delay anomalous trigger mapping to detect full range
   };
 
-  class IActionMap;
-  class IButtonMap;
-  class IButtonMapper;
+  /*!
+   * \brief Detects when a keyboard key should be mapped
+   */
+  class CKeyDetector : public CPrimitiveDetector
+  {
+  public:
+    CKeyDetector(CButtonMapping* buttonMapping, XBMCKey keycode);
+
+    /*!
+     * \brief Key state has been updated
+     *
+     * \param bPressed The new state
+     *
+     * \return True if this press was handled, false if it should fall through
+     *         to the next driver handler
+     */
+    bool OnMotion(bool bPressed);
+
+  private:
+    // Construction parameters
+    const XBMCKey m_keycode;
+  };
+
+  /*!
+   * \brief Detects when a mouse button should be mapped
+   */
+  class CMouseButtonDetector : public CPrimitiveDetector
+  {
+  public:
+    CMouseButtonDetector(CButtonMapping* buttonMapping, MOUSE::BUTTON_ID buttonIndex);
+
+    /*!
+     * \brief Button state has been updated
+     *
+     * \param bPressed The new state
+     *
+     * \return True if this press was handled, false if it should fall through
+     *         to the next driver handler
+     */
+    bool OnMotion(bool bPressed);
+
+  private:
+    // Construction parameters
+    const MOUSE::BUTTON_ID m_buttonIndex;
+  };
+
+  /*!
+   * \brief Detects when a mouse button should be mapped
+   */
+  class CPointerDetector : public CPrimitiveDetector
+  {
+  public:
+    CPointerDetector(CButtonMapping* buttonMapping);
+
+    /*!
+     * \brief Pointer position has been updated
+     *
+     * \param x The new x coordinate
+     * \param y The new y coordinate
+     *
+     * \return Always true - pointer motion events are always absorbed while
+     *         button mapping
+     */
+    bool OnMotion(int x, int y);
+
+  private:
+    // Utility function
+    static INPUT::INTERCARDINAL_DIRECTION GetPointerDirection(int x, int y);
+
+    static const unsigned int MIN_FRAME_COUNT = 10;
+
+    // State variables
+    bool m_bStarted = false;
+    int m_startX = 0;
+    int m_startY = 0;
+    unsigned int m_frameCount = 0;
+  };
 
   /*!
    * \ingroup joystick
@@ -202,6 +306,8 @@ namespace JOYSTICK
    * activation.
    */
   class CButtonMapping : public IDriverHandler,
+                         public KEYBOARD::IKeyboardDriverHandler,
+                         public MOUSE::IMouseDriverHandler,
                          public IButtonMapCallback
   {
   public:
@@ -211,20 +317,29 @@ namespace JOYSTICK
      * \param buttonMapper Carries out button-mapping commands using <buttonMap>
      * \param buttonMap The button map given to <buttonMapper> on each command
      */
-    CButtonMapping(IButtonMapper* buttonMapper, IButtonMap* buttonMap, IActionMap* actionMap);
+    CButtonMapping(IButtonMapper* buttonMapper, IButtonMap* buttonMap, IKeymap* keymap);
 
-    virtual ~CButtonMapping(void) { }
+    ~CButtonMapping() override = default;
 
     // implementation of IDriverHandler
-    virtual bool OnButtonMotion(unsigned int buttonIndex, bool bPressed) override;
-    virtual bool OnHatMotion(unsigned int hatIndex, HAT_STATE state) override;
-    virtual bool OnAxisMotion(unsigned int axisIndex, float position, int center, unsigned int range) override;
-    virtual void ProcessAxisMotions(void) override;
+    bool OnButtonMotion(unsigned int buttonIndex, bool bPressed) override;
+    bool OnHatMotion(unsigned int hatIndex, HAT_STATE state) override;
+    bool OnAxisMotion(unsigned int axisIndex, float position, int center, unsigned int range) override;
+    void ProcessAxisMotions() override;
+
+    // implementation of IKeyboardDriverHandler
+    bool OnKeyPress(const CKey& key) override;
+    void OnKeyRelease(const CKey& key) override { }
+
+    // implementation of IMouseDriverHandler
+    bool OnPosition(int x, int y) override;
+    bool OnButtonPress(MOUSE::BUTTON_ID button) override;
+    void OnButtonRelease(MOUSE::BUTTON_ID button) override;
 
     // implementation of IButtonMapCallback
-    virtual void SaveButtonMap() override;
-    virtual void ResetIgnoredPrimitives() override;
-    virtual void RevertButtonMap() override;
+    void SaveButtonMap() override;
+    void ResetIgnoredPrimitives() override;
+    void RevertButtonMap() override;
 
     /*!
      * \brief Process the primitive mapping command
@@ -239,8 +354,6 @@ namespace JOYSTICK
      */
     bool MapPrimitive(const CDriverPrimitive& primitive);
 
-    bool IsDefaultController();
-
   private:
     bool IsMapping() const;
 
@@ -249,16 +362,23 @@ namespace JOYSTICK
     CButtonDetector& GetButton(unsigned int buttonIndex);
     CHatDetector& GetHat(unsigned int hatIndex);
     CAxisDetector& GetAxis(unsigned int axisIndex, float position, const AxisConfiguration& initialConfig = AxisConfiguration());
+    CKeyDetector& GetKey(XBMCKey keycode);
+    CMouseButtonDetector& GetMouseButton(MOUSE::BUTTON_ID buttonIndex);
+    CPointerDetector &GetPointer();
 
     // Construction parameters
     IButtonMapper* const m_buttonMapper;
     IButtonMap* const    m_buttonMap;
-    IActionMap* const    m_actionMap;
+    IKeymap* const       m_keymap;
 
     std::map<unsigned int, CButtonDetector> m_buttons;
     std::map<unsigned int, CHatDetector> m_hats;
     std::map<unsigned int, CAxisDetector> m_axes;
+    std::map<XBMCKey, CKeyDetector> m_keys;
+    std::map<MOUSE::BUTTON_ID, CMouseButtonDetector> m_mouseButtons;
+    std::unique_ptr<CPointerDetector> m_pointer;
     unsigned int m_lastAction;
     uint64_t m_frameCount;
   };
+}
 }

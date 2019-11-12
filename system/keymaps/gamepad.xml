@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- This file contains the mapping of keys to actions within Kodi.                       -->
+<!-- This file contains the mapping of EventServer "gamepad" keys to actions within Kodi. -->
 <!--                                                                                      -->
 <!-- The format is:                                                                       -->
 <!--  <window>                                                                            -->
@@ -84,6 +84,21 @@
       <dpaddown>ChapterOrBigStepBack</dpaddown>
     </gamepad>
   </FullscreenVideo>
+  <FullscreenGame>
+    <gamepad>
+      <A>Pause</A>
+      <B>Stop</B>
+      <Y>AspectRatio</Y>
+      <black>CodecInfo</black>
+      <white>Info</white>
+      <back>Seek(-7)</back><!-- Replaces smallstepback -->
+      <start>OSD</start>
+      <leftanalogtrigger>AnalogRewind</leftanalogtrigger>
+      <rightanalogtrigger>AnalogFastForward</rightanalogtrigger>
+      <dpadleft>StepBack</dpadleft>
+      <dpadright>StepForward</dpadright>
+    </gamepad>
+  </FullscreenGame>
   <FullscreenLiveTV>
     <gamepad>
       <dpadleft>StepBack</dpadleft>

@@ -1,7 +1,5 @@
 set(SOURCES TestEvent.cpp
-            TestSharedSection.cpp
-            TestAtomics.cpp
-            TestThreadLocal.cpp)
+            TestSharedSection.cpp)
 
 set(HEADERS TestHelpers.h)
 

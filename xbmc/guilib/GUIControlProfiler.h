@@ -1,30 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef GUILIB_GUICONTROLPROFILER_H__
-#define GUILIB_GUICONTROLPROFILER_H__
 #pragma once
 
-#include <vector>
-
 #include "GUIControl.h"
+
+#include <vector>
 
 class CGUIControlProfiler;
 class TiXmlElement;
@@ -81,9 +67,9 @@ public:
   float m_fPerfScale;
 private:
   CGUIControlProfiler(void);
-  ~CGUIControlProfiler(void) {};
-  CGUIControlProfiler(const CGUIControlProfiler &that);
-  CGUIControlProfiler &operator=(const CGUIControlProfiler &that);
+  ~CGUIControlProfiler(void) = default;
+  CGUIControlProfiler(const CGUIControlProfiler &that) = delete;
+  CGUIControlProfiler &operator=(const CGUIControlProfiler &that) = delete;
 
   CGUIControlProfilerItem m_ItemHead;
   CGUIControlProfilerItem *m_pLastItem;
@@ -91,8 +77,8 @@ private:
 
   static bool m_bIsRunning;
   std::string m_strOutputFile;
-  int m_iMaxFrameCount;
-  int m_iFrameCount;
+  int m_iMaxFrameCount = 200;
+  int m_iFrameCount = 0;
 };
 
 #define GUIPROFILER_VISIBILITY_BEGIN(x) { if (CGUIControlProfiler::IsRunning()) CGUIControlProfiler::Instance().BeginVisibility(x); }
@@ -100,4 +86,3 @@ private:
 #define GUIPROFILER_RENDER_BEGIN(x) { if (CGUIControlProfiler::IsRunning()) CGUIControlProfiler::Instance().BeginRender(x); }
 #define GUIPROFILER_RENDER_END(x) { if (CGUIControlProfiler::IsRunning()) CGUIControlProfiler::Instance().EndRender(x); }
 
-#endif

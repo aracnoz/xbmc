@@ -1,40 +1,32 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "HTTPDirectory.h"
-#include "URL.h"
+
 #include "CurlFile.h"
 #include "FileItem.h"
-#include "utils/RegExp.h"
+#include "ServiceBroker.h"
+#include "URL.h"
 #include "settings/AdvancedSettings.h"
-#include "utils/StringUtils.h"
+#include "settings/SettingsComponent.h"
 #include "utils/CharsetConverter.h"
-#include "utils/log.h"
-#include "utils/URIUtils.h"
 #include "utils/HTMLUtil.h"
-#include "climits"
+#include "utils/RegExp.h"
+#include "utils/StringUtils.h"
+#include "utils/URIUtils.h"
+#include "utils/log.h"
+
+#include <climits>
 
 using namespace XFILE;
 
-CHTTPDirectory::CHTTPDirectory(void){}
-CHTTPDirectory::~CHTTPDirectory(void){}
+CHTTPDirectory::CHTTPDirectory(void) = default;
+CHTTPDirectory::~CHTTPDirectory(void) = default;
 
 bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
 {
@@ -54,7 +46,7 @@ bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
 
   CRegExp reDateTime(true);
   reDateTime.RegComp("<td align=\"right\">([0-9]{2})-([A-Z]{3})-([0-9]{4}) ([0-9]{2}):([0-9]{2}) +</td>");
-  
+
   CRegExp reDateTimeLighttp(true);
   reDateTimeLighttp.RegComp("<td class=\"m\">([0-9]{4})-([A-Z]{3})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})</td>");
 
@@ -75,7 +67,7 @@ bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
   while(http.ReadString(buffer, sizeof(buffer)-1))
   {
     std::string strBuffer = buffer;
-    std::string fileCharset(http.GetServerReportedCharset());
+    std::string fileCharset(http.GetProperty(XFILE::FILE_PROPERTY_CONTENT_CHARSET));
     if (!fileCharset.empty() && fileCharset != "UTF-8")
     {
       std::string converted;
@@ -113,6 +105,18 @@ bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
         strLinkOptions = strLinkBase.substr(pos);
         strLinkBase.erase(pos);
       }
+      
+      // encoding + and ; to URL encode if it is not already encoded by http server used on the remote server (example: Apache)
+      // more characters may be added here when required when required by certain http servers
+      pos = strLinkBase.find_first_of("+;");
+      while (pos != std::string::npos) 
+      {
+        std::stringstream convert;
+        convert << '%' << std::hex << int(strLinkBase.at(pos));
+        strLinkBase.replace(pos, 1, convert.str());
+        pos = strLinkBase.find_first_of("+;");
+      }
+
       std::string strLinkTemp = strLinkBase;
 
       URIUtils::RemoveSlashAtEnd(strLinkTemp);
@@ -136,7 +140,7 @@ bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
         CURL url2(url);
 
         /* NOTE: Force any &...; encoding (e.g. &amp;) into % encoding else CURL objects interpret them incorrectly
-         * due to the ; also being allowed as URL option seperator
+         * due to the ; also being allowed as URL option separator
          */
         if (fileCharset.empty())
           g_charsetConverter.unknownToUTF8(strLinkBase);
@@ -226,7 +230,7 @@ bool CHTTPDirectory::GetDirectory(const CURL& url, CFileItemList &items)
             pItem->m_dwSize = (int64_t)Size;
           }
           else
-          if (g_advancedSettings.m_bHTTPDirectoryStatFilesize) // As a fallback get the size by stat-ing the file (slow)
+          if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_bHTTPDirectoryStatFilesize) // As a fallback get the size by stat-ing the file (slow)
           {
             CCurlFile file;
             file.Open(url);

@@ -1,34 +1,22 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#ifdef HAS_DX
+#include "GUIColorManager.h"
+#include "utils/Color.h"
+#include "utils/Geometry.h"
 
 #include <map>
-#include <d3dx11effect.h>
-#include <DirectXMath.h>
-#include "Geometry.h"
-#include "GUIColorManager.h"
 
-using namespace DirectX;
+#include <DirectXMath.h>
+#include <d3dx11effect.h>
+#include <wrl/client.h>
 
 #define KODI_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT 4
 
@@ -38,20 +26,12 @@ typedef enum SHADER_METHOD {
   SHADER_METHOD_RENDER_FONT,
   SHADER_METHOD_RENDER_TEXTURE_BLEND,
   SHADER_METHOD_RENDER_MULTI_TEXTURE_BLEND,
-  SHADER_METHOD_RENDER_VIDEO,
-  SHADER_METHOD_RENDER_VIDEO_CONTROL,
   SHADER_METHOD_RENDER_STEREO_INTERLACED_LEFT,
   SHADER_METHOD_RENDER_STEREO_INTERLACED_RIGHT,
   SHADER_METHOD_RENDER_STEREO_CHECKERBOARD_LEFT,
   SHADER_METHOD_RENDER_STEREO_CHECKERBOARD_RIGHT,
   SHADER_METHOD_RENDER_COUNT
 } _SHADER_METHOD;
-
-typedef enum SHADER_SAMPLER {
-  SHADER_SAMPLER_LINEAR = 1,
-  SHADER_SAMPLER_POINT = 2
-} _SHADER_SAMPLER;
-
 
 class ID3DResource
 {
@@ -60,9 +40,12 @@ public:
 
   virtual void OnDestroyDevice(bool fatal)=0;
   virtual void OnCreateDevice()=0;
-  virtual void OnLostDevice() {};
-  virtual void OnResetDevice() {};
-  virtual void OnDestroyDevice() { OnDestroyDevice(false); }
+
+protected:
+  void Register();
+  void Unregister();
+
+  bool m_bRegistered = false;
 };
 
 class CD3DHelper
@@ -76,7 +59,7 @@ public:
     floats[3] = float((dword >> 24) & 0xFF) * (1.0f / 255.0f); // a
   }
 
-  static inline void XMStoreColor(XMFLOAT4* floats, DWORD dword)
+  static inline void XMStoreColor(DirectX::XMFLOAT4* floats, DWORD dword)
   {
     XMStoreColor(reinterpret_cast<float*>(floats), dword);
   }
@@ -89,7 +72,7 @@ public:
     floats[3] = a * (1.0f / 255.0f);
   }
 
-  static inline void XMStoreColor(XMFLOAT4* floats, unsigned char a, unsigned char r, unsigned char g, unsigned char b)
+  static inline void XMStoreColor(DirectX::XMFLOAT4* floats, unsigned char a, unsigned char r, unsigned char g, unsigned char b)
   {
     XMStoreColor(reinterpret_cast<float*>(floats), a, r, g, b);
   }
@@ -108,68 +91,73 @@ class CD3DTexture : public ID3DResource
 {
 public:
   CD3DTexture();
-  ~CD3DTexture();
+  virtual ~CD3DTexture();
 
   bool Create(UINT width, UINT height, UINT mipLevels, D3D11_USAGE usage, DXGI_FORMAT format, const void* pInitData = nullptr, unsigned int srcPitch = 0);
+
   void Release();
-  bool GetDesc(D3D11_TEXTURE2D_DESC *desc);
-  bool LockRect(UINT subresource, D3D11_MAPPED_SUBRESOURCE *res, D3D11_MAP mapType);
-  bool UnlockRect(UINT subresource);
+  bool GetDesc(D3D11_TEXTURE2D_DESC *desc) const;
+  bool LockRect(UINT subresource, D3D11_MAPPED_SUBRESOURCE *res, D3D11_MAP mapType) const;
+  bool UnlockRect(UINT subresource) const;
 
   // Accessors
-  ID3D11Texture2D* Get() const { return m_texture; };
-  ID3D11ShaderResourceView* GetShaderResource();
+  ID3D11Texture2D* Get() const { return m_texture.Get(); };
+  ID3D11ShaderResourceView* GetShaderResource(DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+  ID3D11ShaderResourceView** GetAddressOfSRV(DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
   ID3D11RenderTargetView* GetRenderTarget();
+  ID3D11RenderTargetView** GetAddressOfRTV();
   UINT GetWidth()  const { return m_width; }
   UINT GetHeight() const { return m_height; }
   DXGI_FORMAT GetFormat() const { return m_format; }
   void GenerateMipmaps();
 
   // static methods
-  static void DrawQuad(const CPoint points[4], color_t color, CD3DTexture *texture, const CRect *texCoords,
+  static void DrawQuad(const CPoint points[4], UTILS::Color color, CD3DTexture *texture, const CRect *texCoords,
     SHADER_METHOD options = SHADER_METHOD_RENDER_TEXTURE_BLEND);
 
-  static void DrawQuad(const CPoint points[4], color_t color, unsigned numViews, ID3D11ShaderResourceView **view, const CRect *texCoords,
+  static void DrawQuad(const CPoint points[4], UTILS::Color color, unsigned numViews, ID3D11ShaderResourceView **view, const CRect *texCoords,
     SHADER_METHOD options = SHADER_METHOD_RENDER_TEXTURE_BLEND);
 
-  static void DrawQuad(const CRect &coords, color_t color, CD3DTexture *texture, const CRect *texCoords,
+  static void DrawQuad(const CRect &coords, UTILS::Color color, CD3DTexture *texture, const CRect *texCoords,
     SHADER_METHOD options = SHADER_METHOD_RENDER_TEXTURE_BLEND);
 
-  static void DrawQuad(const CRect &coords, color_t color, unsigned numViews, ID3D11ShaderResourceView **view, const CRect *texCoords,
+  static void DrawQuad(const CRect &coords, UTILS::Color color, unsigned numViews, ID3D11ShaderResourceView **view, const CRect *texCoords,
     SHADER_METHOD options = SHADER_METHOD_RENDER_TEXTURE_BLEND);
 
   void OnDestroyDevice(bool fatal) override;
   void OnCreateDevice() override;
 
-private:
+protected:
+  ID3D11RenderTargetView* GetRenderTargetInternal(unsigned idx = 0);
   unsigned int GetMemoryUsage(unsigned int pitch) const;
   bool CreateInternal(const void* pInitData = nullptr, unsigned int srcPitch = 0);
 
   void SaveTexture();
   void RestoreTexture();
 
+  // saved data
+  BYTE* m_data;
   // creation parameters
-  UINT        m_width;
-  UINT        m_height;
-  UINT        m_mipLevels;
+  UINT m_width;
+  UINT m_height;
+  UINT m_mipLevels;
+  UINT m_pitch;
+  UINT m_bindFlags;
+  UINT m_cpuFlags;
+  UINT m_viewIdx;
   D3D11_USAGE m_usage;
   DXGI_FORMAT m_format;
-  UINT        m_pitch;
-  UINT        m_bindFlags;
-  UINT        m_cpuFlags;
 
   // created texture
-  ID3D11Texture2D* m_texture;
-  ID3D11ShaderResourceView* m_textureView;
-  ID3D11RenderTargetView* m_renderTarget;
-
-  // saved data
-  BYTE*     m_data;
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> m_texture;
+  Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_renderTargets[2];
+  // store views in different formats
+  std::map<DXGI_FORMAT, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> m_views;
 };
 
 typedef std::map<std::string, std::string> DefinesMap;
 
-class CD3DEffect : public ID3DResource
+class CD3DEffect : public ID3DResource, public ID3DInclude
 {
 public:
   CD3DEffect();
@@ -177,7 +165,7 @@ public:
   bool Create(const std::string &effectString, DefinesMap* defines);
   void Release();
   bool SetFloatArray(LPCSTR handle, const float* val, unsigned int count);
-  bool SetMatrix(LPCSTR handle, const XMFLOAT4X4* mat);
+  bool SetMatrix(LPCSTR handle, const float* mat);
   bool SetTechnique(LPCSTR handle);
   bool SetTexture(LPCSTR handle, CD3DTexture &texture);
   bool SetResources(LPCSTR handle, ID3D11ShaderResourceView** ppSRViews, size_t count);
@@ -188,19 +176,23 @@ public:
   bool EndPass();
   bool End();
 
-  ID3DX11Effect *Get() const { return m_effect; };
+  ID3DX11Effect *Get() const { return m_effect.Get(); };
 
   void OnDestroyDevice(bool fatal) override;
   void OnCreateDevice() override;
 
-private:
-  bool         CreateEffect();
+  // ID3DInclude interface
+  __declspec(nothrow) HRESULT __stdcall Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes) override;
+  __declspec(nothrow) HRESULT __stdcall Close(LPCVOID pData) override;
 
-  std::string             m_effectString;
-  ID3DX11Effect*          m_effect;
-  ID3DX11EffectTechnique* m_techniquie;
-  ID3DX11EffectPass*      m_currentPass;
-  DefinesMap              m_defines;
+private:
+  bool CreateEffect();
+
+  std::string m_effectString;
+  DefinesMap m_defines;
+  Microsoft::WRL::ComPtr<ID3DX11Effect> m_effect;
+  Microsoft::WRL::ComPtr<ID3DX11EffectTechnique> m_techniquie;
+  Microsoft::WRL::ComPtr<ID3DX11EffectPass> m_currentPass;
 };
 
 class CD3DBuffer : public ID3DResource
@@ -212,24 +204,25 @@ public:
   bool Map(void** resource);
   bool Unmap();
   void Release();
-  bool Update(UINT offset, UINT size, void *data);
   unsigned int GetStride() { return m_stride; }
   DXGI_FORMAT GetFormat() { return m_format; }
-  ID3D11Buffer* Get() const { return m_buffer; };
+  ID3D11Buffer* Get() const { return m_buffer.Get(); };
 
   void OnDestroyDevice(bool fatal) override;
   void OnCreateDevice() override;
+
 private:
   bool CreateBuffer(const void *pData);
-  D3D11_BIND_FLAG  m_type;
-  UINT             m_length;
-  UINT             m_stride;
-  DXGI_FORMAT      m_format;
-  D3D11_USAGE      m_usage;
-  ID3D11Buffer*    m_buffer;
-  UINT             m_cpuFlags;
+
   // saved data
-  BYTE*            m_data;
+  BYTE* m_data;
+  UINT m_length;
+  UINT m_stride;
+  UINT m_cpuFlags;
+  DXGI_FORMAT m_format;
+  D3D11_USAGE m_usage;
+  D3D11_BIND_FLAG m_type;
+  Microsoft::WRL::ComPtr<ID3D11Buffer> m_buffer;
 };
 
 class CD3DVertexShader : public ID3DResource
@@ -252,12 +245,12 @@ public:
 private:
   bool CreateInternal();
 
-  ID3DBlob*                 m_VSBuffer;
+  bool m_inited;
+  unsigned int m_vertexLayoutSize;
   D3D11_INPUT_ELEMENT_DESC* m_vertexLayout;
-  ID3D11VertexShader*       m_VS;
-  ID3D11InputLayout*        m_inputLayout;
-  unsigned int              m_vertexLayoutSize;
-  bool                      m_inited;
+  Microsoft::WRL::ComPtr<ID3DBlob> m_VSBuffer;
+  Microsoft::WRL::ComPtr<ID3D11VertexShader> m_VS;
+  Microsoft::WRL::ComPtr<ID3D11InputLayout> m_inputLayout;
 };
 
 class CD3DPixelShader : public ID3DResource
@@ -280,9 +273,7 @@ public:
 private:
   bool CreateInternal();
 
-  ID3DBlob*                 m_PSBuffer;
-  ID3D11PixelShader*        m_PS;
-  bool                      m_inited;
+  bool m_inited;
+  Microsoft::WRL::ComPtr<ID3DBlob> m_PSBuffer;
+  Microsoft::WRL::ComPtr<ID3D11PixelShader> m_PS;
 };
-
-#endif

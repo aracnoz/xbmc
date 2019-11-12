@@ -3,7 +3,7 @@
     Implementation of POSIX directory browsing functions and types for Win32.
 
     Author:  Kevlin Henney (kevlin@acm.org, kevlin@curbralan.com)
-    History: Created March 1997. Updated June 2003.
+    History: Created March 1997. Updated June 2003 and July 2012.
 
     Copyright Kevlin Henney, 1997, 2003. All rights reserved.
 
@@ -17,20 +17,23 @@
     But that said, if there are any problems please get in touch.
 */
 
-#include <dirent.h>
 #include <errno.h>
-#include <io.h> /* _findfirst and _findnext set errno iff they return -1 */
 #include <stdlib.h>
 #include <string.h>
+
+#include <dirent.h>
+#include <io.h> /* _findfirst and _findnext set errno iff they return -1 */
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
+typedef ptrdiff_t handle_type; /* C99's intptr_t not sufficiently portable */
+
 struct DIR
 {
-    long                handle; /* -1 for failed rewind */
+    handle_type         handle; /* -1 for failed rewind */
     struct _finddata_t  info;
     struct dirent       result; /* d_name null iff first time */
     char                *name;  /* null-terminated char string */
@@ -51,7 +54,7 @@ DIR *opendir(const char *name)
         {
             strcat(strcpy(dir->name, name), all);
 
-            if((dir->handle = (long) _findfirst(dir->name, &dir->info)) != -1)
+            if ((dir->handle = (handle_type)_findfirst(dir->name, &dir->info)) != -1)
             {
                 dir->result.d_name = 0;
                 dir->result.d_type = 0;
@@ -127,7 +130,7 @@ void rewinddir(DIR *dir)
     if(dir && dir->handle != -1)
     {
         _findclose(dir->handle);
-        dir->handle = (long) _findfirst(dir->name, &dir->info);
+        dir->handle = (handle_type)_findfirst(dir->name, &dir->info);
         dir->result.d_name = 0;
         dir->result.d_type = 0;
     }

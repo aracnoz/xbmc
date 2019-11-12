@@ -1,84 +1,78 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DatabaseManager.h"
-#include "utils/log.h"
-#include "addons/AddonDatabase.h"
-#include "view/ViewDatabase.h"
+
+#include "ServiceBroker.h"
 #include "TextureDatabase.h"
+#include "addons/AddonDatabase.h"
 #include "music/MusicDatabase.h"
-#include "video/VideoDatabase.h"
 #include "pvr/PVRDatabase.h"
-#include "epg/EpgDatabase.h"
+#include "pvr/epg/EpgDatabase.h"
 #include "settings/AdvancedSettings.h"
-#include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
+//KRYPTON #include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
 #ifdef HAS_DS_PLAYER
 #include "DSPlayerDatabase.h"
 #endif
 
-using namespace EPG;
+
+#include "settings/SettingsComponent.h"
+#include "utils/log.h"
+#include "video/VideoDatabase.h"
+#include "view/ViewDatabase.h"
+
 using namespace PVR;
-using namespace ActiveAE;
 
-CDatabaseManager &CDatabaseManager::GetInstance()
+CDatabaseManager::CDatabaseManager() :
+  m_bIsUpgrading(false)
 {
-  static CDatabaseManager s_manager;
-  return s_manager;
+  // Initialize the addon database (must be before the addon manager is init'd)
+  CAddonDatabase db;
+  UpdateDatabase(db);
 }
 
-CDatabaseManager::CDatabaseManager(): m_bIsUpgrading(false)
-{
-}
+CDatabaseManager::~CDatabaseManager() = default;
 
-CDatabaseManager::~CDatabaseManager()
+void CDatabaseManager::Initialize()
 {
-}
+  CSingleLock lock(m_section);
 
-void CDatabaseManager::Initialize(bool addonsOnly)
-{
-  Deinitialize();
-  { CAddonDatabase db; UpdateDatabase(db); }
-  if (addonsOnly)
-    return;
+  m_dbStatus.clear();
+
   CLog::Log(LOGDEBUG, "%s, updating databases...", __FUNCTION__);
+
+  const std::shared_ptr<CAdvancedSettings> advancedSettings = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings();
 
   // NOTE: Order here is important. In particular, CTextureDatabase has to be updated
   //       before CVideoDatabase.
+  { CAddonDatabase db; UpdateDatabase(db); }
   { CViewDatabase db; UpdateDatabase(db); }
   { CTextureDatabase db; UpdateDatabase(db); }
-  { CMusicDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseMusic); }
+/* KRYPTON  { CMusicDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseMusic); }
   { CVideoDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseVideo); }
   { CPVRDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseTV); }
   { CEpgDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseEpg); }
   { CActiveAEDSPDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseADSP); }
+*/
+
 #ifdef HAS_DS_PLAYER
   { CDSPlayerDatabase db; UpdateDatabase(db, &g_advancedSettings.m_databaseDSPlayer); }
 #endif
-  CLog::Log(LOGDEBUG, "%s, updating databases... DONE", __FUNCTION__);
-  m_bIsUpgrading = false;
-}
 
-void CDatabaseManager::Deinitialize()
-{
-  CSingleLock lock(m_section);
-  m_dbStatus.clear();
+
+  { CMusicDatabase db; UpdateDatabase(db, &advancedSettings->m_databaseMusic); }
+  { CVideoDatabase db; UpdateDatabase(db, &advancedSettings->m_databaseVideo); }
+  { CPVRDatabase db; UpdateDatabase(db, &advancedSettings->m_databaseTV); }
+  { CPVREpgDatabase db; UpdateDatabase(db, &advancedSettings->m_databaseEpg); }
+
+  CLog::Log(LOGDEBUG, "%s, updating databases... DONE", __FUNCTION__);
+
+  m_bIsUpgrading = false;
 }
 
 bool CDatabaseManager::CanOpen(const std::string &name)

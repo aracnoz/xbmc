@@ -28,7 +28,7 @@ VERSION=$(grep "VERSION=" FFMPEG-VERSION | sed 's/VERSION=//g')
 ARCHIVE=ffmpeg-$(echo "${VERSION}" | sed 's/\//-/g').tar.gz
 
 function usage {
-  echo "usage $(basename $0) 
+  echo "usage $(basename $0)
        [-p | --prefix]    ... ffmepg install prefix
        [-d | --download]  ... no build, download tarfile only
        [-r | --release]   ... disable debugging symbols
@@ -50,17 +50,17 @@ do
     -p | --prefix)
       FFMPEG_PREFIX=$2
       shift 2
-      ;; 
+      ;;
     --prefix=*)
       FFMPEG_PREFIX=${1#*=}
       shift
-      ;; 
+      ;;
     -d | --download)
-      downloadonly=true 
+      downloadonly=true
       shift
       ;;
     -r | --release)
-      FLAGS="$FLAGS --disable-debug" 
+      FLAGS="$FLAGS --disable-debug"
       shift
       ;;
     -s | --shared)
@@ -116,8 +116,8 @@ then
 fi
 
 [ -f ${ARCHIVE} ] ||
-  curl -Ls --create-dirs -f -o ${ARCHIVE} ${BASE_URL}/${VERSION}.tar.gz ||
-  { echo "error fetching ${BASE_URL}/${VERSION}.tar.gz" ; exit 3; }
+  curl -Ls --create-dirs -f -o ${ARCHIVE} ${BASE_URL}/archive/${VERSION}.tar.gz ||
+  { echo "error fetching ${BASE_URL}/archive/${VERSION}.tar.gz" ; exit 3; }
 [ $downloadonly ] && exit 0
 
 [ -d ffmpeg-${VERSION} ] && rm -rf ffmpeg-${VERSION} && rm .ffmpeg-installed >/dev/null 2>&1
@@ -138,9 +138,7 @@ CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" \
 	--disable-devices \
 	--disable-ffplay \
 	--disable-ffmpeg \
-	--disable-sdl \
 	--disable-ffprobe \
-	--disable-ffserver \
 	--disable-doc \
 	--enable-gpl \
 	--enable-runtime-cpudetect \
@@ -167,7 +165,7 @@ CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" \
 	--disable-mipsdspr2 \
         ${FLAGS}
 
-make -j ${BUILDTHREADS} 
+make -j ${BUILDTHREADS}
 if [ $? -eq 0 ]
 then
   [ ${SUDO} ] && echo "Root privileges are required to install to ${FFMPEG_PREFIX}"

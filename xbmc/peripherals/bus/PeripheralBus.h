@@ -1,29 +1,18 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <memory>
-#include <vector>
+#pragma once
 
 #include "peripherals/PeripheralTypes.h"
 #include "threads/Thread.h"
+
+#include <memory>
+#include <vector>
 
 class CFileItemList;
 
@@ -43,13 +32,13 @@ namespace PERIPHERALS
   class CPeripheralBus : protected CThread
   {
   public:
-    CPeripheralBus(const std::string &threadname, CPeripherals *manager, PeripheralBusType type);
-    virtual ~CPeripheralBus(void) { Clear(); }
+    CPeripheralBus(const std::string &threadname, CPeripherals& manager, PeripheralBusType type);
+    ~CPeripheralBus(void) override { Clear(); }
 
     /*!
      * @return The bus type
      */
-    const PeripheralBusType Type(void) const { return m_type; }
+    PeripheralBusType Type(void) const { return m_type; }
 
     /*!
      * @return True if this bus needs to be polled for changes, false if this bus performs updates via callbacks
@@ -88,10 +77,10 @@ namespace PERIPHERALS
      * @param feature The feature to search for.
      * @return The number of devices that have been found.
      */
-    virtual int GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const;
+    virtual unsigned int GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const;
 
-    virtual size_t GetNumberOfPeripherals() const;
-    virtual size_t GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const;
+    virtual unsigned int GetNumberOfPeripherals() const;
+    virtual unsigned int GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const;
 
     /*!
      * @brief Get all features that are supported by devices on this bus.
@@ -161,8 +150,6 @@ namespace PERIPHERALS
 
     virtual bool FindComPort(std::string &strLocation) { return false; }
 
-    virtual bool IsInitialised(void) const { CSingleLock lock(m_critSection); return m_bInitialised; }
-
     /*!
      * \brief Poll for events
      */
@@ -172,10 +159,16 @@ namespace PERIPHERALS
     * \brief Initialize button mapping
     * \return True if button mapping is enabled for this bus
     */
-    virtual bool EnableButtonMapping() { return false; }
+    virtual void EnableButtonMapping() { }
+
+    /*!
+     * \brief Power off the specified device
+     * \param strLocation The device's location
+     */
+    virtual void PowerOff(const std::string& strLocation) { }
 
   protected:
-    virtual void Process(void);
+    void Process(void) override;
     virtual bool ScanForDevices(void);
     virtual void UnregisterRemovedDevices(const PeripheralScanResults &results);
     virtual void RegisterNewDevices(const PeripheralScanResults &results);
@@ -189,12 +182,10 @@ namespace PERIPHERALS
 
     PeripheralVector           m_peripherals;
     int                        m_iRescanTime;
-    bool                       m_bInitialised;
-    bool                       m_bIsStarted;
     bool                       m_bNeedsPolling; /*!< true when this bus needs to be polled for new devices, false when it uses callbacks to notify this bus of changed */
-    CPeripherals *const        m_manager;
+    CPeripherals&              m_manager;
     const PeripheralBusType    m_type;
-    CCriticalSection           m_critSection;
+    mutable CCriticalSection   m_critSection;
     CEvent                     m_triggerEvent;
   };
   using PeripheralBusPtr = std::shared_ptr<CPeripheralBus>;

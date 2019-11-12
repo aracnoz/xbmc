@@ -1,61 +1,58 @@
 /*
- *      Copyright (C) 2007-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "system.h"
+#include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
 
-#if defined(TARGET_ANDROID)
+class CMediaCodecVideoBuffer;
 
-#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
-
-class CRendererMediaCodecSurface : public CLinuxRendererGLES
+class CRendererMediaCodecSurface : public CBaseRenderer
 {
 public:
   CRendererMediaCodecSurface();
-  virtual ~CRendererMediaCodecSurface();
-  
-  virtual bool RenderCapture(CRenderCapture* capture);
+  ~CRendererMediaCodecSurface() override;
+
+  static CBaseRenderer* Create(CVideoBuffer *buffer);
+  static bool Register();
+
+  bool RenderCapture(CRenderCapture* capture) override;
+  void AddVideoPicture(const VideoPicture& picture, int index) override;
+  void ReleaseBuffer(int idx) override;
+  bool Configure(const VideoPicture& picture, float fps, unsigned int orientation) override;
+  bool IsConfigured() override { return m_bConfigured; };
+  bool ConfigChanged(const VideoPicture& picture) override { return false; };
+  CRenderInfo GetRenderInfo() override;
+  void UnInit() override{};
+  void Update() override{};
+  void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
+  bool SupportsMultiPassRendering() override { return false; };
 
   // Player functions
-  virtual void AddVideoPictureHW(DVDVideoPicture &picture, int index);
-  virtual bool RenderUpdateCheckForEmptyField();
-  virtual void ReleaseBuffer(int idx);
+  bool IsGuiLayer() override { return false; };
 
   // Feature support
-  virtual bool Supports(EINTERLACEMETHOD method);
-
-  virtual EINTERLACEMETHOD AutoInterlaceMethod();
-  virtual CRenderInfo GetRenderInfo();
+  bool Supports(ESCALINGMETHOD method) override { return false; };
+  bool Supports(ERENDERFEATURE feature) override;
 
 protected:
+  void ReorderDrawPoints() override;
 
-  // textures
-  virtual bool UploadTexture(int index);
-  virtual void DeleteTexture(int index);
-  virtual bool CreateTexture(int index);
-  
-  // hooks for hw dec renderer
-  virtual bool LoadShadersHook();
-  virtual bool RenderHook(int index);  
-  virtual int  GetImageHook(YV12Image *image, int source = AUTOSOURCE, bool readonly = false);
+private:
+  void Reset();
+  void ReleaseVideoBuffer(int idx, bool render);
+
+  bool m_bConfigured = false;
+  CRect m_surfDestRect;
+  int m_lastIndex = -1;
+
+  struct BUFFER
+  {
+    CVideoBuffer *videoBuffer = nullptr;
+  } m_buffers[4];
 };
-
-#endif

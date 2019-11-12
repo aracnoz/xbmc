@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 class CVariant;
 namespace ANNOUNCEMENT
@@ -33,13 +22,14 @@ namespace ANNOUNCEMENT
     Application   = 0x040,
     Input         = 0x080,
     PVR           = 0x100,
-    Other         = 0x200
+    Other         = 0x200,
+    Info          = 0x400
   };
 
-  #define ANNOUNCE_ALL (Player | Playlist | GUI | System | VideoLibrary | AudioLibrary | Application | Input | ANNOUNCEMENT::PVR | Other)
+  const auto ANNOUNCE_ALL = (Player | Playlist | GUI | System | VideoLibrary | AudioLibrary | Application | Input | ANNOUNCEMENT::PVR | Other);
 
   /*!
-    \brief Returns a string representation for the 
+    \brief Returns a string representation for the
     given AnnouncementFlag
     \param notification Specific AnnouncementFlag
     \return String representation of the given AnnouncementFlag
@@ -68,6 +58,8 @@ namespace ANNOUNCEMENT
       return "PVR";
     case Other:
       return "Other";
+    case Info:
+      return "Info";
     default:
       return "Unknown";
     }
@@ -76,8 +68,8 @@ namespace ANNOUNCEMENT
   class IAnnouncer
   {
   public:
-    IAnnouncer() { };
-    virtual ~IAnnouncer() { };
+    IAnnouncer() = default;
+    virtual ~IAnnouncer() = default;
     virtual void Announce(AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data) = 0;
   };
 }

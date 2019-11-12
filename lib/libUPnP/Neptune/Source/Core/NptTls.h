@@ -131,7 +131,7 @@ public:
         OPTION_NO_SESSION_CACHE           = 8
     };
     NPT_TlsContext(NPT_Flags options=0);
-   ~NPT_TlsContext();
+   ~NPT_TlsContext() override;
    
     // methods
     NPT_Result LoadKey(NPT_TlsKeyFormat     key_format, 
@@ -255,16 +255,14 @@ public:
     NPT_HttpTlsConnector(NPT_TlsContext& tls_context, NPT_Flags options = 0);
     virtual ~NPT_HttpTlsConnector() {}
     NPT_TlsContext& GetTlsContext() { return m_TlsContext; }
-    
-    virtual NPT_Result VerifyPeer(NPT_TlsClientSession& session,
-                                  const char*           hostname);
-    
-    //  NPT_HttpClient::Connector methods
     virtual NPT_Result Connect(const NPT_HttpUrl&           url,
                                NPT_HttpClient&              client,
                                const NPT_HttpProxyAddress*  proxy,
                                bool                         reuse,
                                NPT_HttpClient::Connection*& connection);
+                            
+    virtual NPT_Result VerifyPeer(NPT_TlsClientSession& session,
+                                  const char*           hostname);
 
 private:
     // class methods
@@ -281,12 +279,12 @@ private:
 class NPT_HttpTlsConnector : public NPT_HttpClient::Connector
 {
 public:
-    virtual ~NPT_HttpTlsConnector() {}
-    virtual NPT_Result Connect(const NPT_HttpUrl&           url,
+    ~NPT_HttpTlsConnector() override {}
+    NPT_Result Connect(const NPT_HttpUrl&           url,
                                NPT_HttpClient&              client,
                                const NPT_HttpProxyAddress*  proxy,
                                bool                         reuse,
-                               NPT_HttpClient::Connection*& connection);
+                               NPT_HttpClient::Connection*& connection) override;
 };
 #endif
 

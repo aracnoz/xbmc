@@ -1,36 +1,25 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <vector>
+#pragma once
 
 #include "JSONRPCUtils.h"
 #include "XBDateTime.h"
-#include "utils/SortUtils.h"
 #include "playlists/SmartPlayList.h"
-#include "utils/JSONVariantWriter.h"
 #include "utils/JSONVariantParser.h"
+#include "utils/JSONVariantWriter.h"
+#include "utils/SortUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <vector>
 
 namespace JSONRPC
 {
@@ -78,7 +67,7 @@ namespace JSONRPC
     {
       if (size < 0)
         size = 0;
-    
+
       start = (int)parameterObject["limits"]["start"].asInteger();
       end   = (int)parameterObject["limits"]["end"].asInteger();
       end = (end <= 0 || end > size) ? size : end;
@@ -99,9 +88,9 @@ namespace JSONRPC
       // parse the sort attributes
       sortAttributes = SortAttributeNone;
       if (parameterObject["sort"]["ignorearticle"].asBoolean())
-        sortAttributes = SortAttributeIgnoreArticle;
-      else
-        sortAttributes = SortAttributeNone;
+        sortAttributes = static_cast<SortAttribute>(sortAttributes | SortAttributeIgnoreArticle);
+      if (parameterObject["sort"]["useartistsortname"].asBoolean())
+        sortAttributes = static_cast<SortAttribute>(sortAttributes | SortAttributeUseArtistSortName);
 
       // parse the sort order
       sortOrder = SortUtils::SortOrderFromString(order);
@@ -119,7 +108,7 @@ namespace JSONRPC
       limitStart = (int)parameterObject["limits"]["start"].asInteger();
       limitEnd = (int)parameterObject["limits"]["end"].asInteger();
     }
-  
+
     /*!
      \brief Checks if the given object contains a parameter
      \param parameterObject Object to check for a parameter
@@ -128,7 +117,7 @@ namespace JSONRPC
      \return True if the parameter is available otherwise false
 
      Checks the given object for a parameter with the given key (if
-     the given object is not an array) or for a parameter at the 
+     the given object is not an array) or for a parameter at the
      given position (if the given object is an array).
      */
     static inline bool ParameterExists(const CVariant &parameterObject, std::string key, unsigned int position) { return IsValueMember(parameterObject, key) || (parameterObject.isArray() && parameterObject.size() > position); }
@@ -138,11 +127,11 @@ namespace JSONRPC
      with the given key
      \param value Value to check for the member
      \param key Key of the member to check for
-     \return True if the given object contains a member with 
+     \return True if the given object contains a member with
      the given key otherwise false
      */
-    static inline bool IsValueMember(const CVariant &value, std::string key) { return value.isObject() && value.isMember(key); }
-    
+    static inline bool IsValueMember(const CVariant &value, std::string key) { return value.isMember(key); }
+
     /*!
      \brief Returns the json value of a parameter
      \param parameterObject Object containing all provided parameters
@@ -152,11 +141,11 @@ namespace JSONRPC
      given position
 
      Returns the value of the parameter with the given key (if
-     the given object is not an array) or of the parameter at the 
+     the given object is not an array) or of the parameter at the
      given position (if the given object is an array).
      */
     static inline CVariant GetParameter(const CVariant &parameterObject, std::string key, unsigned int position) { return IsValueMember(parameterObject, key) ? parameterObject[key] : parameterObject[position]; }
-    
+
     /*!
      \brief Returns the json value of a parameter or the given
      default value
@@ -168,12 +157,12 @@ namespace JSONRPC
      given position or the default value if the parameter does not exist
 
      Returns the value of the parameter with the given key (if
-     the given object is not an array) or of the parameter at the 
+     the given object is not an array) or of the parameter at the
      given position (if the given object is an array). If the
      parameter does not exist the given default value is returned.
      */
     static inline CVariant GetParameter(const CVariant &parameterObject, std::string key, unsigned int position, CVariant fallback) { return IsValueMember(parameterObject, key) ? parameterObject[key] : ((parameterObject.isArray() && parameterObject.size() > position) ? parameterObject[position] : fallback); }
-    
+
     /*!
      \brief Returns the given json value as a string
      \param value Json value to convert to a string
@@ -235,9 +224,9 @@ namespace JSONRPC
 
       return AnyValue;
     }
-    
+
     /*!
-     \brief Returns a string representation for the 
+     \brief Returns a string representation for the
      given JSONSchemaType
      \param valueType Specific JSONSchemaType
      \return String representation of the given JSONSchemaType

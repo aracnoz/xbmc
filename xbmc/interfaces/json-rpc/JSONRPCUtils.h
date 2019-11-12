@@ -1,28 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "IClient.h"
-#include "ITransportLayer.h"
+#pragma once
+
 #include "FileItem.h"
 #include "GUIUserMessages.h"
+#include "IClient.h"
+#include "ITransportLayer.h"
+#include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 
 class CVariant;
@@ -56,9 +47,9 @@ namespace JSONRPC
   /*!
    \ingroup jsonrpc
    \brief Permission categories for json rpc methods
-   
-   A JSON-RPC method will only be called if the caller 
-   has the correct permissions to exectue the method.
+
+   A JSON-RPC method will only be called if the caller
+   has the correct permissions to execute the method.
    The method call needs to be perfectly threadsafe.
   */
   enum OperationPermission
@@ -87,7 +78,7 @@ namespace JSONRPC
                                                  ControlGUI | ManageAddon | ExecuteAddon | ControlPVR);
 
   /*!
-    \brief Returns a string representation for the 
+    \brief Returns a string representation for the
     given OperationPermission
     \param permission Specific OperationPermission
     \return String representation of the given OperationPermission
@@ -168,14 +159,14 @@ namespace JSONRPC
   public:
     static inline void NotifyItemUpdated()
     {
-      CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE, g_windowManager.GetActiveWindow());
-      g_windowManager.SendThreadMessage(message);
+      CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow());
+      CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
     }
     static inline void NotifyItemUpdated(const CVideoInfoTag &info)
     {
       CFileItemPtr msgItem(new CFileItem(info));
-      CGUIMessage message(GUI_MSG_NOTIFY_ALL, g_windowManager.GetActiveWindow(), 0, GUI_MSG_UPDATE_ITEM, 0, msgItem);
-      g_windowManager.SendThreadMessage(message);
+      CGUIMessage message(GUI_MSG_NOTIFY_ALL, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, GUI_MSG_UPDATE_ITEM, 0, msgItem);
+      CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
     }
   };
 }

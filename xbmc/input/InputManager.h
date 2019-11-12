@@ -1,97 +1,96 @@
-#pragma once
 /*
-*      Copyright (C) 2005-2014 Team XBMC
-*      http://xbmc.org
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
+#include "input/KeyboardStat.h"
+#include "input/actions/Action.h"
+#include "input/mouse/MouseStat.h"
+#include "input/mouse/interfaces/IMouseInputProvider.h"
+#include "interfaces/IActionListener.h"
+#include "settings/lib/ISettingCallback.h"
+#include "threads/CriticalSection.h"
+#include "utils/Observer.h"
+#include "windowing/XBMC_events.h"
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#if defined(HAS_LIRC)
-#include "input/linux/LIRC.h"
-#endif
-#if defined(HAS_IRSERVERSUITE)
-#include "input/windows/IRServerSuite.h"
-#endif
-
-#include "windowing/XBMC_events.h"
-#include "input/KeyboardStat.h"
-#include "input/MouseStat.h"
-#include "settings/lib/ISettingCallback.h"
-#include "threads/CriticalSection.h"
-
+class CAppParamParser;
+class CButtonTranslator;
+class CCustomControllerTranslator;
+class CJoystickMapper;
 class CKey;
+class CProfileManager;
+class CTouchTranslator;
+class IKeymapEnvironment;
+class IWindowKeymap;
+
+namespace KODI
+{
 
 namespace KEYBOARD
 {
-  class IKeyboardHandler;
+  class IKeyboardDriverHandler;
 }
 
-class CInputManager : public ISettingCallback
+namespace MOUSE
 {
-private:
-  CInputManager() { }
-  CInputManager(const CInputManager&);
-  CInputManager const& operator=(CInputManager const&);
-  virtual ~CInputManager() { };
+  class IMouseDriverHandler;
+}
+}
 
+/// \addtogroup input
+/// \{
+
+/*!
+ * \ingroup input keyboard mouse touch joystick
+ * \brief Main input processing class.
+ *
+ * This class consolidates all input generated from different sources such as
+ * mouse, keyboard, joystick or touch (in \ref OnEvent).
+ *
+ * \copydoc keyboard
+ * \copydoc mouse
+ */
+class CInputManager : public ISettingCallback,
+                      public IActionListener,
+                      public Observable
+{
 public:
-  /*! \brief static method to get the current instance of the class. Creates a new instance the first time it's called.
-  */
-  static CInputManager& GetInstance();
-
-  /*! \brief decode an input event from remote controls.
-
-   \param windowId Currently active window
-   \return true if event is handled, false otherwise
-  */
-  bool ProcessRemote(int windowId);
+  explicit CInputManager(const CAppParamParser &params);
+  CInputManager(const CInputManager&) = delete;
+  CInputManager const& operator=(CInputManager const&) = delete;
+  ~CInputManager() override;
 
   /*! \brief decode a mouse event and reset idle timers.
-
-  \param windowId Currently active window
-  \return true if event is handled, false otherwise
-  */
+   *
+   * \param windowId Currently active window
+   * \return true if event is handled, false otherwise
+   */
   bool ProcessMouse(int windowId);
 
   /*! \brief decode an event from the event service, this can be mouse, key, joystick, reset idle timers.
-
-  \param windowId Currently active window
-  \param frameTime Time in seconds since last call
-  \return true if event is handled, false otherwise
-  */
+   *
+   * \param windowId Currently active window
+   * \param frameTime Time in seconds since last call
+   * \return true if event is handled, false otherwise
+   */
   bool ProcessEventServer(int windowId, float frameTime);
 
   /*! \brief decode an event from peripherals.
-
-  \param frameTime Time in seconds since last call
-  \return true if event is handled, false otherwise
-  */
+   *
+   * \param frameTime Time in seconds since last call
+   * \return true if event is handled, false otherwise
+   */
   bool ProcessPeripherals(float frameTime);
-
-  /*! \brief Dispatch actions queued since the last call to Process()
-   */
-  void ProcessQueuedActions();
-
-  /*! \brief Queue an action to be processed on the next call to Process()
-   */
-  void QueueAction(const CAction& action);
 
   /*! \brief Process all inputs
    *
@@ -106,17 +105,15 @@ public:
    */
   void InitializeInputs();
 
-  /*! \brief Enable or disable the joystick
-   *
-   * \param enabled true to enable joystick, false to disable
-   * \return void
+  /*!
+   * \brief Deinitialize input and keymaps
    */
-  void SetEnabledJoystick(bool enabled = true);
+  void Deinitialize();
 
   /*! \brief Handle an input event
-   * 
+   *
    * \param newEvent event details
-   * \return true on succesfully handled event
+   * \return true on successfully handled event
    * \sa XBMC_Event
    */
   bool OnEvent(XBMC_Event& newEvent);
@@ -142,7 +139,7 @@ public:
 
   /*! \brief Check if the mouse is currently active
    *
-   * \return true if active, false otherwise 
+   * \return true if active, false otherwise
    */
   bool IsMouseActive();
 
@@ -166,46 +163,13 @@ public:
    * \param[in] maxY    screen height
    * \param[in] speedX  mouse speed in x dimension
    * \param[in] speedY  mouse speed in y dimension
-   * \return 
+   * \return
    */
   void SetMouseResolution(int maxX, int maxY, float speedX, float speedY);
 
-  /*! \brief Enable the remote control
+  /*! \brief Returns whether or not we can handle a given built-in command.
    *
    */
-  void EnableRemoteControl();
-
-  /*! \brief Disable the remote control
-   *
-   */
-  void DisableRemoteControl();
-
-  /*! \brief Try to connect to a remote control to listen for commands
-   *
-   */
-  void InitializeRemoteControl();
-
-  /*! \brief Check if the remote control is enabled
-   *
-   * \return true if remote control is enabled, false otherwise 
-   */
-  bool IsRemoteControlEnabled();
-
-  /*! \brief Check if the remote control is initialized
-   *
-   * \return true if initialized, false otherwise 
-   */
-  bool IsRemoteControlInitialized();
-
-  /*! \brief Set the device name to use with LIRC, does nothing 
-   *   if IRServerSuite is used
-   *
-   * \param[in] name Name of the device to use with LIRC
-   */
-  void SetRemoteControlName(const std::string& name);
-
-  /*! \brief Returns whether or not we can handle a given built-in command. */
-
   bool HasBuiltin(const std::string& command);
 
   /*! \brief Parse a builtin command and execute any input action
@@ -217,60 +181,114 @@ public:
    */
   int ExecuteBuiltin(const std::string& execute, const std::vector<std::string>& params);
 
-  virtual void OnSettingChanged(const CSetting *setting) override;
+  // Button translation
+  bool LoadKeymaps();
+  bool ReloadKeymaps();
+  void ClearKeymaps();
+  void AddKeymap(const std::string &keymap);
+  void RemoveKeymap(const std::string &keymap);
 
-  void RegisterKeyboardHandler(KEYBOARD::IKeyboardHandler* handler);
-  void UnregisterKeyboardHandler(KEYBOARD::IKeyboardHandler* handler);
+  const IKeymapEnvironment *KeymapEnvironment() const { return m_keymapEnvironment.get(); }
+
+  /*! \brief Obtain the action configured for a given window and key
+   *
+   * \param window the window id
+   * \param key the key to query the action for
+   * \param fallback if no action is directly configured for the given window, obtain the action from fallback window, if exists or from global config as last resort
+   *
+   * \return the action matching the key
+   */
+  CAction GetAction(int window, const CKey &key, bool fallback = true);
+
+  bool TranslateCustomControllerString(int windowId, const std::string& controllerName, int buttonId, int& action, std::string& strAction);
+
+  bool TranslateTouchAction(int windowId, int touchAction, int touchPointers, int &action, std::string &actionString);
+
+  std::vector<std::shared_ptr<const IWindowKeymap>> GetJoystickKeymaps() const;
+
+  /*!
+   * \brief Queue an action to be processed on the next call to Process()
+   */
+  void QueueAction(const CAction& action);
+
+  // implementation of ISettingCallback
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+
+  // implementation of IActionListener
+  bool OnAction(const CAction& action) override;
+
+  void RegisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler);
+  void UnregisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler);
+
+  virtual void RegisterMouseDriverHandler(KODI::MOUSE::IMouseDriverHandler* handler);
+  virtual void UnregisterMouseDriverHandler(KODI::MOUSE::IMouseDriverHandler* handler);
 
 private:
 
   /*! \brief Process keyboard event and translate into an action
-  *
-  * \param CKey keypress details
-  * \return true on succesfully handled event
-  * \sa CKey
-  */
+   *
+   * \param key keypress details
+   * \return true on successfully handled event
+   * \sa CKey
+   */
   bool OnKey(const CKey& key);
 
   /*! \brief Process key up event
    *
-   * \param CKey details of released key
+   * \param key details of released key
    * \sa CKey
    */
   void OnKeyUp(const CKey& key);
 
+  /*! \brief Handle keypress
+   *
+   * \param key keypress details
+   * \return true on successfully handled event
+   */
+  bool HandleKey(const CKey& key);
+
   /*! \brief Determine if an action should be processed or just
-  *   cancel the screensaver
-  *
-  * \param action Action that is about to be processed
-  * \return true on any poweractions such as shutdown/reboot/sleep/suspend, false otherwise
-  * \sa CAction
-  */
+   *   cancel the screensaver
+   *
+   * \param action Action that is about to be processed
+   * \return true on any poweractions such as shutdown/reboot/sleep/suspend, false otherwise
+   * \sa CAction
+   */
   bool AlwaysProcess(const CAction& action);
 
   /*! \brief Send the Action to CApplication for further handling,
-  *   play a sound before or after sending the action.
-  *
-  * \param action Action to send to CApplication
-  * \return result from CApplication::OnAction
-  * \sa CAction
-  */
+   *   play a sound before or after sending the action.
+   *
+   * \param action Action to send to CApplication
+   * \return result from CApplication::OnAction
+   * \sa CAction
+   */
   bool ExecuteInputAction(const CAction &action);
+
+  /*! \brief Dispatch actions queued since the last call to Process()
+   */
+  void ProcessQueuedActions();
 
   CKeyboardStat m_Keyboard;
   CMouseStat m_Mouse;
   CKey m_LastKey;
 
-#if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
-  CRemoteControl m_RemoteControl;
-#endif
-
-#if defined(HAS_EVENT_SERVER)
   std::map<std::string, std::map<int, float> > m_lastAxisMap;
-#endif
 
   std::vector<CAction> m_queuedActions;
   CCriticalSection     m_actionMutex;
 
-  std::vector<KEYBOARD::IKeyboardHandler*> m_keyboardHandlers;
+  // Button translation
+  std::unique_ptr<IKeymapEnvironment> m_keymapEnvironment;
+  std::unique_ptr<CButtonTranslator> m_buttonTranslator;
+  std::unique_ptr<CCustomControllerTranslator> m_customControllerTranslator;
+  std::unique_ptr<CTouchTranslator> m_touchTranslator;
+  std::unique_ptr<CJoystickMapper> m_joystickTranslator;
+
+  std::vector<KODI::KEYBOARD::IKeyboardDriverHandler*> m_keyboardHandlers;
+  std::vector<KODI::MOUSE::IMouseDriverHandler*> m_mouseHandlers;
+
+  std::unique_ptr<KODI::KEYBOARD::IKeyboardDriverHandler> m_keyboardEasterEgg;
 };
+
+/// \}

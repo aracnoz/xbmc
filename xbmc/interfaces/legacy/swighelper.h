@@ -1,30 +1,18 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
 /**
  * SWIGHIDDENVIRTUAL allows the keyword 'virtual' to be there when the main
- *  Addon api is compiled, but be hidden from the SWIG code generator. 
+ *  Addon api is compiled, but be hidden from the SWIG code generator.
  *
- * This is to provide finer grain control over which methods are callbackable 
+ * This is to provide finer grain control over which methods are callbackable
  *  (is that a word? ...)
  *  into the scripting language, and which ones are not. True polymorphic
  *  behavior across the scripting language boundary will ONLY occur where
@@ -32,17 +20,17 @@
  *  SWIGHIDDENVIRTUAL to 'hide' the polymorphic behavior from the scripting
  *  language using the macro instead.
  *
- * Note: You should not hide virtual destructors from the scripting langage.
+ * Note: You should not hide virtual destructors from the scripting language.
  */
 #ifdef SWIG
-#define SWIGHIDDENVIRTUAL 
+#define SWIGHIDDENVIRTUAL
 #else
 #define SWIGHIDDENVIRTUAL virtual
 #endif
 
 /**
  * SWIG_CONSTANT_FROM_GETTER will define a constant in the scripting
- *  language from a getter in the Addon api and also provide the 
+ *  language from a getter in the Addon api and also provide the
  *  Addon api declaration. E.g. If you use:
  *
  *  SWIG_CONSTANT_FROM_GETTER(int, MY_CONSTANT);
@@ -51,7 +39,7 @@
  *
  *  int getMy_CONSTANT();
  *
- *  ... in a .cpp file. That call will be made to determine the value 
+ *  ... in a .cpp file. That call will be made to determine the value
  *  of the constant in the scripting language.
  */
 #ifdef SWIG

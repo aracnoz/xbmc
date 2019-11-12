@@ -1,44 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-
-#ifdef HAS_DVD_DRIVE
-
 #include "CDDADirectory.h"
-#include "music/MusicDatabase.h"
-#include "FileItem.h"
+
 #include "File.h"
+#include "FileItem.h"
+#include "ServiceBroker.h"
+#include "music/MusicDatabase.h"
 #include "storage/MediaManager.h"
 #include "utils/StringUtils.h"
 
 using namespace XFILE;
 using namespace MEDIA_DETECT;
 
-CCDDADirectory::CCDDADirectory(void)
-{
-}
+CCDDADirectory::CCDDADirectory(void) = default;
 
-CCDDADirectory::~CCDDADirectory(void)
-{
-}
+CCDDADirectory::~CCDDADirectory(void) = default;
 
 
 bool CCDDADirectory::GetDirectory(const CURL& url, CFileItemList &items)
@@ -46,11 +28,11 @@ bool CCDDADirectory::GetDirectory(const CURL& url, CFileItemList &items)
   // Reads the tracks from an audio cd
   std::string strPath = url.Get();
 
-  if (!g_mediaManager.IsDiscInDrive(strPath))
+  if (!CServiceBroker::GetMediaManager().IsDiscInDrive(strPath))
     return false;
 
   // Get information for the inserted disc
-  CCdInfo* pCdInfo = g_mediaManager.GetCdInfo(strPath);
+  CCdInfo* pCdInfo = CServiceBroker::GetMediaManager().GetCdInfo(strPath);
   if (pCdInfo == NULL)
     return false;
 
@@ -87,5 +69,3 @@ bool CCDDADirectory::GetDirectory(const CURL& url, CFileItemList &items)
   }
   return true;
 }
-
-#endif

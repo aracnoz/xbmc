@@ -1,15 +1,16 @@
 file(GLOB OVERRIDES_CPP overrides/${CORE_SYSTEM_NAME}/*.cpp)
 file(GLOB OVERRIDES_H overrides/${CORE_SYSTEM_NAME}/*.h)
 
-set(SOURCES Platform.cpp
-            XbmcContext.cpp
+set(SOURCES Environment.cpp
+            Platform.cpp
             xbmc.cpp
             ${OVERRIDES_CPP})
 
-set(HEADERS MessagePrinter.h
+set(HEADERS Environment.h
+            Filesystem.h
+            MessagePrinter.h
             Platform.h
             xbmc.h
-            XbmcContext.h
             ${OVERRIDES_H})
 
 core_add_library(platform_common)

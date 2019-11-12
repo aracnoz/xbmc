@@ -1,34 +1,18 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-//hack around problem with xbmc's typedef int BOOL
-// and obj-c's typedef unsigned char BOOL
-#define BOOL XBMC_BOOL 
-#include "input/MouseStat.h"
-#include "windowing/WindowingFactory.h"
+#import "IOSExternalTouchController.h"
+
+#include "Util.h"
+#import "XBMCController.h"
 #include "filesystem/SpecialProtocol.h"
 #include "guilib/LocalizeStrings.h"
-#undef BOOL
-
-#import "IOSExternalTouchController.h"
-#import "XBMCController.h"
+#include "input/mouse/MouseStat.h"
 
 //dim the touchscreen after 15 secs without touch event
 const CGFloat touchScreenDimTimeoutSecs       = 15.0;
@@ -39,24 +23,39 @@ const CGFloat timeFadeSecs                    = 2.0;
 - (id)init
 {
   CGRect frame = [[UIScreen mainScreen] bounds];
-  
+
   self = [super init];
-  if (self) 
+  if (self)
   {
     UIImage       *xbmcLogo;
     UIImageView   *xbmcLogoView;
     UILabel       *descriptionLabel;
-  
+
     _internalWindow = [[UIWindow alloc] initWithFrame:frame];
     _touchView = [[UIView alloc] initWithFrame:frame];
-    /* Turn on autoresizing for the whole hirarchy*/
+    /* Turn on autoresizing for the whole hierarchy*/
     [_touchView setAutoresizesSubviews:YES];
     [_touchView setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
     [_touchView setAlpha:0.0];//start with alpha 0 and fade in with animation below
     [_touchView setMultipleTouchEnabled:YES];
     [_touchView setContentMode:UIViewContentModeCenter];
+
+    //load the splash image
+    std::string strUserSplash = CUtil::GetSplashPath();
+    xbmcLogo = [UIImage imageWithContentsOfFile:[NSString stringWithUTF8String:strUserSplash.c_str()]];
     
-    
+    //make a view with the image
+    xbmcLogoView = [[UIImageView alloc] initWithImage:xbmcLogo];
+    //center the image and add it to the view
+    [xbmcLogoView setFrame:frame];
+    [xbmcLogoView setContentMode:UIViewContentModeScaleAspectFill];
+    //autoresize the image frame
+    [xbmcLogoView setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+    [xbmcLogoView setAutoresizesSubviews:YES];
+    [_touchView addSubview:xbmcLogoView];
+    //send the image to the background
+    [_touchView sendSubviewToBack:xbmcLogoView];
+
     CGRect labelRect = frame;
     labelRect.size.height/=2;
     //uilabel with the description
@@ -68,7 +67,7 @@ const CGFloat timeFadeSecs                    = 2.0;
     [descriptionLabel setTextAlignment:NSTextAlignmentCenter];
     [descriptionLabel setContentMode:UIViewContentModeCenter];
     //setup multiline behaviour
-    [descriptionLabel setLineBreakMode:(NSLineBreakMode)UILineBreakModeTailTruncation];
+    [descriptionLabel setLineBreakMode:(NSLineBreakMode)NSLineBreakByTruncatingTail];
 
     [descriptionLabel setNumberOfLines:5];
     std::string descText    = g_localizeStrings.Get(34404) + "\n";
@@ -78,33 +77,14 @@ const CGFloat timeFadeSecs                    = 2.0;
     descText              += g_localizeStrings.Get(34408) + "\n";
 
     NSString *stringFromUTFString = [[NSString alloc] initWithUTF8String:descText.c_str()];
-    
+
     [descriptionLabel setText:stringFromUTFString];
-    [stringFromUTFString release];
 
     //resize it to full view
     [descriptionLabel setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
     [descriptionLabel setAutoresizesSubviews:YES];
     [_touchView addSubview:descriptionLabel];
-    [descriptionLabel release];
 
-    //load the splash image
-    std::string strUserSplash = CSpecialProtocol::TranslatePath("special://xbmc/media/Splash.png");
-    xbmcLogo = [UIImage imageWithContentsOfFile:[NSString stringWithUTF8String:strUserSplash.c_str()]];
-    
-    //make a view with the image
-    xbmcLogoView = [[UIImageView alloc] initWithImage:xbmcLogo];
-    //center the image and add it to the view
-    [xbmcLogoView setFrame:frame];
-    [xbmcLogoView setContentMode:UIViewContentModeCenter];
-    //autoresize the image frame
-    [xbmcLogoView setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
-    [xbmcLogoView setAutoresizesSubviews:YES];
-    [_touchView addSubview:xbmcLogoView];
-    //send the image to the background
-    [_touchView sendSubviewToBack:xbmcLogoView];
-    [xbmcLogoView release];
-  
     [[self view] addSubview: _touchView];
 
     [self createGestureRecognizers];
@@ -115,45 +95,47 @@ const CGFloat timeFadeSecs                    = 2.0;
     [_internalWindow makeKeyAndVisible];
     [_internalWindow setRootViewController:self];
 
-    [self setWantsFullScreenLayout:YES];
-
     [self startSleepTimer];//will fade from black too
   }
   return self;
 }
 //--------------------------------------------------------------
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
+{
+  return UIInterfaceOrientationMaskLandscape;
+}
+//--------------------------------------------------------------
 - (void)startSleepTimer
 {
-  NSDate *fireDate = [NSDate dateWithTimeIntervalSinceNow:touchScreenDimTimeoutSecs]; 
+  NSDate *fireDate = [NSDate dateWithTimeIntervalSinceNow:touchScreenDimTimeoutSecs];
 
-  //schedule sleep timer to fire once in touchScreenDimTimeoutSecs if not reset 
-  _sleepTimer       = [[NSTimer alloc] initWithFireDate:fireDate 
-                                      interval:1 
-                                      target:self 
-                                      selector:@selector(sleepTimerCallback:) 
+  //schedule sleep timer to fire once in touchScreenDimTimeoutSecs if not reset
+  _sleepTimer       = [[NSTimer alloc] initWithFireDate:fireDate
+                                      interval:1
+                                      target:self
+                                      selector:@selector(sleepTimerCallback:)
                                       userInfo:nil
-                                      repeats:NO]; 
+                                      repeats:NO];
   //schedule the timer to the runloop
-  NSRunLoop *runLoop = [NSRunLoop currentRunLoop]; 
+  NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
   [self fadeFromBlack];
-  [runLoop addTimer:_sleepTimer forMode:NSDefaultRunLoopMode]; 
-} 
+  [runLoop addTimer:_sleepTimer forMode:NSDefaultRunLoopMode];
+}
 //--------------------------------------------------------------
 - (void)stopSleepTimer
 {
   if(_sleepTimer != nil)
   {
     [_sleepTimer invalidate];
-    [_sleepTimer release];
     _sleepTimer = nil;
   }
 }
 //--------------------------------------------------------------
-- (void)sleepTimerCallback:(NSTimer*)theTimer 
-{ 
+- (void)sleepTimerCallback:(NSTimer*)theTimer
+{
   [self fadeToBlack];
   [self stopSleepTimer];
-} 
+}
 //--------------------------------------------------------------
 - (bool)wakeUpFromSleep//returns false if we where dimmed, true if not
 {
@@ -164,7 +146,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
   else
   {
-    NSDate *fireDate = [NSDate dateWithTimeIntervalSinceNow:touchScreenDimTimeoutSecs]; 
+    NSDate *fireDate = [NSDate dateWithTimeIntervalSinceNow:touchScreenDimTimeoutSecs];
     [_sleepTimer setFireDate:fireDate];
     return true;
   }
@@ -192,43 +174,38 @@ const CGFloat timeFadeSecs                    = 2.0;
   //single finger double tab delays single finger single tab - so we
   //go for 2 fingers here - so single finger single tap is instant
   UITapGestureRecognizer *doubleFingerSingleTap = [[UITapGestureRecognizer alloc]
-                                                    initWithTarget:self action:@selector(handleDoubleFingerSingleTap:)];  
+                                                    initWithTarget:self action:@selector(handleDoubleFingerSingleTap:)];
   [doubleFingerSingleTap setNumberOfTapsRequired:1];
   [doubleFingerSingleTap setNumberOfTouchesRequired:2];
   [[self view] addGestureRecognizer:doubleFingerSingleTap];
-  [doubleFingerSingleTap release];
-  
-  //1 finger single long tab - right mouse - alernative
+
+  //1 finger single long tab - right mouse - alternative
   UITapGestureRecognizer *singleFingerSingleLongTap = (UITapGestureRecognizer*)[[UILongPressGestureRecognizer alloc]
-                                                        initWithTarget:self action:@selector(handleSingleFingerSingleLongTap:)];  
+                                                        initWithTarget:self action:@selector(handleSingleFingerSingleLongTap:)];
   singleFingerSingleLongTap.delaysTouchesBegan = YES;
-  singleFingerSingleLongTap.delaysTouchesEnded = YES;  
+  singleFingerSingleLongTap.delaysTouchesEnded = YES;
   singleFingerSingleLongTap.numberOfTouchesRequired = 1;
   [self.view addGestureRecognizer:singleFingerSingleLongTap];
-  [singleFingerSingleLongTap release];
-  
+
   //1 finger single tab - left mouse
   UITapGestureRecognizer *singleFingerSingleTap = [[UITapGestureRecognizer alloc]
-                                                    initWithTarget:self action:@selector(handleSingleFingerSingleTap:)];  
+                                                    initWithTarget:self action:@selector(handleSingleFingerSingleTap:)];
   [singleFingerSingleTap setDelaysTouchesBegan:NO];
   [[self view] addGestureRecognizer:singleFingerSingleTap];
-  [singleFingerSingleTap release];
-  
+
   //double finger swipe left for backspace ... i like this fast backspace feature ;)
   UISwipeGestureRecognizer *swipeDoubleLeft = [[UISwipeGestureRecognizer alloc]
                                           initWithTarget:self action:@selector(handleDoubleSwipeLeft:)];
   [swipeDoubleLeft setNumberOfTouchesRequired:2];
   [swipeDoubleLeft setDirection:UISwipeGestureRecognizerDirectionLeft];
   [[self view] addGestureRecognizer:swipeDoubleLeft];
-  [swipeDoubleLeft release];
-  
+
   //single finger swipe left for left
   UISwipeGestureRecognizer *swipeLeft = [[UISwipeGestureRecognizer alloc]
                                       initWithTarget:self action:@selector(handleSwipeLeft:)];
   [swipeLeft setNumberOfTouchesRequired:1];
   [swipeLeft setDirection:UISwipeGestureRecognizerDirectionLeft];
   [[self view] addGestureRecognizer:swipeLeft];
-  [swipeLeft release];
 
   //single finger swipe right for right
   UISwipeGestureRecognizer *swipeRight = [[UISwipeGestureRecognizer alloc]
@@ -236,15 +213,13 @@ const CGFloat timeFadeSecs                    = 2.0;
   [swipeRight setNumberOfTouchesRequired:1];
   [swipeRight setDirection:UISwipeGestureRecognizerDirectionRight];
   [[self view] addGestureRecognizer:swipeRight];
-  [swipeRight release];
 
   //single finger swipe up for up
   UISwipeGestureRecognizer *swipeUp = [[UISwipeGestureRecognizer alloc]
                                       initWithTarget:self action:@selector(handleSwipeUp:)];
   [swipeUp setNumberOfTouchesRequired:1];
   [swipeUp setDirection:UISwipeGestureRecognizerDirectionUp];
-  [[self view] addGestureRecognizer:swipeUp];  
-  [swipeUp release];
+  [[self view] addGestureRecognizer:swipeUp];
 
   //single finger swipe down for down
   UISwipeGestureRecognizer *swipeDown = [[UISwipeGestureRecognizer alloc]
@@ -252,11 +227,10 @@ const CGFloat timeFadeSecs                    = 2.0;
   [swipeDown setNumberOfTouchesRequired:1];
   [swipeDown setDirection:UISwipeGestureRecognizerDirectionDown];
   [[self view] addGestureRecognizer:swipeDown];
-  [swipeDown release];
-  
+
 }
 //--------------------------------------------------------------
-- (IBAction)handleDoubleSwipeLeft:(UISwipeGestureRecognizer *)sender 
+- (IBAction)handleDoubleSwipeLeft:(UISwipeGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -264,7 +238,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleSwipeLeft:(UISwipeGestureRecognizer *)sender 
+- (IBAction)handleSwipeLeft:(UISwipeGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -272,7 +246,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleSwipeRight:(UISwipeGestureRecognizer *)sender 
+- (IBAction)handleSwipeRight:(UISwipeGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -280,7 +254,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleSwipeUp:(UISwipeGestureRecognizer *)sender 
+- (IBAction)handleSwipeUp:(UISwipeGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -288,7 +262,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleSwipeDown:(UISwipeGestureRecognizer *)sender 
+- (IBAction)handleSwipeDown:(UISwipeGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -296,7 +270,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleDoubleFingerSingleTap:(UIGestureRecognizer *)sender 
+- (IBAction)handleDoubleFingerSingleTap:(UIGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -315,7 +289,7 @@ const CGFloat timeFadeSecs                    = 2.0;
   }
 }
 //--------------------------------------------------------------
-- (IBAction)handleSingleFingerSingleTap:(UIGestureRecognizer *)sender 
+- (IBAction)handleSingleFingerSingleTap:(UIGestureRecognizer *)sender
 {
   if([self wakeUpFromSleep])
   {
@@ -325,66 +299,12 @@ const CGFloat timeFadeSecs                    = 2.0;
 //--------------------------------------------------------------
 - (void)viewWillAppear:(BOOL)animated
 {
-  _startup = true;
   [super viewWillAppear:animated];
 }
 //--------------------------------------------------------------
 - (void)dealloc
 {
   [self stopSleepTimer];
-  [_touchView release];  
-  [_internalWindow release];
-  [super dealloc];  
-}
-//--------------------------------------------------------------
-// - iOS6 rotation API - will be called on iOS7 runtime!--------
-- (NSUInteger)supportedInterfaceOrientations
-{
-  // mask defines available as of ios6 sdk
-  //return UIInterfaceOrientationMaskAll;
-  return (1 << UIInterfaceOrientationLandscapeLeft) | (1 << UIInterfaceOrientationLandscapeRight) |
-  (1 << UIInterfaceOrientationPortraitUpsideDown) | (1 << UIInterfaceOrientationPortrait);
-}
-- (BOOL)shouldAutorotate
-{
-  _startup = false;
-  return [self shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)[[UIDevice currentDevice] orientation]];
-}
-// - old rotation API will be called on iOS6 and lower - removed in iOS7
--(BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
-{ 
-  if(_startup)
-  {
-    //start with landscape
-    switch(interfaceOrientation)
-    {
-      case UIInterfaceOrientationLandscapeLeft:
-      case UIInterfaceOrientationLandscapeRight:
-        return YES;
-      default:
-        return FALSE;
-    }
-  }
-  else
-  {
-    return YES;//we allow all rotations after startup...
-  }
-}
-- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
-{
-  if(_startup)
-  {
-    //start with landscape
-    switch(toInterfaceOrientation)
-    {
-      case UIInterfaceOrientationLandscapeLeft:
-      case UIInterfaceOrientationLandscapeRight:
-        _startup = false;//allow all orientations after initial landscape rotation
-        break;
-      default:
-        break;
-    }
-  }
 }
 //--------------------------------------------------------------
 @end

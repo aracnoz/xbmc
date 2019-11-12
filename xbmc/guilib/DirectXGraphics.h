@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 class CBaseTexture;
 
@@ -130,14 +118,13 @@ typedef enum _XB_D3DFORMAT
   XB_D3DFMT_FORCE_DWORD          =0x7fffffff
 } XB_D3DFORMAT;
 
-D3DFORMAT GetD3DFormat(XB_D3DFORMAT format);
+DWORD GetD3DFormat(XB_D3DFORMAT format);
 DWORD BytesPerPixelFromFormat(XB_D3DFORMAT format);
 bool IsPalettedFormat(XB_D3DFORMAT format);
 void ParseTextureHeader(D3DTexture *tex, XB_D3DFORMAT &fmt, DWORD &width, DWORD &height, DWORD &pitch, DWORD &offset);
 bool IsSwizzledFormat(XB_D3DFORMAT format);
 
 #ifndef TARGET_POSIX
-typedef unsigned __int32 uint32_t;
 typedef unsigned __int8 uint8_t;
 typedef __int16 int16_t;
 #endif

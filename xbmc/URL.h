@@ -1,27 +1,17 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "utils/UrlOptions.h"
 
 #include <stdlib.h>
 #include <string>
-#include "utils/UrlOptions.h"
 
 #ifdef TARGET_WINDOWS
 #undef SetPort // WIN32INCLUDES this is defined as SetPortA in WinSpool.h which is being included _somewhere_
@@ -35,7 +25,7 @@ public:
     Parse(strURL);
   }
 
-  CURL():m_iPort(0) {}
+  CURL() = default;
   virtual ~CURL(void);
 
   // explicit equals operator for std::string comparison
@@ -52,6 +42,11 @@ public:
   void SetUserName(const std::string& strUserName)
   {
     m_strUserName = strUserName;
+  }
+
+  void SetDomain(const std::string& strDomain)
+  {
+    m_strDomain = strDomain;
   }
 
   void SetPassword(const std::string& strPassword)
@@ -191,7 +186,7 @@ public:
   void RemoveProtocolOption(const std::string &key);
 
 protected:
-  int m_iPort;
+  int m_iPort = 0;
   std::string m_strHostName;
   std::string m_strShareName;
   std::string m_strDomain;

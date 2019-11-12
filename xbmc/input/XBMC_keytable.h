@@ -1,24 +1,15 @@
+/*
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2007-2015 Team Kodi
- *      http://kodi.tv
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include <stdint.h>
+#include <string>
 
 typedef struct struct_XBMCKEYTABLE
 {
@@ -45,7 +36,7 @@ typedef struct struct_XBMCKEYTABLE
 
 } XBMCKEYTABLE;
 
-bool KeyTableLookupName(const char* keyname, XBMCKEYTABLE* keytable);
+bool KeyTableLookupName(std::string keyname, XBMCKEYTABLE* keytable);
 bool KeyTableLookupSym(uint16_t sym, XBMCKEYTABLE* keytable);
 bool KeyTableLookupUnicode(uint16_t unicode, XBMCKEYTABLE* keytable);
 bool KeyTableLookupSymAndUnicode(uint16_t sym, uint16_t unicode, XBMCKEYTABLE* keytable);

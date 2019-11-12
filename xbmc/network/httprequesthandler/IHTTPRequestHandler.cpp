@@ -1,30 +1,19 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <limits>
-#include <utility>
-
 #include "IHTTPRequestHandler.h"
+
 #include "network/WebServer.h"
 #include "network/httprequesthandler/HTTPRequestHandlerUtils.h"
 #include "utils/StringUtils.h"
+
+#include <limits>
+#include <utility>
 
 static const std::string HTTPMethodHead = "HEAD";
 static const std::string HTTPMethodGet = "GET";
@@ -65,15 +54,13 @@ std::string GetHTTPMethod(HTTPMethod method)
 IHTTPRequestHandler::IHTTPRequestHandler()
   : m_request(),
     m_response(),
-    m_postFields(),
-    m_ranged(false)
+    m_postFields()
 { }
 
 IHTTPRequestHandler::IHTTPRequestHandler(const HTTPRequest &request)
   : m_request(request),
     m_response(),
-    m_postFields(),
-    m_ranged(false)
+    m_postFields()
 {
   m_response.type = HTTPError;
   m_response.status = MHD_HTTP_INTERNAL_SERVER_ERROR;
@@ -112,15 +99,11 @@ void IHTTPRequestHandler::AddPostField(const std::string &key, const std::string
     m_postFields[key].append(value);
 }
 
-#if (MHD_VERSION >= 0x00040001)
 bool IHTTPRequestHandler::AddPostData(const char *data, size_t size)
-#else
-bool IHTTPRequestHandler::AddPostData(const char *data, unsigned int size)
-#endif
 {
   if (size > 0)
     return appendPostData(data, size);
-  
+
   return true;
 }
 

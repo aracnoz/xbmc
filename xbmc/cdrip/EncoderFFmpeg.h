@@ -1,42 +1,30 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "IEncoder.h"
 
 extern "C" {
-#include "libavformat/avformat.h"
-#include "libavcodec/avcodec.h"
-#include "libswresample/swresample.h"
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswresample/swresample.h>
 }
 
 class CEncoderFFmpeg : public IEncoder
 {
 public:
   CEncoderFFmpeg();
-  virtual ~CEncoderFFmpeg() {}
+  ~CEncoderFFmpeg() override = default;
 
-  bool Init(audioenc_callbacks &callbacks);
-  int Encode(int nNumBytesRead, uint8_t *pbtStream);
-  bool Close();
+  bool Init(AddonToKodiFuncTable_AudioEncoder& callbacks) override;
+  int Encode(int nNumBytesRead, uint8_t *pbtStream) override;
+  bool Close() override;
 private:
 
   AVFormatContext  *m_Format;
@@ -60,14 +48,14 @@ private:
   unsigned int      m_NeededFrames;
   unsigned int      m_NeededBytes;
   uint8_t          *m_Buffer;
-  unsigned int      m_BufferSize;
+  unsigned int      m_BufferSize = 0;
   AVFrame          *m_BufferFrame;
   uint8_t          *m_ResampledBuffer;
-  unsigned int      m_ResampledBufferSize;
+  unsigned int      m_ResampledBufferSize = 0;
   AVFrame          *m_ResampledFrame;
-  bool              m_NeedConversion;
+  bool              m_NeedConversion = false;
 
-  audioenc_callbacks m_callbacks;
+  AddonToKodiFuncTable_AudioEncoder m_callbacks;
 
   bool WriteFrame();
 };

@@ -1,37 +1,26 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "HTTPPythonHandler.h"
+
 #include "URL.h"
 #include "addons/Webinterface.h"
+#include "filesystem/File.h"
 #include "interfaces/generic/ScriptInvocationManager.h"
 #include "interfaces/python/XBPython.h"
-#include "filesystem/File.h"
 #include "network/WebServer.h"
 #include "network/httprequesthandler/HTTPRequestHandlerUtils.h"
 #include "network/httprequesthandler/HTTPWebinterfaceHandler.h"
 #include "network/httprequesthandler/python/HTTPPythonInvoker.h"
 #include "network/httprequesthandler/python/HTTPPythonWsgiInvoker.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
 
 #define MAX_STRING_POST_SIZE 20000
 
@@ -107,7 +96,7 @@ CHTTPPythonHandler::CHTTPPythonHandler(const HTTPRequest &request)
   m_lastModified = *time;
 }
 
-bool CHTTPPythonHandler::CanHandleRequest(const HTTPRequest &request)
+bool CHTTPPythonHandler::CanHandleRequest(const HTTPRequest &request) const
 {
   ADDON::AddonPtr addon;
   std::string path;
@@ -240,11 +229,7 @@ bool CHTTPPythonHandler::GetLastModifiedDate(CDateTime &lastModified) const
   return true;
 }
 
-#if (MHD_VERSION >= 0x00040001)
 bool CHTTPPythonHandler::appendPostData(const char *data, size_t size)
-#else
-bool CHTTPPythonHandler::appendPostData(const char *data, unsigned int size)
-#endif
 {
   if (m_requestData.size() + size > MAX_STRING_POST_SIZE)
   {

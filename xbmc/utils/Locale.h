@@ -1,26 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <set>
 #include <string>
+#include <unordered_map>
 
 /*!
  \brief Class representing a full locale of the form `[language[_territory][.codeset][@modifier]]`.
@@ -29,7 +19,7 @@ class CLocale
 {
 public:
   CLocale();
-  CLocale(const std::string& language);
+  explicit CLocale(const std::string& language);
   CLocale(const std::string& language, const std::string& territory);
   CLocale(const std::string& language, const std::string& territory, const std::string& codeset);
   CLocale(const std::string& language, const std::string& territory, const std::string& codeset, const std::string& modifier);
@@ -42,7 +32,7 @@ public:
 
   /*!
    \brief Parses the given string representation and turns it into a locale.
-   
+
    \param locale String representation of a locale
    */
   static CLocale FromString(const std::string& locale);
@@ -56,7 +46,7 @@ public:
    \details A locale is considered valid if at least the language code is set.
    */
   bool IsValid() const { return m_valid; }
-  
+
   /*!
    \brief Returns the (lower-case) ISO 639-1 language code of the locale.
    */
@@ -73,7 +63,7 @@ public:
    \brief Returns the modifier of the locale.
    */
   const std::string& GetModifier() const { return m_modifier; }
-  
+
   /*!
    \brief Returns the full string representation of the locale.
 
@@ -110,7 +100,7 @@ public:
    ISO 3166-1 Alpha-2 code.
    */
   std::string ToShortStringLC() const;
-  
+
   /*!
    \brief Checks if the given string representation of a locale exactly matches
           the locale.
@@ -141,6 +131,19 @@ public:
   */
   std::string FindBestMatch(const std::set<std::string>& locales) const;
 
+  /*!
+  \brief Tries to find the locale in the given list that matches this locale
+         best.
+
+  \param locales Map list of string representations of locales with first as
+                 locale identifier
+  \return Best matching locale from the given list or empty string.
+
+  \remark Used from \ref CAddonInfo::GetTranslatedText to prevent copy from map
+          to set.
+  */
+  std::string FindBestMatch(const std::unordered_map<std::string, std::string>& locales) const;
+
 private:
   static bool CheckValidity(const std::string& language, const std::string& territory, const std::string& codeset, const std::string& modifier);
   static bool ParseLocale(const std::string &locale, std::string &language, std::string &territory, std::string &codeset, std::string &modifier);
@@ -149,7 +152,7 @@ private:
 
   int GetMatchRank(const std::string& locale) const;
 
-  bool m_valid;
+  bool m_valid = false;
   std::string m_language;
   std::string m_territory;
   std::string m_codeset;

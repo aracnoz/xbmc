@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ZipManager.h"
@@ -24,9 +12,10 @@
 #include <utility>
 
 #include "File.h"
-#include "system.h"
 #include "URL.h"
-#include "linux/PlatformDefs.h"
+#if defined(TARGET_POSIX)
+#include "PlatformDefs.h"
+#endif
 #include "utils/CharsetConverter.h"
 #include "utils/EndianSwap.h"
 #include "utils/log.h"
@@ -35,14 +24,11 @@
 
 using namespace XFILE;
 
-CZipManager::CZipManager()
-{
-}
+static const size_t ZC_FLAG_EFS = 1 << 11; // general purpose bit 11 - zip holds utf-8 filenames
 
-CZipManager::~CZipManager()
-{
+CZipManager::CZipManager() = default;
 
-}
+CZipManager::~CZipManager() = default;
 
 bool CZipManager::GetZipList(const CURL& url, std::vector<SZipEntry>& items)
 {
@@ -196,9 +182,13 @@ bool CZipManager::GetZipList(const CURL& url, std::vector<SZipEntry>& items)
       return false;
     std::string strName(bufName.get(), bufName.size());
     bufName.clear();
-    g_charsetConverter.unknownToUTF8(strName);
-    ZeroMemory(ze.name, 255);
-    strncpy(ze.name, strName.c_str(), strName.size()>254 ? 254 : strName.size());
+    if ((ze.flags & ZC_FLAG_EFS) == 0)
+    {
+      std::string tmp(strName);
+      g_charsetConverter.ToUtf8("CP437", tmp, strName);
+    }
+    memset(ze.name, 0, 255);
+    strncpy(ze.name, strName.c_str(), strName.size() > 254 ? 254 : strName.size());
 
     // Jump after central file header extra field and file comment
     mFile.Seek(ze.eclength + ze.clength,SEEK_CUR);
@@ -208,9 +198,8 @@ bool CZipManager::GetZipList(const CURL& url, std::vector<SZipEntry>& items)
   }
 
   /* go through list and figure out file header lengths */
-  for(std::vector<SZipEntry>::iterator it = items.begin(); it != items.end(); ++it)
+  for (auto& ze : items)
   {
-    SZipEntry& ze = *it;
     // Go to the local file header to get the extra field length
     // !! local header extra field length != central file header extra field length !!
     mFile.Seek(ze.lhdrOffset+28,SEEK_SET);
@@ -244,11 +233,11 @@ bool CZipManager::GetZipEntry(const CURL& url, SZipEntry& item)
   }
 
   std::string strFileName = url.GetFileName();
-  for (std::vector<SZipEntry>::iterator it2=items.begin();it2 != items.end();++it2)
+  for (const auto& it2 : items)
   {
-    if (std::string(it2->name) == strFileName)
+    if (std::string(it2.name) == strFileName)
     {
-      memcpy(&item,&(*it2),sizeof(SZipEntry));
+      item = it2;
       return true;
     }
   }
@@ -266,11 +255,11 @@ bool CZipManager::ExtractArchive(const CURL& archive, const std::string& strPath
   std::vector<SZipEntry> entry;
   CURL url = URIUtils::CreateArchivePath("zip", archive);
   GetZipList(url, entry);
-  for (std::vector<SZipEntry>::iterator it=entry.begin();it != entry.end();++it)
+  for (const auto& it : entry)
   {
-    if (it->name[strlen(it->name)-1] == '/') // skip dirs
+    if (it.name[strlen(it.name) - 1] == '/') // skip dirs
       continue;
-    std::string strFilePath(it->name);
+    std::string strFilePath(it.name);
 
     CURL zipPath = URIUtils::CreateArchivePath("zip", archive, strFilePath);
     const CURL pathToUrl(strPath + strFilePath);
@@ -283,37 +272,37 @@ bool CZipManager::ExtractArchive(const CURL& archive, const std::string& strPath
 // Read local file header
 void CZipManager::readHeader(const char* buffer, SZipEntry& info)
 {
-  info.header = Endian_SwapLE32(*(unsigned int*)buffer);
-  info.version = Endian_SwapLE16(*(unsigned short*)(buffer+4));
-  info.flags = Endian_SwapLE16(*(unsigned short*)(buffer+6));
-  info.method = Endian_SwapLE16(*(unsigned short*)(buffer+8));
-  info.mod_time = Endian_SwapLE16(*(unsigned short*)(buffer+10));
-  info.mod_date = Endian_SwapLE16(*(unsigned short*)(buffer+12));
-  info.crc32 = Endian_SwapLE32(*(unsigned int*)(buffer+14));
-  info.csize = Endian_SwapLE32(*(unsigned int*)(buffer+18));
-  info.usize = Endian_SwapLE32(*(unsigned int*)(buffer+22));
-  info.flength = Endian_SwapLE16(*(unsigned short*)(buffer+26));
-  info.elength = Endian_SwapLE16(*(unsigned short*)(buffer+28));
+  info.header = Endian_SwapLE32(*(const unsigned int*)buffer);
+  info.version = Endian_SwapLE16(*(const unsigned short*)(buffer+4));
+  info.flags = Endian_SwapLE16(*(const unsigned short*)(buffer+6));
+  info.method = Endian_SwapLE16(*(const unsigned short*)(buffer+8));
+  info.mod_time = Endian_SwapLE16(*(const unsigned short*)(buffer+10));
+  info.mod_date = Endian_SwapLE16(*(const unsigned short*)(buffer+12));
+  info.crc32 = Endian_SwapLE32(*(const unsigned int*)(buffer+14));
+  info.csize = Endian_SwapLE32(*(const unsigned int*)(buffer+18));
+  info.usize = Endian_SwapLE32(*(const unsigned int*)(buffer+22));
+  info.flength = Endian_SwapLE16(*(const unsigned short*)(buffer+26));
+  info.elength = Endian_SwapLE16(*(const unsigned short*)(buffer+28));
 }
 
 // Read central file header (from central directory)
 void CZipManager::readCHeader(const char* buffer, SZipEntry& info)
 {
-  info.header = Endian_SwapLE32(*(unsigned int*)buffer);
+  info.header = Endian_SwapLE32(*(const unsigned int*)buffer);
   // Skip version made by
-  info.version = Endian_SwapLE16(*(unsigned short*)(buffer+6));
-  info.flags = Endian_SwapLE16(*(unsigned short*)(buffer+8));
-  info.method = Endian_SwapLE16(*(unsigned short*)(buffer+10));
-  info.mod_time = Endian_SwapLE16(*(unsigned short*)(buffer+12));
-  info.mod_date = Endian_SwapLE16(*(unsigned short*)(buffer+14));
-  info.crc32 = Endian_SwapLE32(*(unsigned int*)(buffer+16));
-  info.csize = Endian_SwapLE32(*(unsigned int*)(buffer+20));
-  info.usize = Endian_SwapLE32(*(unsigned int*)(buffer+24));
-  info.flength = Endian_SwapLE16(*(unsigned short*)(buffer+28));
-  info.eclength = Endian_SwapLE16(*(unsigned short*)(buffer+30));
-  info.clength = Endian_SwapLE16(*(unsigned short*)(buffer+32));
+  info.version = Endian_SwapLE16(*(const unsigned short*)(buffer+6));
+  info.flags = Endian_SwapLE16(*(const unsigned short*)(buffer+8));
+  info.method = Endian_SwapLE16(*(const unsigned short*)(buffer+10));
+  info.mod_time = Endian_SwapLE16(*(const unsigned short*)(buffer+12));
+  info.mod_date = Endian_SwapLE16(*(const unsigned short*)(buffer+14));
+  info.crc32 = Endian_SwapLE32(*(const unsigned int*)(buffer+16));
+  info.csize = Endian_SwapLE32(*(const unsigned int*)(buffer+20));
+  info.usize = Endian_SwapLE32(*(const unsigned int*)(buffer+24));
+  info.flength = Endian_SwapLE16(*(const unsigned short*)(buffer+28));
+  info.eclength = Endian_SwapLE16(*(const unsigned short*)(buffer+30));
+  info.clength = Endian_SwapLE16(*(const unsigned short*)(buffer+32));
   // Skip disk number start, internal/external file attributes
-  info.lhdrOffset = Endian_SwapLE32(*(unsigned int*)(buffer+42));
+  info.lhdrOffset = Endian_SwapLE32(*(const unsigned int*)(buffer+42));
 
 }
 

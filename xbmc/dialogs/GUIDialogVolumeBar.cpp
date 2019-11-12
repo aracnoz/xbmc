@@ -1,26 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogVolumeBar.h"
+
 #include "Application.h"
+#include "IGUIVolumeBarCallback.h"
 #include "input/Key.h"
+#include "threads/SingleLock.h"
 
 #define VOLUME_BAR_DISPLAY_TIME 1000L
 
@@ -30,14 +21,13 @@ CGUIDialogVolumeBar::CGUIDialogVolumeBar(void)
   m_loadType = LOAD_ON_GUI_INIT;
 }
 
-CGUIDialogVolumeBar::~CGUIDialogVolumeBar(void)
-{}
+CGUIDialogVolumeBar::~CGUIDialogVolumeBar(void) = default;
 
 bool CGUIDialogVolumeBar::OnAction(const CAction &action)
 {
   if (action.GetID() == ACTION_VOLUME_UP || action.GetID() == ACTION_VOLUME_DOWN || action.GetID() == ACTION_VOLUME_SET || action.GetID() == ACTION_MUTE)
   {
-    if (g_application.IsMuted() || g_application.GetVolume(false) <= VOLUME_MINIMUM)
+    if (g_application.IsMuted() || g_application.GetVolumeRatio() <= VOLUME_MINIMUM)
     { // cancel the timer, dialog needs to stay visible
       CancelAutoClose();
       return true;
@@ -60,4 +50,32 @@ bool CGUIDialogVolumeBar::OnMessage(CGUIMessage& message)
     return CGUIDialog::OnMessage(message);
   }
   return false; // don't process anything other than what we need!
+}
+
+void CGUIDialogVolumeBar::RegisterCallback(IGUIVolumeBarCallback *callback)
+{
+  CSingleLock lock(m_callbackMutex);
+
+  m_callbacks.insert(callback);
+}
+
+void CGUIDialogVolumeBar::UnregisterCallback(IGUIVolumeBarCallback *callback)
+{
+  CSingleLock lock(m_callbackMutex);
+
+  m_callbacks.erase(callback);
+}
+
+bool CGUIDialogVolumeBar::IsVolumeBarEnabled() const
+{
+  CSingleLock lock(m_callbackMutex);
+
+  // Hide volume bar if any callbacks are shown
+  for (const auto &callback : m_callbacks)
+  {
+    if (callback->IsShown())
+      return false;
+  }
+
+  return true;
 }

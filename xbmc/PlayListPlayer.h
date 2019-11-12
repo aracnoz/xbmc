@@ -1,35 +1,23 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "ServiceBroker.h"
 #include "guilib/IMsgTargetCallback.h"
 #include "messaging/IMessageTarget.h"
-#include "ServiceBroker.h"
+
 #include <memory>
 
 #define PLAYLIST_NONE    -1
 #define PLAYLIST_MUSIC   0
 #define PLAYLIST_VIDEO   1
 #define PLAYLIST_PICTURE 2
-
-#define g_playlistPlayer CServiceBroker::GetPlaylistPlayer()
 
 class CAction;
 class CFileItem; typedef std::shared_ptr<CFileItem> CFileItemPtr;
@@ -53,11 +41,11 @@ class CPlayListPlayer : public IMsgTargetCallback,
 
 public:
   CPlayListPlayer(void);
-  virtual ~CPlayListPlayer(void);
-  virtual bool OnMessage(CGUIMessage &message) override;
+  ~CPlayListPlayer(void) override;
+  bool OnMessage(CGUIMessage &message) override;
 
-  virtual int GetMessageMask() override;
-  virtual void OnApplicationMessage(KODI::MESSAGING::ThreadMessage* pMsg) override;
+  int GetMessageMask() override;
+  void OnApplicationMessage(KODI::MESSAGING::ThreadMessage* pMsg) override;
 
   /*! \brief Play the next (or another) entry in the current playlist
    \param offset The offset from the current entry (defaults to 1, i.e. the next entry).
@@ -71,6 +59,11 @@ public:
   bool PlayPrevious();
   bool PlaySongId(int songId);
   bool Play();
+
+  /*! \brief Creates a new playlist for an item and starts playing it
+   \param pItem The item to play.
+   */
+  bool Play(const CFileItemPtr &pItem, std::string player);
 
   /*! \brief Start playing a particular entry in the current playlist
    \param index the index of the item to play. This value is modified to ensure it lies within the current playlist.
@@ -92,7 +85,7 @@ public:
   void SetCurrentSong(int index);
 
   int GetNextSong();
-  
+
   /*! \brief Get the index in the playlist that is offset away from the current index in the current playlist.
    Obeys any repeat settings (eg repeat one will return the current index regardless of offset)
    \return the index of the entry, or -1 if there is no current playlist. There is no guarantee that the returned index is valid.
@@ -141,7 +134,7 @@ public:
    \sa IsShuffled
    */
   void SetShuffle(int playlist, bool shuffle, bool notify = false);
-  
+
   /*! \brief Return whether a playlist is shuffled.
    If partymode is enabled, this always returns false.
    \param playlist the playlist to query for shuffle state, PLAYLIST_MUSIC or PLAYLIST_VIDEO.
@@ -166,12 +159,12 @@ public:
   REPEAT_STATE GetRepeat(int iPlaylist) const;
 
   // add items via the playlist player
-  void Add(int iPlaylist, CPlayList& playlist);
+  void Add(int iPlaylist, const CPlayList& playlist);
   void Add(int iPlaylist, const CFileItemPtr &pItem);
-  void Add(int iPlaylist, CFileItemList& items);
-  void Insert(int iPlaylist, CPlayList& playlist, int iIndex);
+  void Add(int iPlaylist, const CFileItemList& items);
+  void Insert(int iPlaylist, const CPlayList& playlist, int iIndex);
   void Insert(int iPlaylist, const CFileItemPtr &pItem, int iIndex);
-  void Insert(int iPlaylist, CFileItemList& items, int iIndex);
+  void Insert(int iPlaylist, const CFileItemList& items, int iIndex);
   void Remove(int iPlaylist, int iPosition);
   void Swap(int iPlaylist, int indexItem1, int indexItem2);
 

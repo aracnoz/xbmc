@@ -53,6 +53,7 @@ PLT_HttpServer::PLT_HttpServer(NPT_IpAddress address,
                                bool          allow_random_port_on_bind_failure,   /* = false */
                                NPT_Cardinal  max_clients,                         /* = 50 */
                                bool          reuse_address) :                     /* = false */
+    NPT_HttpServer(address, port, true),
     m_TaskManager(new PLT_TaskManager(max_clients)),
     m_Address(address),
     m_Port(port),
@@ -159,7 +160,7 @@ PLT_HttpServer::SetupResponse(NPT_HttpRequest&              request,
         (const char*) request.GetMethod(),
         (const char*) context.GetRemoteAddress().ToString(),
         (const char*) request.GetUrl().ToString());
-    PLT_LOG_HTTP_MESSAGE(NPT_LOG_LEVEL_FINE, prefix, &request);
+    PLT_LOG_HTTP_REQUEST(NPT_LOG_LEVEL_FINE, prefix, &request);
 
     NPT_List<NPT_HttpRequestHandler*> handlers = FindRequestHandlers(request);
     if (handlers.GetItemCount() == 0) return NPT_ERROR_NO_SUCH_ITEM;
@@ -189,8 +190,7 @@ PLT_HttpServer::ServeFile(const NPT_HttpRequest&        request,
     NPT_FileInfo             file_info;
     
     // prevent hackers from accessing files outside of our root
-    if ((file_path.Find("/..") >= 0) || (file_path.Find("\\..") >= 0) ||
-        NPT_FAILED(NPT_File::GetInfo(file_path, &file_info))) {
+    if ((file_path.Find("/..") >= 0) || (file_path.Find("\\..") >= 0)) {
         return NPT_ERROR_NO_SUCH_ITEM;
     }
     
@@ -200,7 +200,8 @@ PLT_HttpServer::ServeFile(const NPT_HttpRequest&        request,
     // handle potential 304 only if range header not set
     NPT_DateTime  date;
     NPT_TimeStamp timestamp;
-    if (NPT_SUCCEEDED(PLT_UPnPMessageHelper::GetIfModifiedSince((NPT_HttpMessage&)request, date)) &&
+    if (NPT_SUCCEEDED(NPT_File::GetInfo(file_path, &file_info)) &&
+        NPT_SUCCEEDED(PLT_UPnPMessageHelper::GetIfModifiedSince((NPT_HttpMessage&)request, date)) &&
         !range_spec) {
         date.ToTimeStamp(timestamp);
         

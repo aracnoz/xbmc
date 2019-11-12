@@ -1,35 +1,25 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "dll.h"
+
 #include "DllLoader.h"
 #include "DllLoaderContainer.h"
 #include "dll_tracker.h"
 #include "dll_util.h"
-#include <climits>
 #include "filesystem/SpecialProtocol.h"
 #include "utils/log.h"
 
+#include <climits>
+
 #define DEFAULT_DLLPATH "special://xbmc/system/players/mplayer/codecs/"
 #define HIGH_WORD(a) ((uintptr_t)(a) >> 16)
-#define LOW_WORD(a) ((WORD)(((uintptr_t)(a)) & MAXWORD))
+#define LOW_WORD(a) ((unsigned short)(((uintptr_t)(a)) & MAXWORD))
 
 //#define API_DEBUG
 
@@ -49,7 +39,7 @@ char* getpath(char *buf, const char *full)
   }
 }
 
-extern "C" HMODULE __stdcall dllLoadLibraryExtended(LPCSTR lib_file, LPCSTR sourcedll)
+extern "C" HMODULE __stdcall dllLoadLibraryExtended(const char* lib_file, const char* sourcedll)
 {
   char libname[MAX_PATH + 1] = {};
   char libpath[MAX_PATH + 1] = {};
@@ -58,9 +48,10 @@ extern "C" HMODULE __stdcall dllLoadLibraryExtended(LPCSTR lib_file, LPCSTR sour
   /* extract name */
   const char* p = strrchr(lib_file, PATH_SEPARATOR_CHAR);
   if (p)
-    strcpy(libname, p+1);
+    strncpy(libname, p+1, sizeof(libname) - 1);
   else
-    strcpy(libname, lib_file);
+    strncpy(libname, lib_file, sizeof(libname) - 1);
+  libname[sizeof(libname) - 1] = '\0';
 
   if( libname[0] == '\0' )
     return NULL;
@@ -103,7 +94,7 @@ extern "C" HMODULE __stdcall dllLoadLibraryExtended(LPCSTR lib_file, LPCSTR sour
   return NULL;
 }
 
-extern "C" HMODULE __stdcall dllLoadLibraryA(LPCSTR file)
+extern "C" HMODULE __stdcall dllLoadLibraryA(const char* file)
 {
   return dllLoadLibraryExtended(file, NULL);
 }
@@ -113,7 +104,7 @@ extern "C" HMODULE __stdcall dllLoadLibraryA(LPCSTR file)
 #define LOAD_WITH_ALTERED_SEARCH_PATH 0x00000008
 #define LOAD_IGNORE_CODE_AUTHZ_LEVEL  0x00000010
 
-extern "C" HMODULE __stdcall dllLoadLibraryExExtended(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags, LPCSTR sourcedll)
+extern "C" HMODULE __stdcall dllLoadLibraryExExtended(const char* lpLibFileName, HANDLE hFile, DWORD dwFlags, const char* sourcedll)
 {
   char strFlags[512];
   strFlags[0] = '\0';
@@ -128,12 +119,12 @@ extern "C" HMODULE __stdcall dllLoadLibraryExExtended(LPCSTR lpLibFileName, HAND
   return dllLoadLibraryExtended(lpLibFileName, sourcedll);
 }
 
-extern "C" HMODULE __stdcall dllLoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags)
+extern "C" HMODULE __stdcall dllLoadLibraryExA(const char* lpLibFileName, HANDLE hFile, DWORD dwFlags)
 {
   return dllLoadLibraryExExtended(lpLibFileName, hFile, dwFlags, NULL);
 }
 
-extern "C" BOOL __stdcall dllFreeLibrary(HINSTANCE hLibModule)
+extern "C" int __stdcall dllFreeLibrary(HINSTANCE hLibModule)
 {
   LibraryLoader* dllhandle = DllLoaderContainer::GetModule(hLibModule);
 
@@ -151,7 +142,7 @@ extern "C" BOOL __stdcall dllFreeLibrary(HINSTANCE hLibModule)
   return 1;
 }
 
-extern "C" FARPROC __stdcall dllGetProcAddress(HMODULE hModule, LPCSTR function)
+extern "C" intptr_t (*__stdcall dllGetProcAddress(HMODULE hModule, const char* function))(void)
 {
   uintptr_t loc = (uintptr_t)_ReturnAddress();
 
@@ -170,12 +161,12 @@ extern "C" FARPROC __stdcall dllGetProcAddress(HMODULE hModule, LPCSTR function)
   {
     if( dll->ResolveOrdinal(LOW_WORD(function), &address) )
     {
-      CLog::Log(LOGDEBUG, "%s(%p(%s), %d) => %p", __FUNCTION__, hModule, dll->GetName(), LOW_WORD(function), address);
+      CLog::Log(LOGDEBUG, "%s(%p(%s), %d) => %p", __FUNCTION__, static_cast<void*>(hModule), dll->GetName(), LOW_WORD(function), address);
     }
     else if( dll->IsSystemDll() )
     {
-      char ordinal[5];
-      sprintf(ordinal, "%d", LOW_WORD(function));
+      char ordinal[6] = {};
+      sprintf(ordinal, "%u", LOW_WORD(function));
       address = (void*)create_dummy_function(dll->GetName(), ordinal);
 
       /* add to tracklist if we are tracking this source dll */
@@ -188,20 +179,20 @@ extern "C" FARPROC __stdcall dllGetProcAddress(HMODULE hModule, LPCSTR function)
     else
     {
       address = NULL;
-      CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p",__FUNCTION__ , hModule, dll->GetName(), function, address);
+      CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p",__FUNCTION__ , static_cast<void*>(hModule), dll->GetName(), function, address);
     }
   }
   else
   {
     if( dll->ResolveExport(function, &address) )
     {
-      CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p",__FUNCTION__ , hModule, dll->GetName(), function, address);
+      CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p",__FUNCTION__ , static_cast<void*>(hModule), dll->GetName(), function, address);
     }
     else
     {
       DllTrackInfo* track = tracker_get_dlltrackinfo(loc);
       /* some dll's require us to always return a function or it will fail, other's  */
-      /* decide functionallity depending on if the functions exist and may fail      */
+      /* decide functionality depending on if the functions exist and may fail      */
       if( dll->IsSystemDll() && track
        && stricmp(track->pDll->GetName(), "CoreAVCDecoder.ax") == 0 )
       {
@@ -212,15 +203,15 @@ extern "C" FARPROC __stdcall dllGetProcAddress(HMODULE hModule, LPCSTR function)
       else
       {
         address = NULL;
-        CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p", __FUNCTION__, hModule, dll->GetName(), function, address);
+        CLog::Log(LOGDEBUG, "%s(%p(%s), '%s') => %p", __FUNCTION__, static_cast<void*>(hModule), dll->GetName(), function, address);
       }
     }
   }
 
-  return (FARPROC)address;
+  return (intptr_t(*)(void)) address;
 }
 
-extern "C" HMODULE WINAPI dllGetModuleHandleA(LPCSTR lpModuleName)
+extern "C" HMODULE WINAPI dllGetModuleHandleA(const char* lpModuleName)
 {
   /*
   If the file name extension is omitted, the default library extension .dll is appended.
@@ -251,34 +242,4 @@ extern "C" HMODULE WINAPI dllGetModuleHandleA(LPCSTR lpModuleName)
 
   CLog::Log(LOGDEBUG, "GetModuleHandleA('%s') failed", lpModuleName);
   return NULL;
-}
-
-extern "C" DWORD WINAPI dllGetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize)
-{
-  if (NULL == hModule)
-  {
-#ifdef TARGET_WINDOWS
-    return GetModuleFileNameA(hModule, lpFilename, nSize);
-#else
-    CLog::Log(LOGDEBUG, "%s - No hModule specified", __FUNCTION__);
-    return 0;
-#endif
-  }
-
-  LibraryLoader* dll = DllLoaderContainer::GetModule(hModule);
-  if( !dll )
-  {
-    CLog::Log(LOGERROR, "%s - Invalid hModule specified", __FUNCTION__);
-    return 0;
-  }
-
-  const char* sName = dll->GetFileName();
-  if (sName)
-  {
-    strncpy(lpFilename, sName, nSize);
-    lpFilename[nSize] = 0;
-    return strlen(lpFilename);
-  }
-
-  return 0;
 }

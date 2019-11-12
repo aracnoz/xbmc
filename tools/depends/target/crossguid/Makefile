@@ -10,6 +10,7 @@ ARCHIVE=$(SOURCE).tar.gz
 
 ifeq ($(CROSS_COMPILING), yes)
   DEPS += ../../Makefile.include
+  CXXFLAGS += -std=c++11
 else
   CXXFLAGS += -std=c++11
   ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -29,17 +30,15 @@ GUID_PLATFORM_DEFINE=GUID_LIBUUID
 ifeq ($(OS),osx)
 	GUID_PLATFORM_DEFINE=GUID_CFUUID
 endif
-ifeq ($(OS),ios)
+ifeq ($(OS),darwin_embedded)
 	GUID_PLATFORM_DEFINE=GUID_CFUUID
 endif
 
 LIBDYLIB=$(PLATFORM)/lib$(LIBNAME).a
 
-.PHONY: .installed-$(PLATFORM)
+.PHONY: .installed-native
 
-all: .installed-$(PLATFORM) $(PREFIX)/lib/lib$(LIBNAME).a
-$(PREFIX)/lib/lib$(LIBNAME).a:
-	@make .installed-$(PLATFORM)
+all: .installed-$(PLATFORM)
 
 $(TARBALLS_LOCATION)/$(ARCHIVE):
 	cd $(TARBALLS_LOCATION); $(RETRIEVE_TOOL) $(RETRIEVE_TOOL_FLAGS) $(BASE_URL)/$(ARCHIVE)

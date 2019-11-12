@@ -1,25 +1,15 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "games/controllers/ControllerTypes.h"
+#include "input/InputTypes.h"
 #include "input/joysticks/JoystickTypes.h"
 
 #include <string>
@@ -45,6 +35,9 @@ class CEvent;
  *   3) When the wizard's active feature loses focus, the wizard is cancelled
  *      and the prompt for input ends.
  */
+
+namespace KODI
+{
 namespace GAME
 {
   class CControllerFeature;
@@ -55,7 +48,7 @@ namespace GAME
   class IControllerList
   {
   public:
-    virtual ~IControllerList(void) { }
+    virtual ~IControllerList() = default;
 
     /*!
      * \brief  Initialize the resource
@@ -71,9 +64,10 @@ namespace GAME
 
     /*!
      * \brief Refresh the contents of the list
+     * \param controllerId The controller to focus, or empty to leave focus unchanged
      * \return True if the list was changed
      */
-    virtual bool Refresh(void) = 0;
+    virtual bool Refresh(const std::string& controllerId) = 0;
 
     /*
      * \brief  The specified controller has been focused
@@ -105,7 +99,7 @@ namespace GAME
   class IFeatureList
   {
   public:
-    virtual ~IFeatureList(void) { }
+    virtual ~IFeatureList() = default;
 
     /*!
      * \brief  Initialize the resource
@@ -121,36 +115,49 @@ namespace GAME
     virtual void Deinitialize(void) = 0;
 
     /*!
+     * \brief Check if the feature type has any buttons in the GUI
+     * \param The type of the feature being added to the GUI
+     * \return True if the type is support, false otherwise
+     */
+    virtual bool HasButton(JOYSTICK::FEATURE_TYPE type) const = 0;
+
+    /*!
      * \brief Load the features for the specified controller
      * \param controller The controller to load
      */
     virtual void Load(const ControllerPtr& controller) = 0;
 
     /*!
-     * \brief  Focus has been set to the specified feature
-     * \param  featureIndex The index of the feature being focused
+     * \brief  Focus has been set to the specified GUI button
+     * \param  buttonIndex The index of the button being focused
      */
-    virtual void OnFocus(unsigned int index) = 0;
+    virtual void OnFocus(unsigned int buttonIndex) = 0;
 
     /*!
-     * \brief  The specified feature has been selected
-     * \param  featureIndex The index of the feature being selected
+     * \brief  The specified GUI button has been selected
+     * \param  buttonIndex The index of the button being selected
      */
-    virtual void OnSelect(unsigned int index) = 0;
+    virtual void OnSelect(unsigned int buttonIndex) = 0;
   };
 
   /*!
-   * \brief A button in a feature list
+   * \brief A GUI button in a feature list
    */
   class IFeatureButton
   {
   public:
-    virtual ~IFeatureButton(void) { }
+    virtual ~IFeatureButton() = default;
 
     /*!
      * \brief Get the feature represented by this button
      */
     virtual const CControllerFeature& Feature(void) const = 0;
+
+    /*!
+     * \brief Allow the wizard to include this feature in a list of buttons
+     *        to map
+     */
+    virtual bool AllowWizard() const { return true; }
 
     /*!
      * \brief Prompt the user for a single input element
@@ -169,11 +176,38 @@ namespace GAME
     virtual bool IsFinished(void) const = 0;
 
     /*!
-     * \brief Get the direction of the next analog stick prompt
-     * \return The next direction to be prompted, or UNKNOWN if this isn't an
-     *         analog stick or the prompt is finished
+     * \brief Get the direction of the next analog stick or relative pointer
+     *        prompt
+     * \return The next direction to be prompted, or UNKNOWN if this isn't a
+     *         cardinal feature or the prompt is finished
      */
-    virtual JOYSTICK::ANALOG_STICK_DIRECTION GetDirection(void) const = 0;
+    virtual INPUT::CARDINAL_DIRECTION GetCardinalDirection(void) const = 0;
+
+    /*!
+     * \brief Get the direction of the next wheel prompt
+     * \return The next direction to be prompted, or UNKNOWN if this isn't a
+     *         wheel or the prompt is finished
+     */
+    virtual JOYSTICK::WHEEL_DIRECTION GetWheelDirection(void) const = 0;
+
+    /*!
+     * \brief Get the direction of the next throttle prompt
+     * \return The next direction to be prompted, or UNKNOWN if this isn't a
+     *         throttle or the prompt is finished
+     */
+    virtual JOYSTICK::THROTTLE_DIRECTION GetThrottleDirection(void) const = 0;
+
+    /*!
+     * \brief True if the button is waiting for a key press
+     */
+    virtual bool NeedsKey() const { return false; }
+
+    /*!
+     * \brief Set the pressed key that the user will be prompted to map
+     *
+     * \param key The key that was pressed
+     */
+    virtual void SetKey(const CControllerFeature &key) { }
 
     /*!
      * \brief Reset button after prompting for input has finished
@@ -182,32 +216,19 @@ namespace GAME
   };
 
   /*!
-   * \brief Callback handler passed to the button mapping wizard
-   */
-  class IConfigurationWizardCallback
-  {
-  public:
-    virtual ~IConfigurationWizardCallback() = default;
-
-    /*!
-     * \brief Called when a "skip" is detected, defined as two mapping commands within a short duration
-     */
-    virtual void OnSkipDetected() = 0;
-  };
-
-  /*!
    * \brief A wizard to direct user input
    */
   class IConfigurationWizard
   {
   public:
-    virtual ~IConfigurationWizard(void) { }
+    virtual ~IConfigurationWizard() = default;
 
     /*!
-     * \brief Start the wizard at the specified feature
-     * \param featureIndex The index of the feature to start at
+     * \brief Start the wizard for the specified buttons
+     * \param controllerId The controller ID being mapped
+     * \param buttons The buttons to map
      */
-    virtual void Run(const std::string& strControllerId, const std::vector<IFeatureButton*>& buttons, IConfigurationWizardCallback* callback) = 0;
+    virtual void Run(const std::string& strControllerId, const std::vector<IFeatureButton*>& buttons) = 0;
 
     /*!
      * \brief Callback for feature losing focus
@@ -221,5 +242,20 @@ namespace GAME
      * \return true if aborted, or false if the wizard wasn't running
      */
     virtual bool Abort(bool bWait = true) = 0;
+
+    /*!
+     * \brief Register a key by its keycode
+     * \param key A key with a valid keycode
+     *
+     * This should be called before Run(). It allows the user to choose a key
+     * to map instead of scrolling through a long list.
+     */
+    virtual void RegisterKey(const CControllerFeature &key) = 0;
+
+    /*!
+     * \brief Unregister all registered keys
+     */
+    virtual void UnregisterKeys() = 0;
   };
+}
 }

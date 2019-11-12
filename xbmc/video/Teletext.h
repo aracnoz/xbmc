@@ -1,34 +1,29 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "TeletextDefines.h"
-#include "input/Key.h"
+#include "utils/Color.h"
 #include "guilib/GUITexture.h"
 
 // stuff for freetype
 #include <ft2build.h>
+
+#ifdef TARGET_WINDOWS_STORE
+#define generic GenericFromFreeTypeLibrary
+#endif
+
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 #include FT_CACHE_SMALL_BITMAPS_H
+
+class CAction;
 
 typedef enum /* object type */
 {
@@ -45,7 +40,7 @@ public:
 
   bool NeedRendering() { return m_updateTexture; }
   void RenderingDone() { m_updateTexture = false; }
-  color_t *GetTextureBuffer() { return m_TextureBuffer + (m_RenderInfo.Width*m_YOffset); }
+  UTILS::Color *GetTextureBuffer() { return m_TextureBuffer + (m_RenderInfo.Width*m_YOffset); }
   int GetHeight() { return m_RenderInfo.Height; }
   int GetWidth() { return m_RenderInfo.Width; }
   bool InitDecoder();
@@ -78,25 +73,25 @@ private:
   void SetFontWidth(int newWidth);
   int GetCurFontWidth();
   void SetPosX(int column);
-  void ClearBB(color_t Color);
-  void ClearFB(color_t Color);
-  void FillBorder(color_t Color);
-  void FillRect(color_t *buffer, int xres, int x, int y, int w, int h, color_t Color);
-  void DrawVLine(color_t *lfb, int xres, int x, int y, int l, color_t color);
-  void DrawHLine(color_t *lfb, int xres,int x, int y, int l, color_t color);
-  void FillRectMosaicSeparated(color_t *lfb, int xres,int x, int y, int w, int h, color_t fgcolor, color_t bgcolor, int set);
-  void FillTrapez(color_t *lfb, int xres,int x0, int y0, int l0, int xoffset1, int h, int l1, color_t color);
-  void FlipHorz(color_t *lfb, int xres,int x, int y, int w, int h);
-  void FlipVert(color_t *lfb, int xres,int x, int y, int w, int h);
+  void ClearBB(UTILS::Color Color);
+  void ClearFB(UTILS::Color Color);
+  void FillBorder(UTILS::Color Color);
+  void FillRect(UTILS::Color *buffer, int xres, int x, int y, int w, int h, UTILS::Color Color);
+  void DrawVLine(UTILS::Color *lfb, int xres, int x, int y, int l, UTILS::Color color);
+  void DrawHLine(UTILS::Color *lfb, int xres,int x, int y, int l, UTILS::Color color);
+  void FillRectMosaicSeparated(UTILS::Color *lfb, int xres,int x, int y, int w, int h, UTILS::Color fgcolor, UTILS::Color bgcolor, int set);
+  void FillTrapez(UTILS::Color *lfb, int xres,int x0, int y0, int l0, int xoffset1, int h, int l1, UTILS::Color color);
+  void FlipHorz(UTILS::Color *lfb, int xres,int x, int y, int w, int h);
+  void FlipVert(UTILS::Color *lfb, int xres,int x, int y, int w, int h);
   int ShapeCoord(int param, int curfontwidth, int curfontheight);
-  void DrawShape(color_t *lfb, int xres, int x, int y, int shapenumber, int curfontwidth, int fontheight, int curfontheight, color_t fgcolor, color_t bgcolor, bool clear);
+  void DrawShape(UTILS::Color *lfb, int xres, int x, int y, int shapenumber, int curfontwidth, int fontheight, int curfontheight, UTILS::Color fgcolor, UTILS::Color bgcolor, bool clear);
   void RenderDRCS(int xres,
-                  unsigned char *s,          /* pointer to char data, parity undecoded */
-                  color_t *d,                  /* pointer to frame buffer of top left pixel */
+                  unsigned char *s,         /* pointer to char data, parity undecoded */
+                  UTILS::Color *d,          /* pointer to frame buffer of top left pixel */
                   unsigned char *ax,        /* array[0..12] of x-offsets, array[0..10] of y-offsets for each pixel */
-                  color_t fgcolor, color_t bgcolor);
+                  UTILS::Color fgcolor, UTILS::Color bgcolor);
   void RenderCharIntern(TextRenderInfo_t* RenderInfo, int Char, TextPageAttr_t *Attribute, int zoom, int yoffset);
-  int RenderChar(color_t *buffer,             // pointer to render buffer, min. fontheight*2*xres
+  int RenderChar(UTILS::Color *buffer,      // pointer to render buffer, min. fontheight*2*xres
                  int xres,                  // length of 1 line in render buffer
                  int Char,                  // character to render
                  int *pPosX,                // left border for rendering relative to *buffer, will be set to right border after rendering
@@ -111,7 +106,7 @@ private:
                  int Ascender);
   TextPageinfo_t* DecodePage(bool showl25,              // 1=decode Level2.5-graphics
                              unsigned char* PageChar,   // page buffer, min. 25*40
-                             TextPageAttr_t *PageAtrb,  // attribut buffer, min 25*40
+                             TextPageAttr_t *PageAtrb,  // attribute buffer, min 25*40
                              bool HintMode,             // 1=show hidden information
                              bool showflof);            // 1=decode FLOF-line
   void Eval_l25(unsigned char* page_char, TextPageAttr_t *PageAtrb, bool HintMode);
@@ -130,14 +125,14 @@ private:
   int iTripletNumber2Data(int iONr, TextCachedPage_t *pstCachedPage, unsigned char* pagedata);
   int SetNational(unsigned char sec);
   int NextHex(int i);
-  void SetColors(unsigned short *pcolormap, int offset, int number);
-  color_t GetColorRGB(enumTeletextColor ttc);
+  void SetColors(const unsigned short *pcolormap, int offset, int number);
+  UTILS::Color GetColorRGB(enumTeletextColor ttc);
 
   static FT_Error MyFaceRequester(FTC_FaceID face_id, FT_Library library, FT_Pointer request_data, FT_Face *aface);
 
-  std::string          m_teletextFont;     /* Path to teletext font */
+  std::string         m_teletextFont;     /* Path to teletext font */
   int                 m_YOffset;          /* Swap position for Front buffer and Back buffer */
-  color_t            *m_TextureBuffer;    /* Texture buffer to hold generated data */
+  UTILS::Color        *m_TextureBuffer;   /* Texture buffer to hold generated data */
   bool                m_updateTexture;    /* Update the texture if set */
   char                prevHeaderPage;     /* Needed for texture update if header is changed */
   char                prevTimeSec;        /* Needed for Time string update */
@@ -158,6 +153,6 @@ private:
 
   int                 m_TempPage;         /* Temporary page number for number input */
   int                 m_LastPage;         /* Last selected Page */
-  TextCacheStruct_t*  m_txtCache;         /* Text cache generated by the VideoPlayer if Teletext present */
+  std::shared_ptr<TextCacheStruct_t>  m_txtCache;         /* Text cache generated by the VideoPlayer if Teletext present */
   TextRenderInfo_t    m_RenderInfo;       /* Rendering information of displayed Teletext page */
 };

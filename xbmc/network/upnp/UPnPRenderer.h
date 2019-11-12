@@ -1,26 +1,16 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
-#include <Platinum/Source/Devices/MediaRenderer/PltMediaRenderer.h>
 
 #include "interfaces/IAnnouncer.h"
+
+#include <Platinum/Source/Devices/MediaRenderer/PltMediaRenderer.h>
 
 class CVariant;
 
@@ -42,33 +32,33 @@ public:
                   const char*  uuid = NULL,
                   unsigned int port = 0);
 
-    virtual ~CUPnPRenderer();
+    ~CUPnPRenderer() override;
 
-    virtual void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+    void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data) override;
     void UpdateState();
 
     // Http server handler
-    virtual NPT_Result ProcessHttpGetRequest(NPT_HttpRequest&              request,
+    NPT_Result ProcessHttpGetRequest(NPT_HttpRequest&              request,
                                              const NPT_HttpRequestContext& context,
-                                             NPT_HttpResponse&             response);
+                                             NPT_HttpResponse&             response) override;
 
     // AVTransport methods
-    virtual NPT_Result OnNext(PLT_ActionReference& action);
-    virtual NPT_Result OnPause(PLT_ActionReference& action);
-    virtual NPT_Result OnPlay(PLT_ActionReference& action);
-    virtual NPT_Result OnPrevious(PLT_ActionReference& action);
-    virtual NPT_Result OnStop(PLT_ActionReference& action);
-    virtual NPT_Result OnSeek(PLT_ActionReference& action);
-    virtual NPT_Result OnSetAVTransportURI(PLT_ActionReference& action);
-    virtual NPT_Result OnSetNextAVTransportURI(PLT_ActionReference& action);
+    NPT_Result OnNext(PLT_ActionReference& action) override;
+    NPT_Result OnPause(PLT_ActionReference& action) override;
+    NPT_Result OnPlay(PLT_ActionReference& action) override;
+    NPT_Result OnPrevious(PLT_ActionReference& action) override;
+    NPT_Result OnStop(PLT_ActionReference& action) override;
+    NPT_Result OnSeek(PLT_ActionReference& action) override;
+    NPT_Result OnSetAVTransportURI(PLT_ActionReference& action) override;
+    NPT_Result OnSetNextAVTransportURI(PLT_ActionReference& action) override;
 
     // RenderingControl methods
-    virtual NPT_Result OnSetVolume(PLT_ActionReference& action);
-    virtual NPT_Result OnSetMute(PLT_ActionReference& action);
+    NPT_Result OnSetVolume(PLT_ActionReference& action) override;
+    NPT_Result OnSetMute(PLT_ActionReference& action) override;
 
 private:
-    NPT_Result SetupServices();
-    NPT_Result SetupIcons();
+    NPT_Result SetupServices() override;
+    NPT_Result SetupIcons() override;
     NPT_Result GetMetadata(NPT_String& meta);
     NPT_Result PlayMedia(const NPT_String& uri,
                          const NPT_String& meta,

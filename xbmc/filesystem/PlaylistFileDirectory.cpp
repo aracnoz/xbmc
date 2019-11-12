@@ -1,46 +1,31 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PlaylistFileDirectory.h"
-#include "playlists/PlayListFactory.h"
+
 #include "File.h"
 #include "URL.h"
 #include "playlists/PlayList.h"
+#include "playlists/PlayListFactory.h"
 
 using namespace PLAYLIST;
 
 namespace XFILE
 {
-  CPlaylistFileDirectory::CPlaylistFileDirectory()
-  {
-  }
+  CPlaylistFileDirectory::CPlaylistFileDirectory() = default;
 
-  CPlaylistFileDirectory::~CPlaylistFileDirectory()
-  {
-  }
+  CPlaylistFileDirectory::~CPlaylistFileDirectory() = default;
 
   bool CPlaylistFileDirectory::GetDirectory(const CURL& url, CFileItemList& items)
   {
     const std::string pathToUrl = url.Get();
     std::unique_ptr<CPlayList> pPlayList (CPlayListFactory::Create(pathToUrl));
-    if ( NULL != pPlayList.get())
+    if (nullptr != pPlayList)
     {
       // load it
       if (!pPlayList->Load(pathToUrl))
@@ -48,7 +33,7 @@ namespace XFILE
 
       CPlayList playlist = *pPlayList;
       // convert playlist items to songs
-      for (int i = 0; i < (int)playlist.size(); ++i)
+      for (int i = 0; i < playlist.size(); ++i)
       {
         CFileItemPtr item = playlist[i];
         item->m_iprogramCount = i;  // hack for playlist order
@@ -62,7 +47,7 @@ namespace XFILE
   {
     const std::string pathToUrl = url.Get();
     std::unique_ptr<CPlayList> pPlayList (CPlayListFactory::Create(pathToUrl));
-    if ( NULL != pPlayList.get())
+    if (nullptr != pPlayList)
     {
       // load it
       if (!pPlayList->Load(pathToUrl))

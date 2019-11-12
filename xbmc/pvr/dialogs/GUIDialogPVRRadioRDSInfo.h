@@ -1,70 +1,60 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2015 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "guilib/GUIDialog.h"
+
+#include <string>
+
+class CGUISpinControl;
+class CGUITextBox;
 
 namespace PVR
 {
   class CGUIDialogPVRRadioRDSInfo : public CGUIDialog
   {
   public:
-    CGUIDialogPVRRadioRDSInfo(void);
-    virtual ~CGUIDialogPVRRadioRDSInfo(void) {}
-    virtual bool OnMessage(CGUIMessage& message);
-    virtual bool HasListItems() const { return true; };
-    virtual CFileItemPtr GetCurrentListItem(int offset = 0);
+    CGUIDialogPVRRadioRDSInfo();
+    ~CGUIDialogPVRRadioRDSInfo() override = default;
+    bool OnMessage(CGUIMessage& message) override;
 
   protected:
-    virtual void OnInitWindow();
-    virtual void OnDeinitWindow(int nextWindowID);
-
-    CFileItemPtr m_rdsItem;
+    void OnInitWindow() override;
 
   private:
-    bool m_InfoPresent;
-    bool m_LabelInfoNewsPresent;
-    std::string m_LabelInfoNews;
+    class InfoControl
+    {
+    public:
+      InfoControl(uint32_t iSpinLabelId, uint32_t iSpinControlId);
+      void Init(CGUISpinControl* spin, CGUITextBox* textbox);
+      bool Update(const std::string& textboxValue);
 
-    bool m_LabelInfoNewsLocalPresent;
-    std::string m_LabelInfoNewsLocal;
+    private:
+      CGUISpinControl* m_spinControl = nullptr;
+      uint32_t m_iSpinLabelId = 0;
+      uint32_t m_iSpinControlId = 0;
+      CGUITextBox* m_textbox = nullptr;
+      bool m_bSpinLabelPresent = false;
+      std::string m_textboxValue;
+    };
 
-    bool m_LabelInfoWeatherPresent;
-    std::string m_LabelInfoWeather;
+    void InitInfoControls();
+    void UpdateInfoControls();
 
-    bool m_LabelInfoLotteryPresent;
-    std::string m_LabelInfoLottery;
-
-    bool m_LabelInfoSportPresent;
-    std::string m_LabelInfoSport;
-
-    bool m_LabelInfoStockPresent;
-    std::string m_LabelInfoStock;
-
-    bool m_LabelInfoOtherPresent;
-    std::string m_LabelInfoOther;
-
-    bool m_LabelInfoCinemaPresent;
-    std::string m_LabelInfoCinema;
-
-    bool m_LabelInfoHoroscopePresent;
-    std::string m_LabelInfoHoroscope;
+    InfoControl m_InfoNews;
+    InfoControl m_InfoNewsLocal;
+    InfoControl m_InfoSport;
+    InfoControl m_InfoWeather;
+    InfoControl m_InfoLottery;
+    InfoControl m_InfoStock;
+    InfoControl m_InfoOther;
+    InfoControl m_InfoCinema;
+    InfoControl m_InfoHoroscope;
   };
 }

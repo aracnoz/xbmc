@@ -1,30 +1,19 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 #include "FilesystemInstaller.h"
+
 #include "FileItem.h"
 #include "filesystem/Directory.h"
 #include "filesystem/SpecialProtocol.h"
-#include "utils/log.h"
 #include "utils/FileOperationJob.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
 
 #ifdef TARGET_POSIX
 #include "XTimeUtils.h"
@@ -118,14 +107,14 @@ bool CFilesystemInstaller::UnpackArchive(std::string path, const std::string& de
     path = URIUtils::CreateArchivePath("zip", CURL(path), "").Get();
 
   CFileItemList files;
-  if (!CDirectory::GetDirectory(path, files))
+  if (!CDirectory::GetDirectory(path, files, "", DIR_FLAG_DEFAULTS))
     return false;
 
   if (files.Size() == 1 && files[0]->m_bIsFolder)
   {
     path = files[0]->GetPath();
     files.Clear();
-    if (!CDirectory::GetDirectory(path, files))
+    if (!CDirectory::GetDirectory(path, files, "", DIR_FLAG_DEFAULTS))
       return false;
   }
   CLog::Log(LOGDEBUG, "Unpacking %s to %s", path.c_str(), dest.c_str());

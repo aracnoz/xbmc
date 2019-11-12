@@ -1,35 +1,20 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIMoverControl.h
 \brief
 */
 
-#ifndef GUILIB_GUIMoverCONTROL_H
-#define GUILIB_GUIMoverCONTROL_H
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
-
-#include "GUITexture.h"
 #include "GUIControl.h"
+#include "GUITexture.h"
 
 #define ALLOWED_DIRECTIONS_ALL   0
 #define ALLOWED_DIRECTIONS_UPDOWN  1
@@ -40,10 +25,6 @@
 #define DIRECTION_DOWN 2
 #define DIRECTION_LEFT 3
 #define DIRECTION_RIGHT 4
-
-// normal alignment is TOP LEFT 0 = topleft, 1 = topright
-#define ALIGN_RIGHT   1
-#define ALIGN_BOTTOM  2
 
 /*!
  \ingroup controls
@@ -56,30 +37,30 @@ public:
                    float posX, float posY, float width, float height,
                    const CTextureInfo& textureFocus, const CTextureInfo& textureNoFocus);
 
-  virtual ~CGUIMoverControl(void);
-  virtual CGUIMoverControl *Clone() const { return new CGUIMoverControl(*this); };
+  ~CGUIMoverControl(void) override;
+  CGUIMoverControl *Clone() const override { return new CGUIMoverControl(*this); };
 
-  virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
-  virtual void Render();
-  virtual bool OnAction(const CAction &action);
-  virtual void OnUp();
-  virtual void OnDown();
-  virtual void OnLeft();
-  virtual void OnRight();
-  virtual void AllocResources();
-  virtual void FreeResources(bool immediately = false);
-  virtual void DynamicResourceAlloc(bool bOnOff);
-  virtual void SetInvalid();
-  virtual void SetPosition(float posX, float posY);
+  void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
+  void Render() override;
+  bool OnAction(const CAction &action) override;
+  void OnUp() override;
+  void OnDown() override;
+  void OnLeft() override;
+  void OnRight() override;
+  void AllocResources() override;
+  void FreeResources(bool immediately = false) override;
+  void DynamicResourceAlloc(bool bOnOff) override;
+  void SetInvalid() override;
+  void SetPosition(float posX, float posY) override;
   void SetLimits(int iX1, int iY1, int iX2, int iY2);
   void SetLocation(int iLocX, int iLocY, bool bSetPosition = true);
   int GetXLocation() const { return m_iLocationX;};
   int GetYLocation() const { return m_iLocationY;};
-  virtual bool CanFocus() const { return true; };
+  bool CanFocus() const override { return true; };
 
 protected:
-  virtual EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event);
-  virtual bool UpdateColors();
+  EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event) override;
+  bool UpdateColors() override;
   bool SetAlpha(unsigned char alpha);
   void UpdateSpeed(int nDirection);
   void Move(int iX, int iY);
@@ -95,4 +76,4 @@ protected:
   int m_iX1, m_iX2, m_iY1, m_iY2;
   int m_iLocationX, m_iLocationY;
 };
-#endif
+

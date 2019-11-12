@@ -3,7 +3,7 @@
  *      topfs@tobias
  *
  *      Copyright (C) 2007-2013 Team XBMC
- *      http://xbmc.org
+ *      http://kodi.tv
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,8 +21,7 @@
  *
  */
 
-#ifndef WII_REMOTE_H
-#define WII_REMOTE_H
+#pragma once
 
 /* Toggle one bit */
 #define ToggleBit(bf,b) (bf) = ((bf) & b) ? ((bf) & ~(b)) : ((bf) | (b))
@@ -71,13 +70,13 @@ class CWiiRemote
 public:
   CWiiRemote(char *btaddr = NULL);
   ~CWiiRemote();
-	
+
   void Initialize(CAddress Addr, int Socket);
-  void Disconnect();	
+  void Disconnect();
   bool GetConnected();
 
   bool EnableWiiRemote();
-  bool DisableWiiRemote();	
+  bool DisableWiiRemote();
 
   void Update();
 
@@ -87,10 +86,10 @@ public:
   void EnableMouseEmulation();
   void DisableMouseEmulation();
 
-  bool Connect();  
+  bool Connect();
 
   void SetBluetoothAddress(const char * btaddr);
-  void SetSensativity(float DeadX, float DeadY, int Samples);
+  void SetSensitivity(float DeadX, float DeadY, int Samples);
   void SetJoystickMap(const char *JoyMap);
 private:
   int  m_NumSamples;
@@ -104,7 +103,7 @@ private:
 #ifdef CWIID_OLD
   bool CheckConnection();
   int  m_LastMsgTime;
-#endif  
+#endif
   char *m_JoyMap;
   int  m_lastKeyPressed;
   int  m_LastKey;
@@ -118,12 +117,12 @@ private:
   void SetLedState();
 
   void SetupWiiRemote();
-		
+
   bool m_connected;
 
   bool m_DisconnectWhenPossible;
   bool m_connectThreadRunning;
-			
+
   //CWIID Specific
   cwiid_wiimote_t *m_wiiremoteHandle;
   unsigned char    m_ledState;
@@ -142,25 +141,25 @@ private:
 
 	int   m_Socket;
   CAddress m_MyAddr;
-	
-  // Mouse	
+
+  // Mouse
   bool	m_haveIRSources;
   bool  m_isActive;
   bool  m_useIRMouse;
   int   m_lastActiveTime;
-	
-/* The protected functions is for the static callbacks */	
+
+/* The protected functions is for the static callbacks */
   protected:
   //Connection
   void DisconnectNow(bool startConnectThread);
-	
+
   //Mouse
   void CalculateMousePointer(int x1, int y1, int x2, int y2);
 //  void SetIR(bool set);
- 	
+
   //Button
   void ProcessKey(int Key);
- 	
+
   //Nunchuck
   void ProcessNunchuck(struct cwiid_nunchuk_mesg &Nunchuck);
 #ifdef CWIID_OLD
@@ -168,7 +167,5 @@ private:
   void CheckIn();
 #endif
 };
-
-#endif // WII_REMOTE_H
 
 extern CWiiRemote g_WiiRemote;

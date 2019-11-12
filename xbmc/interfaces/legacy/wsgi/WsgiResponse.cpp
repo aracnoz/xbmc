@@ -1,29 +1,17 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WsgiResponse.h"
 
-#include <utility>
-
-#include "utils/log.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
+
+#include <utility>
 
 
 namespace XBMCAddon
@@ -31,14 +19,11 @@ namespace XBMCAddon
   namespace xbmcwsgi
   {
     WsgiResponse::WsgiResponse()
-      : m_called(false),
-        m_status(MHD_HTTP_INTERNAL_SERVER_ERROR),
-        m_responseHeaders(),
+      : m_responseHeaders(),
         m_body()
     { }
 
-    WsgiResponse::~WsgiResponse()
-    { }
+    WsgiResponse::~WsgiResponse() = default;
 
     WsgiResponseBody* WsgiResponse::operator()(const String& status, const std::vector<WsgiHttpHeader>& response_headers, void* exc_info /* = NULL */)
     {
@@ -69,8 +54,8 @@ namespace XBMCAddon
         CLog::Log(LOGWARNING, "WsgiResponse: empty status provided");
 
       // copy the response headers
-      for (std::vector<WsgiHttpHeader>::const_iterator headerIt = response_headers.begin(); headerIt != response_headers.end(); ++headerIt)
-        m_responseHeaders.insert(std::make_pair(headerIt->first(), headerIt->second()));
+      for (const auto& headerIt : response_headers)
+        m_responseHeaders.insert({headerIt.first(), headerIt.second()});
 
       return &m_body;
     }

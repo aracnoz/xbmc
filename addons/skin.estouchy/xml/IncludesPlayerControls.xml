@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <includes>
 	<include name="PlayerControlCommons">
+		<visible>!Window.IsVisible(SliderDialog)</visible>
 		<include>VisibleFadeEffect</include>
 		<control type="image">
 			<posx>0</posx>
@@ -24,10 +25,10 @@
 		<control type="image">
 			<description>Kodi Logo</description>
 			<posx>22</posx>
-			<posy>2</posy>
-			<width>150</width>
-			<height>75</height>
-			<texture>kodi_logo.png</texture>
+			<posy>16</posy>
+			<width>160</width>
+			<height>44</height>
+			<texture>special://xbmc/media/vendor_logo.png</texture>
 			<include>VisibleFadeEffect</include>
 		</control>
 		<control type="group">
@@ -341,8 +342,8 @@
 					<alttexturefocus colordiffuse="red">osd_record.png</alttexturefocus>
 					<alttexturenofocus colordiffuse="red">osd_record.png</alttexturenofocus>
 					<usealttexture>Player.Record</usealttexture>
-					<onclick>PlayerControl(Record)</onclick>
-					<visible>Player.CanRecord</visible>
+					<onclick>PVR.ToggleRecordPlayingChannel</onclick>
+					<visible>PVR.CanRecordPlayingChannel</visible>
 				</control>
 			</control>
 		</control>

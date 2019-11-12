@@ -1,48 +1,19 @@
 /*
- * This code implements parsing of HTTP requests.
- * This code was written by Steve Hanov in 2009, no copyright is claimed.
- * This code is in the public domain.
- * Code was taken from http://refactormycode.com/codes/778-an-efficient-http-parser
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  This code implements parsing of HTTP requests.
+ *  This code was written by Steve Hanov in 2009, no copyright is claimed.
+ *  This code is in the public domain.
+ *  Code was taken from http://refactormycode.com/codes/778-an-efficient-http-parser
  */
 
 #include "HttpParser.h"
 
-HttpParser::HttpParser() :
-    _headerStart(0),
-    _parsedTo( 0 ),
-    _state( 0 ),
-    _keyIndex(0),
-    _valueIndex(0),
-    _contentLength(0),
-    _contentStart(0),
-    _uriIndex(0),
-    _status( Incomplete )
-{
-
-}
-
-HttpParser::~HttpParser()
-{
-
-}
+HttpParser::~HttpParser() = default;
 
 void
 HttpParser::parseHeader()
@@ -104,37 +75,37 @@ HttpParser::parseHeader()
         char c = _data[i];
         State nextState = p_error;
 
-        for ( unsigned d = 0; d < sizeof(fsm) / sizeof(FSM); ++d ) {
-            if ( fsm[d].curState == _state && 
-                    ( c == fsm[d].c || fsm[d].c == ANY ) ) {
+        for (const FSM& f : fsm) {
+            if ( f.curState == _state &&
+                    ( c == f.c || f.c == ANY ) ) {
 
-                nextState = fsm[d].nextState;
+                nextState = f.nextState;
 
-                if ( fsm[d].actions & LOWER ) {
+                if ( f.actions & LOWER ) {
                     _data[i] = tolower( _data[i] );
                 }
 
-                if ( fsm[d].actions & NULLIFY ) {
+                if ( f.actions & NULLIFY ) {
                     _data[i] = 0;
                 }
 
-                if ( fsm[d].actions & SET_HEADER_START ) {
+                if ( f.actions & SET_HEADER_START ) {
                     _headerStart = i;
                 }
 
-                if ( fsm[d].actions & SET_KEY ) {
+                if ( f.actions & SET_KEY ) {
                     _keyIndex = i;
                 }
 
-                if ( fsm[d].actions & SET_VALUE ) {
+                if ( f.actions & SET_VALUE ) {
                     _valueIndex = i;
                 }
 
-                if ( fsm[d].actions & SET_CONTENT_START ) {
+                if ( f.actions & SET_CONTENT_START ) {
                     _contentStart = i + 1;
                 }
 
-                if ( fsm[d].actions & STORE_KEY_VALUE ) {
+                if ( f.actions & STORE_KEY_VALUE ) {
                     // store position of first character of key.
                     _keys.push_back( _keyIndex );
                 }
@@ -230,7 +201,7 @@ HttpParser::getQueryString() const
     return pos;
 }
 
-const char* 
+const char*
 HttpParser::getBody() const
 {
     if ( _contentLength > 0 ) {
@@ -241,7 +212,7 @@ HttpParser::getBody() const
 }
 
 // key should be in lower case.
-const char* 
+const char*
 HttpParser::getValue( const char* key ) const
 {
     for( IntArray::const_iterator iter = _keys.begin();

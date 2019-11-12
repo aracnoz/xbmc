@@ -1,33 +1,18 @@
-#pragma once
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
+#pragma once
 
-#if defined(TARGET_DARWIN_OSX)
+#include "cores/AudioEngine/Sinks/osx/CoreAudioStream.h"
 
 #include <list>
 #include <string>
 #include <vector>
-
-#include "cores/AudioEngine/Sinks/osx/CoreAudioStream.h"
 
 #include <CoreAudio/CoreAudio.h>
 
@@ -40,18 +25,18 @@ class CCoreAudioDevice
 {
 public:
   CCoreAudioDevice();
-  CCoreAudioDevice(AudioDeviceID deviceId);
+  explicit CCoreAudioDevice(AudioDeviceID deviceId);
   virtual ~CCoreAudioDevice();
-  
+
   bool          Open(AudioDeviceID deviceId);
   void          Close();
-  
+
   void          Start();
   void          Stop();
   void          RemoveObjectListenerProc(AudioObjectPropertyListenerProc callback, void *pClientData);
   bool          SetObjectListenerProc(AudioObjectPropertyListenerProc callback, void *pClientData);
-  
-  AudioDeviceID GetId() {return m_DeviceId;}
+
+  AudioDeviceID GetId() const {return m_DeviceId;}
   std::string   GetName() const;
   bool          IsDigital() const;
   UInt32        GetTransportType() const;
@@ -76,7 +61,7 @@ public:
   UInt32        GetNumLatencyFrames();
   UInt32        GetBufferSize();
   bool          SetBufferSize(UInt32 size);
-    
+
   static void   RegisterDeviceChangedCB(bool bRegister, AudioObjectPropertyListenerProc callback,  void *ref);
   static void   RegisterDefaultOutputDeviceChangedCB(bool bRegister, AudioObjectPropertyListenerProc callback, void *ref);
   // suppresses the default output device changed callback for given time in ms
@@ -91,7 +76,7 @@ protected:
   int               m_MixerRestore;
   AudioDeviceIOProc m_IoProc;
   AudioObjectPropertyListenerProc m_ObjectListenerProc;
-  
+
   Float64           m_SampleRateRestore;
   pid_t             m_HogPid;
   unsigned int      m_frameSize;
@@ -106,5 +91,3 @@ protected:
                                              void*                               inClientData);
 
 };
-
-#endif

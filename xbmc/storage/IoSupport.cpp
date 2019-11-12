@@ -1,34 +1,22 @@
 /*
- *      Copyright (c) 2002 Frodo
+ *  Copyright (c) 2002 Frodo
  *      Portions Copyright (c) by the authors of ffmpeg and xvid
- *      Copyright (C) 2002-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2002-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 // IoSupport.cpp: implementation of the CIoSupport class.
 //
 //////////////////////////////////////////////////////////////////////
 
-#include "system.h"
 #include "IoSupport.h"
 #include "utils/log.h"
 #ifdef TARGET_WINDOWS
 #include "my_ntddcdrm.h"
+#include "platform/win32/CharsetConverter.h"
 #endif
 #if defined(TARGET_LINUX)
 #include <linux/limits.h>
@@ -60,15 +48,16 @@
 #include "cdioSupport.h"
 #include "MediaManager.h"
 #ifdef TARGET_POSIX
-#include "XHandle.h"
-#include "XFileUtils.h"
+#include "platform/posix/XHandle.h"
+#include "platform/posix/XFileUtils.h"
 #endif
+#include "ServiceBroker.h"
 
 #ifdef HAS_DVD_DRIVE
 using namespace MEDIA_DETECT;
 #endif
 
-PVOID CIoSupport::m_rawXferBuffer;
+void* CIoSupport::m_rawXferBuffer;
 
 HANDLE CIoSupport::OpenCDROM()
 {
@@ -81,9 +70,11 @@ HANDLE CIoSupport::OpenCDROM()
   hDevice->fd = fd;
   hDevice->m_bCDROM = true;
 #elif defined(TARGET_WINDOWS)
-  hDevice = CreateFile(g_mediaManager.TranslateDevicePath("",true).c_str(), GENERIC_READ, FILE_SHARE_READ,
-                       NULL, OPEN_EXISTING,
-                       FILE_FLAG_RANDOM_ACCESS, NULL );
+  auto filename =
+      KODI::PLATFORM::WINDOWS::ToW(CServiceBroker::GetMediaManager().TranslateDevicePath("", true));
+  hDevice = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                       nullptr, OPEN_EXISTING,
+                       FILE_FLAG_RANDOM_ACCESS, nullptr );
 #else
 
   hDevice = CreateFile("\\\\.\\Cdrom0", GENERIC_READ, FILE_SHARE_READ,
@@ -109,7 +100,7 @@ void CIoSupport::FreeReadBuffer()
 #endif
 }
 
-INT CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
+int CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, char* lpczBuffer)
 
 {
   DWORD dwRead;
@@ -144,7 +135,6 @@ INT CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
     {
       CLog::Log(LOGERROR, "CD: ReadSector Request to read sector %d\n", (int)dwSector);
       CLog::Log(LOGERROR, "CD: ReadSector error: %s\n", strerror(errno));
-      OutputDebugString("CD Read error\n");
       return (-1);
     }
 
@@ -158,7 +148,6 @@ INT CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
       // error reading sector
       CLog::Log(LOGERROR, "CD: ReadSector Request to read sector %d\n", (int)dwSector);
       CLog::Log(LOGERROR, "CD: ReadSector error: %s\n", strerror(errno));
-      OutputDebugString("CD Read error\n");
       return (-1);
     }
 
@@ -166,7 +155,7 @@ INT CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
   }
 #endif
   LARGE_INTEGER Displacement;
-  Displacement.QuadPart = ((INT64)dwSector) * dwSectorSize;
+  Displacement.QuadPart = static_cast<long long>(dwSector) * dwSectorSize;
 
   for (int i = 0; i < 5; i++)
   {
@@ -185,7 +174,7 @@ INT CIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
 }
 
 
-INT CIoSupport::ReadSectorMode2(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
+int CIoSupport::ReadSectorMode2(HANDLE hDevice, DWORD dwSector, char* lpczBuffer)
 {
 #ifdef HAS_DVD_DRIVE
 #if defined(TARGET_DARWIN)
@@ -240,9 +229,10 @@ INT CIoSupport::ReadSectorMode2(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer
     CLog::Log(LOGERROR, "CD: ReadSectorMode2 Request to read sector %d\n", (int)dwSector);
     CLog::Log(LOGERROR, "CD: ReadSectorMode2 error: %s\n", strerror(errno));
     CLog::Log(LOGERROR, "CD: ReadSectorMode2 minute %d, second %d, frame %d\n", m, s, f);
-    OutputDebugString("CD Read error\n");
     return -1;
   }
+#elif defined(TARGET_WINDOWS_STORE)
+  CLog::Log(LOGDEBUG, "%s is not implemented", __FUNCTION__);
 #else
   DWORD dwBytesReturned;
   RAW_READ_INFO rawRead = {0};
@@ -277,12 +267,12 @@ INT CIoSupport::ReadSectorMode2(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer
   return -1;
 }
 
-INT CIoSupport::ReadSectorCDDA(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)
+int CIoSupport::ReadSectorCDDA(HANDLE hDevice, DWORD dwSector, char* lpczBuffer)
 {
   return -1;
 }
 
-VOID CIoSupport::CloseCDROM(HANDLE hDevice)
+void CIoSupport::CloseCDROM(HANDLE hDevice)
 {
   CloseHandle(hDevice);
 }

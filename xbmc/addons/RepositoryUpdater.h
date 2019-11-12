@@ -1,30 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "XBDateTime.h"
+#include "addons/AddonEvents.h"
 #include "addons/Repository.h"
-#include "dialogs/GUIDialogExtendedProgressBar.h"
+#include "settings/lib/ISettingCallback.h"
 #include "threads/CriticalSection.h"
 #include "threads/Timer.h"
 #include "utils/EventStream.h"
-#include "XBDateTime.h"
+
 #include <vector>
 
 namespace ADDON
@@ -33,9 +24,8 @@ namespace ADDON
 class CRepositoryUpdater : private ITimerCallback, private IJobCallback, public ISettingCallback
 {
 public:
-  static CRepositoryUpdater& GetInstance();
-
-  virtual ~CRepositoryUpdater() {}
+  explicit CRepositoryUpdater(CAddonMgr& addonMgr);
+  ~CRepositoryUpdater() override;
 
   void Start();
 
@@ -67,27 +57,29 @@ public:
   CDateTime LastUpdated() const;
 
 
-  virtual void OnSettingChanged(const CSetting* setting) override;
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
 
   struct RepositoryUpdated { };
 
   CEventStream<RepositoryUpdated>& Events() { return m_events; }
 
 private:
-  CRepositoryUpdater();
   CRepositoryUpdater(const CRepositoryUpdater&) = delete;
   CRepositoryUpdater(CRepositoryUpdater&&) = delete;
   CRepositoryUpdater& operator=(const CRepositoryUpdater&) = delete;
   CRepositoryUpdater& operator=(CRepositoryUpdater&&) = delete;
 
-  virtual void OnJobComplete(unsigned int jobID, bool success, CJob *job) override;
+  void OnJobComplete(unsigned int jobID, bool success, CJob *job) override;
 
-  virtual void OnTimeout() override;
+  void OnTimeout() override;
+
+  void OnEvent(const ADDON::AddonEvent& event);
 
   CCriticalSection m_criticalSection;
   CTimer m_timer;
   CEvent m_doneEvent;
   std::vector<CRepositoryUpdateJob*> m_jobs;
+  CAddonMgr& m_addonMgr;
 
   CEventSource<RepositoryUpdated> m_events;
 };

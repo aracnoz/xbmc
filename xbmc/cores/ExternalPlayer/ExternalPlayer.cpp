@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "threads/SystemClock.h"
-#include "system.h"
 #include "CompileInfo.h"
-#include "threads/SingleLock.h"
 #include "ExternalPlayer.h"
-#include "windowing/WindowingFactory.h"
+#include "windowing/WinSystem.h"
 #include "dialogs/GUIDialogOK.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "Application.h"
 #include "filesystem/MusicDatabaseFile.h"
@@ -36,11 +23,13 @@
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
 #include "utils/Variant.h"
-#include "cores/AudioEngine/AEFactory.h"
-#include "input/InputManager.h"
+#include "video/Bookmark.h"
+#include "ServiceBroker.h"
+#include "cores/AudioEngine/Interfaces/AE.h"
+#include "cores/DataCacheCore.h"
 #if defined(TARGET_WINDOWS)
   #include "utils/CharsetConverter.h"
-  #include "Windows.h"
+  #include <Windows.h>
 #endif
 #if defined(TARGET_ANDROID)
   #include "platform/android/activity/XBMCApp.h"
@@ -56,7 +45,7 @@
 
 using namespace XFILE;
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
 extern HWND g_hWnd;
 #endif
 
@@ -66,10 +55,8 @@ CExternalPlayer::CExternalPlayer(IPlayerCallback& callback)
 {
   m_bAbortRequest = false;
   m_bIsPlaying = false;
-  m_paused = false;
   m_playbackStartTime = 0;
   m_speed = 1;
-  m_totalTime = 1;
   m_time = 0;
 
   m_hideconsole = false;
@@ -80,12 +67,10 @@ CExternalPlayer::CExternalPlayer(IPlayerCallback& callback)
   m_playOneStackItem = false;
 
   m_dialog = NULL;
-  m_hwndXbmc = NULL;
+#if defined(TARGET_WINDOWS_DESKTOP)
   m_xPos = 0;
   m_yPos = 0;
 
-
-#if defined(TARGET_WINDOWS)
   memset(&m_processInfo, 0, sizeof(m_processInfo));
 #endif
 }
@@ -99,10 +84,11 @@ bool CExternalPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &opti
 {
   try
   {
+    m_file = file;
     m_bIsPlaying = true;
     m_time = 0;
     m_playbackStartTime = XbmcThreads::SystemClockMillis();
-    m_launchFilename = file.GetPath();
+    m_launchFilename = file.GetDynPath();
     CLog::Log(LOGNOTICE, "%s: %s", __FUNCTION__, m_launchFilename.c_str());
     Create();
 
@@ -122,7 +108,7 @@ bool CExternalPlayer::CloseFile(bool reopen)
 
   if (m_dialog && m_dialog->IsActive()) m_dialog->Close();
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   if (m_bIsPlaying && m_processInfo.hProcess)
   {
     TerminateProcess(m_processInfo.hProcess, 1);
@@ -225,7 +211,7 @@ void CExternalPlayer::Process()
   // make sure we surround the arguments with quotes where necessary
   std::string strFName;
   std::string strFArgs;
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   // W32 batch-file handline
   if (StringUtils::EndsWith(m_filename, ".bat") || StringUtils::EndsWith(m_filename, ".cmd"))
   {
@@ -256,7 +242,7 @@ void CExternalPlayer::Process()
     strFArgs.append("\"");
   }
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   if (m_warpcursor)
   {
     GetCursorPos(&m_ptCursorpos);
@@ -287,13 +273,13 @@ void CExternalPlayer::Process()
   if (m_hidexbmc && !m_islauncher)
   {
     CLog::Log(LOGNOTICE, "%s: Hiding %s window", __FUNCTION__, CCompileInfo::GetAppName());
-    g_Windowing.Hide();
+    CServiceBroker::GetWinSystem()->Hide();
   }
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   else if (currentStyle & WS_EX_TOPMOST)
   {
     CLog::Log(LOGNOTICE, "%s: Lowering %s window", __FUNCTION__, CCompileInfo::GetAppName());
-    SetWindowPos(g_hWnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOREDRAW);
+    SetWindowPos(g_hWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOREDRAW | SWP_ASYNCWINDOWPOS);
   }
 
   CLog::Log(LOGDEBUG, "%s: Unlocking foreground window", __FUNCTION__);
@@ -304,10 +290,10 @@ void CExternalPlayer::Process()
 
   /* Suspend AE temporarily so exclusive or hog-mode sinks */
   /* don't block external player's access to audio device  */
-  CAEFactory::Suspend();
+  CServiceBroker::GetActiveAE()->Suspend();
   // wait for AE has completed suspended
   XbmcThreads::EndTime timer(2000);
-  while (!timer.IsTimePast() && !CAEFactory::IsSuspended())
+  while (!timer.IsTimePast() && !CServiceBroker::GetActiveAE()->IsSuspended())
   {
     Sleep(50);
   }
@@ -316,14 +302,15 @@ void CExternalPlayer::Process()
     CLog::Log(LOGERROR,"%s: AudioEngine did not suspend before launching external player", __FUNCTION__);
   }
 
-  m_callback.OnPlayBackStarted();
+  m_callback.OnPlayBackStarted(m_file);
+  m_callback.OnAVStarted(m_file);
 
-  BOOL ret = TRUE;
-#if defined(TARGET_WINDOWS)
+  bool ret = true;
+#if defined(TARGET_WINDOWS_DESKTOP)
   ret = ExecuteAppW32(strFName.c_str(),strFArgs.c_str());
 #elif defined(TARGET_ANDROID)
   ret = ExecuteAppAndroid(m_filename.c_str(), mainFile.c_str());
-#elif defined(TARGET_POSIX) || defined(TARGET_DARWIN_OSX)
+#elif defined(TARGET_POSIX) && !defined(TARGET_DARWIN_EMBEDDED)
   ret = ExecuteAppLinux(strFArgs.c_str());
 #endif
   int64_t elapsedMillis = XbmcThreads::SystemClockMillis() - m_playbackStartTime;
@@ -333,12 +320,11 @@ void CExternalPlayer::Process()
     if (m_hidexbmc)
     {
       CLog::Log(LOGNOTICE, "%s: %s cannot stay hidden for a launcher process", __FUNCTION__, CCompileInfo::GetAppName());
-      g_Windowing.Show(false);
+      CServiceBroker::GetWinSystem()->Show(false);
     }
 
     {
-      CSingleLock lock(g_graphicsContext);
-      m_dialog = (CGUIDialogOK *)g_windowManager.GetWindow(WINDOW_DIALOG_OK);
+      m_dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogOK>(WINDOW_DIALOG_OK);
       m_dialog->SetHeading(CVariant{23100});
       m_dialog->SetLine(1, CVariant{23104});
       m_dialog->SetLine(2, CVariant{23105});
@@ -352,23 +338,23 @@ void CExternalPlayer::Process()
   m_bIsPlaying = false;
   CLog::Log(LOGNOTICE, "%s: Stop", __FUNCTION__);
 
-#if defined(TARGET_WINDOWS)
-  g_Windowing.Restore();
+#if defined(TARGET_WINDOWS_DESKTOP)
+  CServiceBroker::GetWinSystem()->Restore();
 
   if (currentStyle & WS_EX_TOPMOST)
   {
     CLog::Log(LOGNOTICE, "%s: Showing %s window TOPMOST", __FUNCTION__, CCompileInfo::GetAppName());
-    SetWindowPos(g_hWnd,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW);
+    SetWindowPos(g_hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
     SetForegroundWindow(g_hWnd);
   }
   else
 #endif
   {
     CLog::Log(LOGNOTICE, "%s: Showing %s window", __FUNCTION__, CCompileInfo::GetAppName());
-    g_Windowing.Show();
+    CServiceBroker::GetWinSystem()->Show();
   }
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   if (m_warpcursor)
   {
     m_xPos = 0;
@@ -383,8 +369,14 @@ void CExternalPlayer::Process()
   }
 #endif
 
+  CBookmark bookmark;
+  bookmark.totalTimeInSeconds = 1;
+  bookmark.timeInSeconds = (elapsedMillis / 1000 >= m_playCountMinTime) ? 1 : 0;
+  bookmark.player = m_name;
+  m_callback.OnPlayerCloseFile(m_file, bookmark);
+
   /* Resume AE processing of XBMC native audio */
-  if (!CAEFactory::Resume())
+  if (!CServiceBroker::GetActiveAE()->Resume())
   {
     CLog::Log(LOGFATAL, "%s: Failed to restart AudioEngine after return from external player",__FUNCTION__);
   }
@@ -399,8 +391,8 @@ void CExternalPlayer::Process()
     m_callback.OnPlayBackEnded();
 }
 
-#if defined(TARGET_WINDOWS)
-BOOL CExternalPlayer::ExecuteAppW32(const char* strPath, const char* strSwitches)
+#if defined(TARGET_WINDOWS_DESKTOP)
+bool CExternalPlayer::ExecuteAppW32(const char* strPath, const char* strSwitches)
 {
   CLog::Log(LOGNOTICE, "%s: %s %s", __FUNCTION__, strPath, strSwitches);
 
@@ -451,35 +443,27 @@ BOOL CExternalPlayer::ExecuteAppW32(const char* strPath, const char* strSwitches
     CloseHandle(m_processInfo.hProcess);
     m_processInfo.hProcess = 0;
   }
-
-  return ret;
+  return (ret == TRUE);
 }
 #endif
 
-#if !defined(TARGET_ANDROID) && (defined(TARGET_POSIX) || defined(TARGET_DARWIN_OSX))
-BOOL CExternalPlayer::ExecuteAppLinux(const char* strSwitches)
+#if !defined(TARGET_ANDROID) && !defined(TARGET_DARWIN_EMBEDDED) && defined(TARGET_POSIX)
+bool CExternalPlayer::ExecuteAppLinux(const char* strSwitches)
 {
   CLog::Log(LOGNOTICE, "%s: %s", __FUNCTION__, strSwitches);
 
-  bool remoteUsed = CInputManager::GetInstance().IsRemoteControlEnabled();
-  CInputManager::GetInstance().DisableRemoteControl();
-
   int ret = system(strSwitches);
-
-  if (remoteUsed)
-    CInputManager::GetInstance().EnableRemoteControl();
-
   if (ret != 0)
   {
     CLog::Log(LOGNOTICE, "%s: Failure: %d", __FUNCTION__, ret);
   }
 
-  return ret == 0;
+  return (ret == 0);
 }
 #endif
 
 #if defined(TARGET_ANDROID)
-BOOL CExternalPlayer::ExecuteAppAndroid(const char* strSwitches,const char* strPath)
+bool CExternalPlayer::ExecuteAppAndroid(const char* strSwitches,const char* strPath)
 {
   CLog::Log(LOGNOTICE, "%s: %s", __FUNCTION__, strSwitches);
 
@@ -490,7 +474,7 @@ BOOL CExternalPlayer::ExecuteAppAndroid(const char* strSwitches,const char* strP
     CLog::Log(LOGNOTICE, "%s: Failure", __FUNCTION__);
   }
 
-  return ret;
+  return (ret == 0);
 }
 #endif
 
@@ -508,14 +492,6 @@ bool CExternalPlayer::HasAudio() const
   return false;
 }
 
-void CExternalPlayer::SwitchToNextLanguage()
-{
-}
-
-void CExternalPlayer::ToggleSubtitles()
-{
-}
-
 bool CExternalPlayer::CanSeek()
 {
   return false;
@@ -525,26 +501,8 @@ void CExternalPlayer::Seek(bool bPlus, bool bLargeStep, bool bChapterOverride)
 {
 }
 
-void CExternalPlayer::SwitchToNextAudioLanguage()
-{
-}
-
 void CExternalPlayer::SeekPercentage(float iPercent)
 {
-}
-
-float CExternalPlayer::GetPercentage()
-{
-  int64_t iTime = GetTime();
-  int64_t iTotalTime = GetTotalTime();
-
-  if (iTotalTime != 0)
-  {
-    CLog::Log(LOGDEBUG, "Percentage is %f", (iTime * 100 / (float)iTotalTime));
-    return iTime * 100 / (float)iTotalTime;
-  }
-
-  return 0.0f;
 }
 
 void CExternalPlayer::SetAVDelay(float fValue)
@@ -569,33 +527,10 @@ void CExternalPlayer::SeekTime(int64_t iTime)
 {
 }
 
-int64_t CExternalPlayer::GetTime() // in millis
+void CExternalPlayer::SetSpeed(float speed)
 {
-  if ((XbmcThreads::SystemClockMillis() - m_playbackStartTime) / 1000 > m_playCountMinTime)
-  {
-    m_time = m_totalTime * 1000;
-  }
-
-  return m_time;
-}
-
-int64_t CExternalPlayer::GetTotalTime() // in milliseconds
-{
-  return (int64_t)m_totalTime * 1000;
-}
-
-void CExternalPlayer::SetSpeed(float iSpeed)
-{
-  m_speed = static_cast<int>(iSpeed);
-}
-
-float CExternalPlayer::GetSpeed()
-{
-  return m_speed;
-}
-
-void CExternalPlayer::ShowOSD(bool bOnoff)
-{
+  m_speed = speed;
+  CDataCacheCore::GetInstance().SetSpeed(1.0, speed);
 }
 
 std::string CExternalPlayer::GetPlayerState()
@@ -629,7 +564,7 @@ bool CExternalPlayer::Initialize(TiXmlElement* pConfig)
   XMLUtils::GetBoolean(pConfig, "hidexbmc", m_hidexbmc);
   if (!XMLUtils::GetBoolean(pConfig, "hideconsole", m_hideconsole))
   {
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_DESKTOP
     // Default depends on whether player is a batch file
     m_hideconsole = StringUtils::EndsWith(m_filename, ".bat");
 #endif
@@ -662,7 +597,7 @@ bool CExternalPlayer::Initialize(TiXmlElement* pConfig)
           m_islauncher ? "true" : "false",
           warpCursor.c_str());
 
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_DESKTOP
   m_filenameReplacers.push_back("^smb:// , / , \\\\ , g");
   m_filenameReplacers.push_back("^smb:\\\\\\\\ , smb:(\\\\\\\\[^\\\\]*\\\\) , \\1 , ");
 #endif
@@ -721,7 +656,7 @@ void CExternalPlayer::GetCustomRegexpReplacers(TiXmlElement *pRootElement,
         CLog::Log(LOGDEBUG,"  Registering replacer:");
         CLog::Log(LOGDEBUG,"    Match:[%s] Pattern:[%s] Replacement:[%s]", strMatch.c_str(), strPat.c_str(), strRep.c_str());
         CLog::Log(LOGDEBUG,"    Global:[%s] Stop:[%s]", bGlobal?"true":"false", bStop?"true":"false");
-        // keep literal commas since we use comma as a seperator
+        // keep literal commas since we use comma as a separator
         StringUtils::Replace(strMatch, ",",",,");
         StringUtils::Replace(strPat, ",",",,");
         StringUtils::Replace(strRep, ",",",,");

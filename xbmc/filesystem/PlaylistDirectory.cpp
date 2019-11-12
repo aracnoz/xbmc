@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PlaylistDirectory.h"
+
 #include "PlayListPlayer.h"
 #include "URL.h"
 #include "playlists/PlayList.h"
@@ -26,15 +15,9 @@
 using namespace PLAYLIST;
 using namespace XFILE;
 
-CPlaylistDirectory::CPlaylistDirectory()
-{
+CPlaylistDirectory::CPlaylistDirectory() = default;
 
-}
-
-CPlaylistDirectory::~CPlaylistDirectory()
-{
-
-}
+CPlaylistDirectory::~CPlaylistDirectory() = default;
 
 bool CPlaylistDirectory::GetDirectory(const CURL& url, CFileItemList &items)
 {
@@ -47,7 +30,7 @@ bool CPlaylistDirectory::GetDirectory(const CURL& url, CFileItemList &items)
   if (playlistTyp==PLAYLIST_NONE)
     return false;
 
-  CPlayList& playlist = g_playlistPlayer.GetPlaylist(playlistTyp);
+  CPlayList& playlist = CServiceBroker::GetPlaylistPlayer().GetPlaylist(playlistTyp);
   items.Reserve(playlist.size());
 
   for (int i = 0; i < playlist.size(); ++i)

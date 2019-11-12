@@ -5,7 +5,7 @@
  * - avifile includes this file from C++ code
  * and initializes it at the start of player!
  * it might sound like a hack and it really is - but
- * as aviplay is deconding video with more than just one
+ * as aviplay is decoding video with more than just one
  * thread currently it's necessary to do it this way
  * this might change in the future
  */
@@ -17,9 +17,6 @@
  * http://svn.mplayerhq.hu/mplayer/trunk/
  * $Id: ldt_keeper.c 22733 2007-03-18 22:18:11Z nicodvb $
  */
-
-#ifndef LDT_KEEPER_H
-#define LDT_KEEPER_H
 
 #ifdef __cplusplus
 extern "C"
@@ -39,4 +36,3 @@ void      Restore_LDT_Keeper(ldt_fs_t* ldt_fs);
 }
 #endif
 
-#endif /* LDT_KEEPER_H */

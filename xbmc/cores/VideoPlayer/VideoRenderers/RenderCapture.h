@@ -1,32 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "system.h" //HAS_DX, HAS_GL, HAS_GLES, opengl headers, direct3d headers
-
 #ifdef HAS_DX
   #include "guilib/D3DResource.h"
+  #include <wrl/client.h>
 #endif
 
 #include "threads/Event.h"
+
 
 enum ECAPTURESTATE
 {
@@ -42,7 +30,7 @@ class CRenderCaptureBase
 {
   public:
     CRenderCaptureBase();
-    ~CRenderCaptureBase();
+    virtual ~CRenderCaptureBase();
 
     /* \brief Called by the rendermanager to set the state, should not be called by anything else */
     void SetState(ECAPTURESTATE state) { m_state = state; }
@@ -112,34 +100,8 @@ class CRenderCaptureBase
     bool m_asyncChecked;
 };
 
-
-#if defined(HAS_IMXVPU)
-#include "../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h"
-
-class CRenderCaptureIMX : public CRenderCaptureBase
-{
-  public:
-    CRenderCaptureIMX();
-    ~CRenderCaptureIMX();
-
-    int   GetCaptureFormat();
-
-    void  BeginRender();
-    void  EndRender();
-    void  ReadOut();
-
-    void* GetRenderBuffer();
-};
-
-class CRenderCapture : public CRenderCaptureIMX
-{
-  public:
-    CRenderCapture() {};
-};
-
-
-#elif defined(TARGET_RASPBERRY_PI)
-#include "xbmc/linux/RBP.h"
+#if defined(TARGET_RASPBERRY_PI)
+#include "platform/linux/RBP.h"
 
 class CRenderCaptureDispmanX : public CRenderCaptureBase
 {
@@ -171,7 +133,7 @@ class CRenderCaptureGL : public CRenderCaptureBase
 {
   public:
     CRenderCaptureGL();
-    ~CRenderCaptureGL();
+    ~CRenderCaptureGL() override;
 
     int   GetCaptureFormat();
 
@@ -193,7 +155,7 @@ class CRenderCaptureGL : public CRenderCaptureBase
 class CRenderCapture : public CRenderCaptureGL
 {
   public:
-    CRenderCapture() {};
+    CRenderCapture() = default;
 };
 
 #elif HAS_DX /*HAS_GL*/
@@ -204,26 +166,25 @@ class CRenderCaptureDX : public CRenderCaptureBase, public ID3DResource
     CRenderCaptureDX();
     ~CRenderCaptureDX();
 
-    int  GetCaptureFormat();
+    int GetCaptureFormat();
 
     void BeginRender();
     void EndRender();
     void ReadOut();
-    
-    virtual void OnDestroyDevice(bool fatal);
-    virtual void OnLostDevice();
-    virtual void OnCreateDevice() {};
+
+    void OnDestroyDevice(bool fatal) override;
+    void OnCreateDevice() override {};
+    CD3DTexture& GetTarget() { return m_renderTex; }
 
   private:
     void SurfaceToBuffer();
     void CleanupDX();
 
-    ID3D11Texture2D*        m_renderTexture;
-    ID3D11RenderTargetView* m_renderSurface;
-    ID3D11Texture2D*        m_copySurface;
-    ID3D11Query*            m_query;
-    unsigned int            m_surfaceWidth;
-    unsigned int            m_surfaceHeight;
+    unsigned int m_surfaceWidth;
+    unsigned int m_surfaceHeight;
+    Microsoft::WRL::ComPtr<ID3D11Query> m_query;
+    CD3DTexture m_renderTex;
+    CD3DTexture m_copyTex;
 };
 
 class CRenderCapture : public CRenderCaptureDX

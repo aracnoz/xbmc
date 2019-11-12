@@ -1,72 +1,55 @@
 /*
- *      Copyright (C) 2013 Arne Morten Kvarving
+ *  Copyright (C) 2013 Arne Morten Kvarving
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #include "AudioDecoder.h"
+
+#include "cores/AudioEngine/Utils/AEUtil.h"
 #include "music/tags/MusicInfoTag.h"
 #include "music/tags/TagLoaderTagLib.h"
-#include "cores/AudioEngine/Utils/AEUtil.h"
 
 namespace ADDON
 {
 
-std::unique_ptr<CAudioDecoder> CAudioDecoder::FromExtension(AddonProps props, const cp_extension_t* ext)
+CAudioDecoder::CAudioDecoder(const BinaryAddonBasePtr& addonInfo)
+  : IAddonInstanceHandler(ADDON_INSTANCE_AUDIODECODER, addonInfo)
 {
-  std::string extension = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@extension");
-  std::string mimetype = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@mimetype");
-  bool tags = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@tags") == "true";
-  bool tracks = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@tracks") == "true";
-  std::string codecName = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@name");
-  std::string strExt = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@name") + "stream";
-
-  return std::unique_ptr<CAudioDecoder>(new CAudioDecoder(std::move(props), std::move(extension),
-      std::move(mimetype), tags, tracks, std::move(codecName), std::move(strExt)));
-}
-
-CAudioDecoder::CAudioDecoder(AddonProps props, std::string extension, std::string mimetype,
-    bool tags, bool tracks, std::string codecName, std::string strExt)
-    : AudioDecoderDll(std::move(props)), m_extension(extension), m_mimetype(mimetype),
-      m_context(nullptr), m_tags(tags), m_tracks(tracks), m_channel(nullptr)
-{
-  m_CodecName = std::move(codecName);
-  m_strExt = std::move(strExt);
+  m_CodecName = addonInfo->Type(ADDON_AUDIODECODER)->GetValue("@name").asString();
+  m_strExt = m_CodecName + "stream";
+  m_hasTags = addonInfo->Type(ADDON_AUDIODECODER)->GetValue("@tags").asBoolean();
+  m_struct = {{ 0 }};
 }
 
 CAudioDecoder::~CAudioDecoder()
 {
-  DeInit();
+  DestroyInstance();
+}
+
+bool CAudioDecoder::CreateDecoder()
+{
+  m_struct.toKodi.kodiInstance = this;
+  return CreateInstance(&m_struct) == ADDON_STATUS_OK;
 }
 
 bool CAudioDecoder::Init(const CFileItem& file, unsigned int filecache)
 {
-  if (!Initialized())
+  if (!m_struct.toAddon.init)
     return false;
 
   // for replaygain
   CTagLoaderTagLib tag;
-  tag.Load(file.GetPath(), XFILE::CMusicFileDirectory::m_tag, NULL);
+  tag.Load(file.GetDynPath(), XFILE::CMusicFileDirectory::m_tag, NULL);
 
   int channels;
   int sampleRate;
 
-  m_context = m_pStruct->Init(file.GetPath().c_str(), filecache,
-                              &channels, &sampleRate,
-                              &m_bitsPerSample, &m_TotalTime,
-                              &m_bitRate, &m_format.m_dataFormat, &m_channel);
+ bool ret = m_struct.toAddon.init(&m_struct, file.GetDynPath().c_str(), filecache,
+                                  &channels, &sampleRate,
+                                  &m_bitsPerSample, &m_TotalTime,
+                                  &m_bitRate, &m_format.m_dataFormat, &m_channel);
 
   m_format.m_sampleRate = sampleRate;
   if (m_channel)
@@ -74,45 +57,37 @@ bool CAudioDecoder::Init(const CFileItem& file, unsigned int filecache)
   else
     m_format.m_channelLayout = CAEUtil::GuessChLayout(channels);
 
-  return (m_context != NULL);
+  return ret;
 }
 
 int CAudioDecoder::ReadPCM(uint8_t* buffer, int size, int* actualsize)
 {
-  if (!Initialized())
+  if (!m_struct.toAddon.read_pcm)
     return 0;
 
-  return m_pStruct->ReadPCM(m_context, buffer, size, actualsize);
+  return m_struct.toAddon.read_pcm(&m_struct, buffer, size, actualsize);
 }
 
 bool CAudioDecoder::Seek(int64_t time)
 {
-  if (!Initialized())
+  if (!m_struct.toAddon.seek)
     return false;
 
-  m_pStruct->Seek(m_context, time);
+  m_struct.toAddon.seek(&m_struct, time);
   return true;
-}
-
-void CAudioDecoder::DeInit()
-{
-  if (!Initialized())
-    return;
-
-  m_pStruct->DeInit(m_context);
 }
 
 bool CAudioDecoder::Load(const std::string& fileName,
                          MUSIC_INFO::CMusicInfoTag& tag,
-                         MUSIC_INFO::EmbeddedArt* art)
+                         EmbeddedArt* art)
 {
-  if (!Initialized())
+  if (!m_struct.toAddon.read_tag)
     return false;
 
-  char title[256];
-  char artist[256];
+  char title[256] = { 0 };
+  char artist[256] = { 0 };
   int length;
-  if (m_pStruct->ReadTag(fileName.c_str(), title, artist, &length))
+  if (m_struct.toAddon.read_tag(&m_struct, fileName.c_str(), title, artist, &length))
   {
     tag.SetTitle(title);
     tag.SetArtist(artist);
@@ -125,22 +100,25 @@ bool CAudioDecoder::Load(const std::string& fileName,
 
 int CAudioDecoder::GetTrackCount(const std::string& strPath)
 {
-  if (!Initialized())
+  if (!m_struct.toAddon.track_count)
     return 0;
 
-  int result = m_pStruct->TrackCount(strPath.c_str());
+  int result = m_struct.toAddon.track_count(&m_struct, strPath.c_str());
 
-  if (result > 1 && !Load(strPath, XFILE::CMusicFileDirectory::m_tag, NULL))
-    return 0;
+  if (result > 1)
+  {
+    if (m_hasTags)
+    {
+      if (!Load(strPath, XFILE::CMusicFileDirectory::m_tag, nullptr))
+        return 0;
+    }
+    else
+      XFILE::CMusicFileDirectory::m_tag.SetTitle(CURL(strPath).GetFileNameWithoutPath());
+    XFILE::CMusicFileDirectory::m_tag.SetLoaded(true);
+  }
 
-  XFILE::CMusicFileDirectory::m_tag.SetLoaded(true);
   return result;
 }
 
-void CAudioDecoder::Destroy()
-{
-  AudioDecoderDll::Destroy();
-}
 
 } /*namespace ADDON*/
-

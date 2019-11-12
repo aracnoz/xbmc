@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #ifndef __STDC_CONSTANT_MACROS
@@ -24,11 +12,13 @@
 #ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS
 #endif
-#include "stdint.h"
+#include <stdint.h>
 
 #include "EncoderFFmpeg.h"
+#include "ServiceBroker.h"
 #include "utils/log.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/SystemInfo.h"
 #include "utils/URIUtils.h"
 #include "addons/AddonManager.h"
@@ -46,19 +36,16 @@ CEncoderFFmpeg::CEncoderFFmpeg():
   m_SwrCtx    (NULL),
   m_Stream    (NULL),
   m_Buffer    (NULL),
-  m_BufferSize(0),
   m_BufferFrame(NULL),
   m_ResampledBuffer(NULL),
-  m_ResampledBufferSize(0),
-  m_ResampledFrame(NULL),
-  m_NeedConversion(false)
+  m_ResampledFrame(NULL)
 {
   memset(&m_callbacks, 0, sizeof(m_callbacks));
 }
 
-bool CEncoderFFmpeg::Init(audioenc_callbacks &callbacks)
+bool CEncoderFFmpeg::Init(AddonToKodiFuncTable_AudioEncoder& callbacks)
 {
-  if (!callbacks.opaque || !callbacks.write || !callbacks.seek)
+  if (!callbacks.kodiInstance || !callbacks.write || !callbacks.seek)
     return false;
 
   m_callbacks = callbacks;
@@ -88,7 +75,7 @@ bool CEncoderFFmpeg::Init(audioenc_callbacks &callbacks)
   }
 
   AddonPtr addon;
-  CAddonMgr::GetInstance().GetAddon(CSettings::GetInstance().GetString(CSettings::SETTING_AUDIOCDS_ENCODER), addon);
+  CServiceBroker::GetAddonMgr().GetAddon(CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_AUDIOCDS_ENCODER), addon);
   if (addon)
   {
     m_Format->bit_rate = (128+32*strtol(addon->GetSetting("bitrate").c_str(), NULL, 10))*1000;
@@ -119,8 +106,8 @@ bool CEncoderFFmpeg::Init(audioenc_callbacks &callbacks)
 
   if(m_Format->oformat->flags & AVFMT_GLOBALHEADER)
   {
-    m_CodecCtx->flags |= CODEC_FLAG_GLOBAL_HEADER;
-    m_Format->flags   |= CODEC_FLAG_GLOBAL_HEADER;
+    m_CodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    m_Format->flags   |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
   switch(m_iInBitsPerSample)
@@ -247,8 +234,8 @@ void CEncoderFFmpeg::SetTag(const std::string &tag, const std::string &value)
 
 int CEncoderFFmpeg::avio_write_callback(void *opaque, uint8_t *buf, int buf_size)
 {
-  CEncoderFFmpeg *enc = (CEncoderFFmpeg*)opaque;
-  if(enc->m_callbacks.write(enc->m_callbacks.opaque, buf, buf_size) != buf_size)
+  CEncoderFFmpeg *enc = static_cast<CEncoderFFmpeg*>(opaque);
+  if(enc->m_callbacks.write(enc->m_callbacks.kodiInstance, buf, buf_size) != buf_size)
   {
     CLog::Log(LOGERROR, "Error writing FFmpeg buffer to file");
     return -1;
@@ -258,8 +245,8 @@ int CEncoderFFmpeg::avio_write_callback(void *opaque, uint8_t *buf, int buf_size
 
 int64_t CEncoderFFmpeg::avio_seek_callback(void *opaque, int64_t offset, int whence)
 {
-  CEncoderFFmpeg *enc = (CEncoderFFmpeg*)opaque;
-  return enc->m_callbacks.seek(enc->m_callbacks.opaque, offset, whence);
+  CEncoderFFmpeg *enc = static_cast<CEncoderFFmpeg*>(opaque);
+  return enc->m_callbacks.seek(enc->m_callbacks.kodiInstance, offset, whence);
 }
 
 int CEncoderFFmpeg::Encode(int nNumBytesRead, uint8_t* pbtStream)
@@ -296,7 +283,8 @@ bool CEncoderFFmpeg::WriteFrame()
 
   if(m_NeedConversion)
   {
-    if (swr_convert(m_SwrCtx, m_ResampledFrame->extended_data, m_NeededFrames, (const uint8_t**)m_BufferFrame->extended_data, m_NeededFrames) < 0)
+    //! @bug libavresample isn't const correct
+    if (swr_convert(m_SwrCtx, m_ResampledFrame->extended_data, m_NeededFrames, const_cast<const uint8_t**>(m_BufferFrame->extended_data), m_NeededFrames) < 0)
     {
       CLog::Log(LOGERROR, "CEncoderFFmpeg::WriteFrame - Error resampling audio");
       return false;

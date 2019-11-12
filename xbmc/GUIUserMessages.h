@@ -1,26 +1,15 @@
-//  GUI messages outside GuiLib
-//
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+//  GUI messages outside GuiLib
+//
 
 #include "guilib/GUIMessage.h"
 
@@ -114,6 +103,10 @@
 // Message sent to tell the GUI to update a single item
 #define GUI_MSG_UPDATE_ITEM           GUI_MSG_USER + 29
 
+// Flags for GUI_MSG_UPDATE_ITEM message
+constexpr int GUI_MSG_FLAG_UPDATE_LIST = 0x00000001;
+constexpr int GUI_MSG_FLAG_FORCE_UPDATE = 0x00000002;
+
 // Message sent to tell the GUI to change view mode
 #define GUI_MSG_CHANGE_VIEW_MODE      GUI_MSG_USER + 30
 
@@ -133,12 +126,13 @@
 // Message sent to CGUIWindowSlideshow to show picture
 #define GUI_MSG_SHOW_PICTURE          GUI_MSG_USER + 36
 
-// Sent to text field to support 'input method'
-#define GUI_MSG_INPUT_TEXT_EDIT       GUI_MSG_USER + 38
-
 // Sent to CGUIWindowEventLog
 #define GUI_MSG_EVENT_ADDED        GUI_MSG_USER + 39
 #define GUI_MSG_EVENT_REMOVED      GUI_MSG_USER + 40
 
 // Send to RDS Radiotext handlers to inform about changed data
 #define GUI_MSG_UPDATE_RADIOTEXT      GUI_MSG_USER + 41
+
+#define GUI_MSG_PLAYBACK_ERROR        GUI_MSG_USER + 42
+#define GUI_MSG_PLAYBACK_AVCHANGE     GUI_MSG_USER + 43
+#define GUI_MSG_PLAYBACK_AVSTARTED    GUI_MSG_USER + 44

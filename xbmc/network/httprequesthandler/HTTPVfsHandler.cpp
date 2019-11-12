@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "HTTPVfsHandler.h"
+
 #include "MediaSource.h"
 #include "URL.h"
 #include "filesystem/File.h"
@@ -58,15 +47,18 @@ CHTTPVfsHandler::CHTTPVfsHandler(const HTTPRequest &request)
           if (sources == NULL)
             continue;
 
-          for (VECSOURCES::const_iterator source = sources->begin(); source != sources->end() && !accessible; ++source)
+          for (const auto& source : *sources)
           {
+            if (accessible)
+              break;
+
             // don't allow access to locked / disabled sharing sources
-            if (source->m_iHasLock == 2 || !source->m_allowSharing)
+            if (source.m_iHasLock == 2 || !source.m_allowSharing)
               continue;
 
-            for (std::vector<std::string>::const_iterator path = source->vecPaths.begin(); path != source->vecPaths.end(); ++path)
+            for (const auto& path : source.vecPaths)
             {
-              std::string realSourcePath = URIUtils::GetRealPath(*path);
+              std::string realSourcePath = URIUtils::GetRealPath(path);
               if (URIUtils::PathHasParent(realPath, realSourcePath, true))
               {
                 accessible = true;
@@ -91,7 +83,7 @@ CHTTPVfsHandler::CHTTPVfsHandler(const HTTPRequest &request)
   SetFile(file, responseStatus);
 }
 
-bool CHTTPVfsHandler::CanHandleRequest(const HTTPRequest &request)
+bool CHTTPVfsHandler::CanHandleRequest(const HTTPRequest &request) const
 {
   return request.pathUrl.find("/vfs") == 0;
 }

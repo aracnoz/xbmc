@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -47,6 +47,10 @@ msgstr "Atsitiktiniai filmai"
 msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr "Neperžiūrėti filmai"
+
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr "Įjungti kategorijos valdiklius"
 
 msgctxt "#31009"
 msgid "Download icons"
@@ -108,6 +112,10 @@ msgctxt "#31023"
 msgid "Viewtype"
 msgstr "Rodinio tipas"
 
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr "Pasirinkite kurį media elementų reitingą rodyti"
+
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
 msgstr "Nerasta mėgstamiausiųjų. Jūs galite pridėti bet kurį elementą iš media rodinių į šį sąrašą naudodami kontekstinį meniu."
@@ -126,7 +134,7 @@ msgstr "Paskutinis prisijungimas"
 
 msgctxt "#31030"
 msgid "System memory usage"
-msgstr "Sistemos atminties naudojimas"
+msgstr "RAM naudojimas"
 
 msgctxt "#31031"
 msgid "Version info"
@@ -191,10 +199,6 @@ msgstr "Prieinama"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Paspauskite [B]OK[/B] norėdami sustabdyti"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Perjungti kalbą"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -358,7 +362,7 @@ msgstr "Eiti į failų skyrių"
 
 msgctxt "#31111"
 msgid "View your personal pictures or download one of the many image add-ons from the official repository."
-msgstr "Peržiūrėti asmeninius paveikslėlius ar atsisiųsti vieną iš daugelio atvaizdų priedų iš oficialios saugyklos."
+msgstr "Peržiūrėkite asmeninius paveikslėlius arba atsisiųskite vieną iš daugelio atvaizdų priedų iš oficialios saugyklos."
 
 msgctxt "#31112"
 msgid "Toggle audio stream"
@@ -441,8 +445,12 @@ msgid "Choose skin fanart pack"
 msgstr "Pasirinkti teminės išvaizdos Fanart paketą"
 
 msgctxt "#31132"
-msgid "min"
-msgstr "min"
+msgid "Select Program"
+msgstr "Pasirinkite programą"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Pasirinkti raišką"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -543,3 +551,27 @@ msgstr "Rodyti media vėliavas"
 msgctxt "#31161"
 msgid "Numeric pad"
 msgstr "Skaičių klaviatūra"
+
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr "Žaiskite asmeninius žaidimus arba atsisiųskite vieną iš daugelio žaidimų priedų iš oficialios saugyklos."
+
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr "Rodyti Fanart fone"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Pasirinkite profilio identifikacijos būdą"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profilio vardas"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profilio avataras"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animuoti foną"

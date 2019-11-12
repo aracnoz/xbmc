@@ -12,7 +12,7 @@ the toggle button, the state will change, toggling the extra textures
 needed (pushed in and pushed out for instance).
 
 --------------------------------------------------------------------------------
-\section skin_Toogle_button_control_sect1 Example
+\section skin_Toggle_button_control_sect1 Example
 
 ~~~~~~~~~~~~~
 <control type="togglebutton" id="25">
@@ -51,7 +51,7 @@ needed (pushed in and pushed out for instance).
 
 
 --------------------------------------------------------------------------------
-\section skin_Toogle_button_control_sect2 Available tags
+\section skin_Toggle_button_control_sect2 Available tags
 
 In addition to the Default Control Tags the following tags are available. Note
 that each tag is lower case only. This is important, as xml tags are case-sensitive.
@@ -63,8 +63,8 @@ that each tag is lower case only. This is important, as xml tags are case-sensit
 | alttexturefocus   | Specifies the image file which should be displayed when the toggle button is in it's selected state. This texture replaces the <b>`<texturefocus>`</b> texture when the toggle button is selected.
 | alttexturenofocus | Specifies the image file which should be displayed when the button is in it's selected state but unfocused.
 | usealttexture     | Specifies the conditions under which the Alternative Textures should be shown. Some toggle button controls are handled by Kodi internally, but any extra ones that the skinner has can be controlled using this tag. See here for more information.
-| label             | The label used on the button. It can be a link into strings.xml, or an actual text label.
-| altlabel          | The alternate label used on the button. It can be a link into strings.xml, or an actual text label.
+| label             | The label used on the button. It can be a link into strings.po, or an actual text label.
+| altlabel          | The alternate label used on the button. It can be a link into strings.po, or an actual text label.
 | altclick          | The alternate action to perform when the button is pressed. Should be a built in function. See here for more information. You may have more than one <b>`<altclick>`</b> tag, and they'll be executed in sequence.
 | font              | Font used for the button label. From fonts.xml.
 | textcolor         | Color used for displaying the button label. In AARRGGBB hex format, or a name from the colour theme.
@@ -82,7 +82,7 @@ that each tag is lower case only. This is important, as xml tags are case-sensit
 
 
 --------------------------------------------------------------------------------
-\section skin_Toogle_button_control_sect3 See also
+\section skin_Toggle_button_control_sect3 See also
 #### Development:
 
 - [Add-on development](http://kodi.wiki/view/Add-on_development)

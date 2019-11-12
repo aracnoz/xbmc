@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -47,6 +47,10 @@ msgstr "Filmy losowe"
 msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr "Film nieobejrzane"
+
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr "Aktywuj gadżety kategorii"
 
 msgctxt "#31009"
 msgid "Download icons"
@@ -108,6 +112,10 @@ msgctxt "#31023"
 msgid "Viewtype"
 msgstr "Widok"
 
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr "Wybierz ocenę wyświetlaną z mediami"
+
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
 msgstr "Brak ulubionych. Możesz dodać dowolną pozycję do tej listy, z poziomu widoków mediów, przy użyciu menu kontekstowego."
@@ -118,7 +126,7 @@ msgstr "Przesunięcie czasowe"
 
 msgctxt "#31028"
 msgid "Show fanart"
-msgstr "Pokaż fototapetę"
+msgstr "Fototapeta"
 
 msgctxt "#31029"
 msgid "Last logged in"
@@ -191,10 +199,6 @@ msgstr "Dostępne"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Naciśnij [B]OK[/B], aby zatrzymać"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Przełącz język"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -434,15 +438,19 @@ msgstr "Ogólne ustawienia mające zastosowanie we wszystkich obszarach skóry."
 
 msgctxt "#31130"
 msgid "Main menu-related settings: Configure the home screen to your likings."
-msgstr "Umożliwia dostosowanie ekranu startowego do swoich upodobań."
+msgstr "Umożliwia dostosowanie menu startowego do własnych upodobań."
 
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Wybierz pakiet fototapet skóry"
 
 msgctxt "#31132"
-msgid "min"
-msgstr "min"
+msgid "Select Program"
+msgstr "Wybierz program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Wybierz rozdzielczość"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -543,3 +551,27 @@ msgstr "Pokazuj etykiety mediów"
 msgctxt "#31161"
 msgid "Numeric pad"
 msgstr "Klawiatura numeryczna"
+
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr "Zagraj w posiadane gry lub pobierz jedną z gier z oficjalnego repozytorium."
+
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr "Pokazuj fototapetę w tle interfejsu"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Wybierz rodzaj identyfikacji profilu"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Nazwa profilu"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Awatar profilu"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animowane tło"

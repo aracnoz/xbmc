@@ -1,32 +1,17 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUISliderControl.h
 \brief
 */
-
-#ifndef GUILIB_GUISLIDERCONTROL_H
-#define GUILIB_GUISLIDERCONTROL_H
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "GUIControl.h"
 #include "GUITexture.h"
@@ -57,20 +42,20 @@ public:
   } RangeSelector;
 
   CGUISliderControl(int parentID, int controlID, float posX, float posY, float width, float height, const CTextureInfo& backGroundTexture, const CTextureInfo& mibTexture, const CTextureInfo& nibTextureFocus, int iType, ORIENTATION orientation);
-  virtual ~CGUISliderControl(void);
-  virtual CGUISliderControl *Clone() const { return new CGUISliderControl(*this); };
+  ~CGUISliderControl(void) override;
+  CGUISliderControl *Clone() const override { return new CGUISliderControl(*this); };
 
-  virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
-  virtual void Render();
-  virtual bool OnAction(const CAction &action);
+  void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
+  void Render() override;
+  bool OnAction(const CAction &action) override;
   virtual bool IsActive() const { return true; };
-  virtual void AllocResources();
-  virtual void FreeResources(bool immediately = false);
-  virtual void DynamicResourceAlloc(bool bOnOff);
-  virtual void SetInvalid();
+  void AllocResources() override;
+  void FreeResources(bool immediately = false) override;
+  void DynamicResourceAlloc(bool bOnOff) override;
+  void SetInvalid() override;
   virtual void SetRange(int iStart, int iEnd);
   virtual void SetFloatRange(float fStart, float fEnd);
-  virtual bool OnMessage(CGUIMessage& message);
+  bool OnMessage(CGUIMessage& message) override;
   bool ProcessSelector(CGUITexture &nib, unsigned int currentTime, float fScale, RangeSelector selector);
   void SetRangeSelection(bool rangeSelection);
   bool GetRangeSelection() const { return m_rangeSelection; }
@@ -86,20 +71,21 @@ public:
   void SetIntInterval(int iInterval);
   void SetFloatInterval(float fInterval);
   void SetType(int iType) { m_iType = iType; };
-  virtual std::string GetDescription() const;
+  int GetType() const { return m_iType; }
+  std::string GetDescription() const override;
   void SetTextValue(const std::string &textValue) { m_textValue = textValue; };
   void SetAction(const std::string &action);
 protected:
-  virtual bool HitTest(const CPoint &point) const;
-  virtual EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event);
-  virtual bool UpdateColors();
+  bool HitTest(const CPoint &point) const override;
+  EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event) override;
+  bool UpdateColors() override;
   virtual void Move(int iNumSteps);
   virtual void SetFromPosition(const CPoint &point, bool guessSelector = false);
   /*! \brief Get the current position of the slider as a proportion
    \return slider position in the range [0,1]
    */
   float GetProportion(RangeSelector selector = RangeSelectorLower) const;
-  
+
   /*! \brief Send a click message (and/or action) to the app in response to a slider move
    */
   void SendClick();
@@ -132,4 +118,4 @@ protected:
   bool m_dragging; ///< Whether we're in a (mouse/touch) drag operation or not - some actions are sent only on release.
   ORIENTATION m_orientation;
 };
-#endif
+

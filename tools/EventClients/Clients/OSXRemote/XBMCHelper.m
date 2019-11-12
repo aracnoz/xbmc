@@ -25,10 +25,10 @@
     {
       [remote setDelegate:self];
       [remote setSimulateHoldEvents:NO];
-      //for now, we're using lending of exlusive lock
+      //for now, we're using lending of exclusive lock
       //kHIDRemoteModeExclusiveAuto isn't working, as we're a background daemon
       //one possibility would be to know when XBMC is running. Once we know that,
-      //we could aquire exclusive lock when it's running, and release _exclusive_
+      //we could acquire exclusive lock when it's running, and release _exclusive_
       //access once done
       [remote setExclusiveLockLendingEnabled:YES];
 
@@ -38,7 +38,6 @@
         NSLog(@"Error! Candelair driver installation necessary. XBMCHelper won't function properly!");
         NSLog(@"Due to an issue in the OS version you are running, an additional driver needs to be installed before XBMC(Helper) can reliably access the remote.");
         NSLog(@"See http://www.candelair.com/download/ for details");
-        [super dealloc];
         return nil;
       }
       else
@@ -56,7 +55,6 @@
           ELOG(@"Failed to start remote control.");
           //setup failed, cleanup
           [remote setDelegate:nil];
-          [super dealloc];
           return nil;
         }
       }
@@ -70,11 +68,6 @@
   [remote stopRemoteControl];
   if( [remote delegate] == self)
     [remote setDelegate:nil];
-  [mp_wrapper release];
-  [mp_app_path release];
-  [mp_home_path release];
-
-  [super dealloc];
 }
 
 //----------------------------------------------------------------------------
@@ -87,7 +80,6 @@
 
 //----------------------------------------------------------------------------
 - (void) disconnect{
-  [mp_wrapper release];
   mp_wrapper = nil;
 }
 
@@ -100,16 +92,14 @@
 //----------------------------------------------------------------------------
 - (void) setApplicationPath:(NSString*) fp_app_path{
   if (mp_app_path != fp_app_path) {
-    [mp_app_path release];
-    mp_app_path = [[fp_app_path stringByStandardizingPath] retain];
+    mp_app_path = [fp_app_path stringByStandardizingPath];
   }
 }
 
 //----------------------------------------------------------------------------
 - (void) setApplicationHome:(NSString*) fp_home_path{
   if (mp_home_path != fp_home_path) {
-    [mp_home_path release];
-    mp_home_path = [[fp_home_path stringByStandardizingPath] retain];
+    mp_home_path = [fp_home_path stringByStandardizingPath];
   }
 }
 
@@ -148,7 +138,7 @@
         [mp_wrapper handleEvent:ATV_BUTTON_RIGHT];
       else
         [mp_wrapper handleEvent:ATV_BUTTON_RIGHT_RELEASE];
-      break;      
+      break;
     case kHIDRemoteButtonCodeCenter:
       if(isPressed) [mp_wrapper handleEvent:ATV_BUTTON_CENTER];
       break;
@@ -183,7 +173,7 @@
       break;
     case kHIDRemoteButtonCodeCenterHold:
       if(isPressed) [mp_wrapper handleEvent:ATV_BUTTON_CENTER_H];
-      break;      
+      break;
     case kHIDRemoteButtonCodeMenuHold:
       if(isPressed) {
         [self checkAndLaunchApp]; //launch mp_app_path if it's not running
@@ -202,13 +192,13 @@
 
 
 // Notification of ID changes
-- (void)hidRemote:(HIDRemote *)hidRemote remoteIDChangedOldID:(SInt32)old 
+- (void)hidRemote:(HIDRemote *)hidRemote remoteIDChangedOldID:(SInt32)old
             newID:(SInt32)newID forHardwareWithAttributes:(NSMutableDictionary *)attributes
 {
   if(m_verbose)
     NSLog(@"Change of remote ID from %d to %d", old, newID);
   [mp_wrapper switchRemote: newID];
-  
+
 }
 
 #pragma mark -
@@ -253,6 +243,11 @@
       break;
 		case kHIDRemoteButtonCodeMenuHold:
 			return (@"Menu (hold)");
+      break;
+        case kHIDRemoteButtonCodePlay:
+            return (@"Play");
+      break;
+        default:
       break;
 	}
 	return ([NSString stringWithFormat:@"Button %x", (int)buttonCode]);

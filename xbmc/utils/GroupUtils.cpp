@@ -1,27 +1,12 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GroupUtils.h"
-
-#include <map>
-#include <set>
 
 #include "FileItem.h"
 #include "filesystem/MultiPathDirectory.h"
@@ -29,6 +14,9 @@
 #include "utils/URIUtils.h"
 #include "video/VideoDbUrl.h"
 #include "video/VideoInfoTag.h"
+
+#include <map>
+#include <set>
 
 using SetMap = std::map<int, std::set<CFileItemPtr> >;
 
@@ -55,10 +43,10 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
 
     // group by sets
     if ((groupBy & GroupBySet) &&
-      item->HasVideoInfoTag() && item->GetVideoInfoTag()->m_iSetId > 0)
+      item->HasVideoInfoTag() && item->GetVideoInfoTag()->m_set.id > 0)
     {
       ungrouped = false;
-      setMap[item->GetVideoInfoTag()->m_iSetId].insert(item);
+      setMap[item->GetVideoInfoTag()->m_set.id].insert(item);
     }
 
     if (ungrouped)
@@ -80,7 +68,7 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
         continue;
       }
 
-      CFileItemPtr pItem(new CFileItem((*set->second.begin())->GetVideoInfoTag()->m_strSet));
+      CFileItemPtr pItem(new CFileItem((*set->second.begin())->GetVideoInfoTag()->m_set.title));
       pItem->GetVideoInfoTag()->m_iDbId = set->first;
       pItem->GetVideoInfoTag()->m_type = MediaTypeVideoCollection;
 
@@ -90,7 +78,7 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
         pItem->SetPath(basePath);
       else
       {
-        videoUrl.AddOptions(itemsUrl.GetOptionsString());
+        videoUrl.AddOptions((*set->second.begin())->GetURL().GetOptions());
         pItem->SetPath(videoUrl.ToString());
       }
       pItem->m_bIsFolder = true;
@@ -98,7 +86,7 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
       CVideoInfoTag* setInfo = pItem->GetVideoInfoTag();
       setInfo->m_strPath = pItem->GetPath();
       setInfo->m_strTitle = pItem->GetLabel();
-      setInfo->m_strPlot = (*set->second.begin())->GetVideoInfoTag()->m_strSetOverview;
+      setInfo->m_strPlot = (*set->second.begin())->GetVideoInfoTag()->m_set.overview;
 
       int ratings = 0;
       float totalRatings = 0;
@@ -127,8 +115,8 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
           setInfo->m_dateAdded = movieInfo->m_dateAdded;
 
         // handle playcount/watched
-        setInfo->m_playCount += movieInfo->m_playCount;
-        if (movieInfo->m_playCount > 0)
+        setInfo->SetPlayCount(setInfo->GetPlayCount() + movieInfo->GetPlayCount());
+        if (movieInfo->GetPlayCount() > 0)
           iWatched++;
 
         //accumulate the path for a multipath construction
@@ -143,11 +131,11 @@ bool GroupUtils::Group(GroupBy groupBy, const std::string &baseDir, const CFileI
       if (ratings > 1)
         pItem->GetVideoInfoTag()->SetRating(totalRatings / ratings);
 
-      setInfo->m_playCount = iWatched >= (int)set->second.size() ? (setInfo->m_playCount / set->second.size()) : 0;
+      setInfo->SetPlayCount(iWatched >= static_cast<int>(set->second.size()) ? (setInfo->GetPlayCount() / set->second.size()) : 0);
       pItem->SetProperty("total", (int)set->second.size());
       pItem->SetProperty("watched", iWatched);
       pItem->SetProperty("unwatched", (int)set->second.size() - iWatched);
-      pItem->SetOverlayImage(CGUIListItem::ICON_OVERLAY_UNWATCHED, setInfo->m_playCount > 0);
+      pItem->SetOverlayImage(CGUIListItem::ICON_OVERLAY_UNWATCHED, setInfo->GetPlayCount() > 0);
 
       groupedItems.Add(pItem);
     }

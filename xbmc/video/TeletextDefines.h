@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 
@@ -48,9 +36,9 @@ enum /* indices in atrtable */
   ATR_MSGDRM1, /* message */
   ATR_MSGDRM2, /* message */
   ATR_MSGDRM3, /* message */
-  ATR_MENUHIL0, /* hilit menu line */
-  ATR_MENUHIL1, /* hilit menu line */
-  ATR_MENUHIL2, /* hilit menu line */
+  ATR_MENUHIL0, /* highlight menu line */
+  ATR_MENUHIL1, /* highlight menu line */
+  ATR_MENUHIL2, /* highlight menu line */
   ATR_MENU0, /* menu line */
   ATR_MENU1, /* menu line */
   ATR_MENU2, /* menu line */

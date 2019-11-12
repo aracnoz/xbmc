@@ -1,46 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "system.h"
 
 #include "DAVFile.h"
 
 #include "DAVCommon.h"
-#include "URL.h"
-#include "utils/log.h"
 #include "DllLibCurl.h"
-#include "utils/XBMCTinyXML.h"
+#include "URL.h"
 #include "utils/RegExp.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
 
 using namespace XFILE;
 using namespace XCURL;
 
 CDAVFile::CDAVFile(void)
   : CCurlFile()
-  , m_lastResponseCode(0)
 {
 }
 
-CDAVFile::~CDAVFile(void)
-{
-}
+CDAVFile::~CDAVFile(void) = default;
 
 bool CDAVFile::Execute(const CURL& url)
 {
@@ -51,7 +34,7 @@ bool CDAVFile::Execute(const CURL& url)
 
   assert(!(!m_state->m_easyHandle ^ !m_state->m_multiHandle));
   if( m_state->m_easyHandle == NULL )
-    g_curlInterface.easy_aquire(url2.GetProtocol().c_str(),
+    g_curlInterface.easy_acquire(url2.GetProtocol().c_str(),
                                 url2.GetHostName().c_str(),
                                 &m_state->m_easyHandle,
                                 &m_state->m_multiHandle);
@@ -91,7 +74,7 @@ bool CDAVFile::Execute(const CURL& url)
       {
         std::string sRetCode = CDAVCommon::GetStatusTag(pChild->ToElement());
         CRegExp rxCode;
-        rxCode.RegComp("HTTP/1\\.1\\s(\\d+)\\s.*"); 
+        rxCode.RegComp("HTTP/.+\\s(\\d+)\\s.*");
         if (rxCode.RegFind(sRetCode) >= 0)
         {
           if (rxCode.GetSubCount())
@@ -118,7 +101,7 @@ bool CDAVFile::Delete(const CURL& url)
   std::string strRequest = "DELETE";
 
   dav.SetCustomRequest(strRequest);
- 
+
   CLog::Log(LOGDEBUG, "CDAVFile::Delete - Execute DELETE (%s)", url.GetRedacted().c_str());
   if (!dav.Execute(url))
   {

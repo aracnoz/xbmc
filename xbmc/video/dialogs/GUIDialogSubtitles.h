@@ -1,29 +1,18 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
+#pragma once
+
 #include "guilib/GUIDialog.h"
 #include "threads/CriticalSection.h"
 #include "utils/JobManager.h"
+
+#include <string>
 
 enum SUBTITLE_STORAGEMODE
 {
@@ -38,13 +27,13 @@ class CGUIDialogSubtitles : public CGUIDialog, CJobQueue
 {
 public:
   CGUIDialogSubtitles(void);
-  virtual ~CGUIDialogSubtitles(void);
-  virtual bool OnMessage(CGUIMessage& message);
-  virtual void OnInitWindow();
+  ~CGUIDialogSubtitles(void) override;
+  bool OnMessage(CGUIMessage& message) override;
+  void OnInitWindow() override;
 
 protected:
-  virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
-  virtual void OnJobComplete(unsigned int jobID, bool success, CJob *job);
+  void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
+  void OnJobComplete(unsigned int jobID, bool success, CJob *job) override;
 
   bool SetService(const std::string &service);
   const CFileItemPtr GetService() const;
@@ -69,7 +58,7 @@ protected:
   std::string    m_currentService;
   std::string    m_status;
   std::string     m_strManualSearch;
-  bool           m_pausedOnRun;
-  bool           m_updateSubsList; ///< true if we need to update our subs list
+  bool           m_pausedOnRun = false;
+  bool           m_updateSubsList = false; ///< true if we need to update our subs list
   std::string     m_LastAutoDownloaded; ///< Last video file path which automatically downloaded subtitle
 };

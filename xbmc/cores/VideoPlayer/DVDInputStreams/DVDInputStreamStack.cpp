@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDInputStreamStack.h"
+
 #include "FileItem.h"
 #include "filesystem/File.h"
 #include "filesystem/StackDirectory.h"
@@ -53,7 +42,7 @@ bool CDVDInputStreamStack::Open()
   CStackDirectory dir;
   CFileItemList   items;
 
-  const CURL pathToUrl(m_item.GetPath());
+  const CURL pathToUrl(m_item.GetDynPath());
   if(!dir.GetDirectory(pathToUrl, items))
   {
     CLog::Log(LOGERROR, "CDVDInputStreamStack::Open - failed to get list of stacked items");
@@ -67,9 +56,9 @@ bool CDVDInputStreamStack::Open()
   {
     TFile file(new CFile());
 
-    if (!file->Open(items[index]->GetPath(), READ_TRUNCATED))
+    if (!file->Open(items[index]->GetDynPath(), READ_TRUNCATED))
     {
-      CLog::Log(LOGERROR, "CDVDInputStreamStack::Open - failed to open stack part '%s' - skipping", items[index]->GetPath().c_str());
+      CLog::Log(LOGERROR, "CDVDInputStreamStack::Open - failed to open stack part '%s' - skipping", items[index]->GetDynPath().c_str());
       continue;
     }
     TSeg segment;
@@ -78,7 +67,7 @@ bool CDVDInputStreamStack::Open()
 
     if(segment.length <= 0)
     {
-      CLog::Log(LOGERROR, "CDVDInputStreamStack::Open - failed to get file length for '%s' - skipping", items[index]->GetPath().c_str());
+      CLog::Log(LOGERROR, "CDVDInputStreamStack::Open - failed to get file length for '%s' - skipping", items[index]->GetDynPath().c_str());
       continue;
     }
 
@@ -96,7 +85,7 @@ bool CDVDInputStreamStack::Open()
   return true;
 }
 
-// close file and reset everyting
+// close file and reset everything
 void CDVDInputStreamStack::Close()
 {
   CDVDInputStream::Close();

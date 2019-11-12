@@ -1,39 +1,27 @@
-#pragma once
 /*
  * Many concepts and protocol specification in this code are taken from
  * the Boxee project. http://www.boxee.tv
  *
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2.1, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#ifdef HAS_AIRPLAY
+#pragma once
+
+#include "interfaces/IAnnouncer.h"
+#include "network/Network.h"
+#include "threads/CriticalSection.h"
+#include "threads/Thread.h"
+#include "utils/HttpParser.h"
 
 #include <map>
 #include <vector>
-#include <sys/socket.h>
-#include "threads/Thread.h"
-#include "threads/CriticalSection.h"
-#include "utils/HttpParser.h"
-#include "interfaces/IAnnouncer.h"
 
-class DllLibPlist;
+#include <sys/socket.h>
+
 class CVariant;
 
 #define AIRPLAY_SERVER_VERSION_STR "101.28"
@@ -42,7 +30,7 @@ class CAirPlayServer : public CThread, public ANNOUNCEMENT::IAnnouncer
 {
 public:
   // IAnnouncer IF
-  virtual void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+  void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data) override;
 
   //AirPlayServer impl.
   static bool StartServer(int port, bool nonlocal);
@@ -55,11 +43,11 @@ public:
   static int m_isPlaying;
 
 protected:
-  void Process();
+  void Process() override;
 
 private:
   CAirPlayServer(int port, bool nonlocal);
-  ~CAirPlayServer();
+  ~CAirPlayServer() override;
   bool SetInternalCredentials(bool usePassword, const std::string& password);
   bool Initialize();
   void Deinitialize();
@@ -97,7 +85,6 @@ private:
     void Copy(const CTCPClient& client);
 
     HttpParser* m_httpParser;
-    DllLibPlist *m_pLibPlist;//the lib
     bool m_bAuthenticated;
     int  m_lastEvent;
     std::string m_authNonce;
@@ -106,7 +93,7 @@ private:
   CCriticalSection m_connectionLock;
   std::vector<CTCPClient> m_connections;
   std::map<std::string, int> m_reverseSockets;
-  int m_ServerSocket;
+  std::vector<SOCKET> m_ServerSockets;
   int m_port;
   bool m_nonlocal;
   bool m_usePassword;
@@ -116,5 +103,3 @@ private:
   static CCriticalSection ServerInstanceLock;
   static CAirPlayServer *ServerInstance;
 };
-
-#endif

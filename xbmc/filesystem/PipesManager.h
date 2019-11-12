@@ -1,27 +1,15 @@
-#pragma once
-
 /*
  * Many concepts and protocol are taken from
  * the Boxee project. http://www.boxee.tv
- * 
- *      Copyright (C) 2011-2015 Team Kodi
- *      http://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "threads/CriticalSection.h"
 #include "threads/Event.h"
@@ -35,26 +23,26 @@
 
 namespace XFILE
 {
- 
+
 class IPipeListener
 {
 public:
-  virtual ~IPipeListener() {}
+  virtual ~IPipeListener() = default;
   virtual void OnPipeOverFlow() = 0;
   virtual void OnPipeUnderFlow() = 0;
 };
-  
+
 class Pipe
   {
   public:
     Pipe(const std::string &name, int nMaxSize = PIPE_DEFAULT_MAX_SIZE );
     virtual ~Pipe();
     const std::string &GetName();
-    
+
     void AddRef();
-    void DecRef();   // a pipe does NOT delete itself with ref-count 0. 
-    int  RefCount(); 
-    
+    void DecRef();   // a pipe does NOT delete itself with ref-count 0.
+    int  RefCount();
+
     bool IsEmpty();
 
     /**
@@ -76,21 +64,21 @@ class Pipe
     bool Write(const char *buf, int nSize, int nWaitMillis = -1);
 
     void Flush();
-    
+
     void CheckStatus();
     void Close();
-    
+
     void AddListener(IPipeListener *l);
     void RemoveListener(IPipeListener *l);
-    
+
     void SetEof();
     bool IsEof();
-    
+
     int	GetAvailableRead();
-    void SetOpenThreashold(int threashold);
+    void SetOpenThreshold(int threshold);
 
   protected:
-    
+
     bool        m_bOpen;
     bool        m_bReadyForRead;
 
@@ -98,17 +86,17 @@ class Pipe
     CRingBuffer m_buffer;
     std::string  m_strPipeName;
     int         m_nRefCount;
-    int         m_nOpenThreashold;
+    int         m_nOpenThreshold;
 
     CEvent     m_readEvent;
     CEvent     m_writeEvent;
-    
+
     std::vector<XFILE::IPipeListener *> m_listeners;
-    
+
     CCriticalSection m_lock;
   };
 
-  
+
 class PipesManager
 {
 public:
@@ -120,12 +108,11 @@ public:
   XFILE::Pipe *OpenPipe(const std::string &name);
   void         ClosePipe(XFILE::Pipe *pipe);
   bool         Exists(const std::string &name);
-  
+
 protected:
-  PipesManager();
-  int    m_nGenIdHelper;
+  int    m_nGenIdHelper = 1;
   std::map<std::string, XFILE::Pipe *> m_pipes;
-  
+
   CCriticalSection m_lock;
 };
 

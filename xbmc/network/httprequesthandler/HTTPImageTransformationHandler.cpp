@@ -1,26 +1,13 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
-
 #include "HTTPImageTransformationHandler.h"
+
 #include "TextureCacheJob.h"
 #include "URL.h"
 #include "filesystem/ImageFile.h"
@@ -29,6 +16,8 @@
 #include "utils/Mime.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+
+#include <map>
 
 #define TRANSFORMATION_OPTION_WIDTH             "width"
 #define TRANSFORMATION_OPTION_HEIGHT            "height"
@@ -102,7 +91,7 @@ CHTTPImageTransformationHandler::~CHTTPImageTransformationHandler()
   m_buffer = NULL;
 }
 
-bool CHTTPImageTransformationHandler::CanHandleRequest(const HTTPRequest &request)
+bool CHTTPImageTransformationHandler::CanHandleRequest(const HTTPRequest &request) const
 {
   if ((request.method != GET && request.method != HEAD) ||
     request.pathUrl.find(ImageBasePath) != 0 || request.pathUrl.size() <= ImageBasePath.size())

@@ -1,30 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "IFile.h"
+#pragma once
+
 #include "CacheStrategy.h"
-#include "threads/CriticalSection.h"
 #include "File.h"
+#include "IFile.h"
+#include "threads/CriticalSection.h"
 #include "threads/Thread.h"
+
 #include <atomic>
+#include <memory>
 
 namespace XFILE
 {
@@ -32,52 +23,55 @@ namespace XFILE
   class CFileCache : public IFile, public CThread
   {
   public:
-    CFileCache(const unsigned int flags);
-    CFileCache(CCacheStrategy *pCache, bool bDeleteCache = true);
-    virtual ~CFileCache();
-
-    void SetCacheStrategy(CCacheStrategy *pCache, bool bDeleteCache = true);
+    explicit CFileCache(const unsigned int flags);
+    ~CFileCache() override;
 
     // CThread methods
-    virtual void Process();
-    virtual void OnExit();
-    virtual void StopThread(bool bWait = true);
+    void Process() override;
+    void OnExit() override;
+    void StopThread(bool bWait = true) override;
 
     // IFIle methods
-    virtual bool          Open(const CURL& url);
-    virtual void          Close();
-    virtual bool          Exists(const CURL& url);
-    virtual int           Stat(const CURL& url, struct __stat64* buffer);
+    bool Open(const CURL& url) override;
+    void Close() override;
+    bool Exists(const CURL& url) override;
+    int Stat(const CURL& url, struct __stat64* buffer) override;
 
-    virtual ssize_t       Read(void* lpBuf, size_t uiBufSize);
+    ssize_t Read(void* lpBuf, size_t uiBufSize) override;
 
-    virtual int64_t       Seek(int64_t iFilePosition, int iWhence);
-    virtual int64_t       GetPosition();
-    virtual int64_t       GetLength();
+    int64_t Seek(int64_t iFilePosition, int iWhence) override;
+    int64_t GetPosition() override;
+    int64_t GetLength() override;
 
-    virtual int           IoControl(EIoControl request, void* param);
+    int IoControl(EIoControl request, void* param) override;
 
     IFile *GetFileImp();
 
-    virtual std::string GetContent();
-    virtual std::string GetContentCharset(void);
+    const std::string GetProperty(XFILE::FileProperty type, const std::string &name = "") const override;
+
+    const std::vector<std::string> GetPropertyValues(XFILE::FileProperty type, const std::string& name = "") const override
+    {
+      return std::vector<std::string>();
+    }
 
   private:
-    CCacheStrategy *m_pCache;
-    bool      m_bDeleteCache;
-    int        m_seekPossible;
-    CFile      m_source;
-    std::string    m_sourcePath;
-    CEvent      m_seekEvent;
-    CEvent      m_seekEnded;
-    int64_t      m_nSeekResult;
-    int64_t      m_seekPos;
-    int64_t      m_readPos;
-    int64_t      m_writePos;
-    unsigned     m_chunkSize;
-    unsigned     m_writeRate;
-    unsigned     m_writeRateActual;
-    int64_t      m_forwardCacheSize;
+    std::unique_ptr<CCacheStrategy> m_pCache;
+    int m_seekPossible;
+    CFile m_source;
+    std::string m_sourcePath;
+    CEvent m_seekEvent;
+    CEvent m_seekEnded;
+    int64_t m_nSeekResult;
+    int64_t m_seekPos;
+    int64_t m_readPos;
+    int64_t m_writePos;
+    unsigned m_chunkSize;
+    unsigned m_writeRate;
+    unsigned m_writeRateActual;
+    int64_t m_forwardCacheSize;
+    int64_t m_forward;
+    bool m_bFilling;
+    bool m_bLowSpeedDetected;
     std::atomic<int64_t> m_fileSize;
     unsigned int m_flags;
     CCriticalSection m_sync;

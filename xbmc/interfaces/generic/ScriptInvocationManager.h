@@ -1,32 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "addons/IAddon.h"
+#include "interfaces/generic/ILanguageInvoker.h"
+#include "threads/CriticalSection.h"
 
 #include <map>
 #include <memory>
 #include <set>
 #include <vector>
-
-#include "addons/IAddon.h"
-#include "interfaces/generic/ILanguageInvoker.h"
-#include "threads/CriticalSection.h"
 
 class CLanguageInvokerThread;
 typedef std::shared_ptr<CLanguageInvokerThread> CLanguageInvokerThreadPtr;
@@ -43,7 +32,7 @@ public:
   void RegisterLanguageInvocationHandler(ILanguageInvocationHandler *invocationHandler, const std::set<std::string> &extensions);
   void UnregisterLanguageInvocationHandler(ILanguageInvocationHandler *invocationHandler);
   bool HasLanguageInvoker(const std::string &script) const;
-  LanguageInvokerPtr GetLanguageInvoker(const std::string &script) const;
+  LanguageInvokerPtr GetLanguageInvoker(const std::string& script) const;
 
   /*!
    * \brief Executes the given script asynchronously in a separate thread.
@@ -112,9 +101,9 @@ protected:
   void OnScriptEnded(int scriptId);
 
 private:
-  CScriptInvocationManager();
-  CScriptInvocationManager(const CScriptInvocationManager&);
-  CScriptInvocationManager const& operator=(CScriptInvocationManager const&);
+  CScriptInvocationManager() = default;
+  CScriptInvocationManager(const CScriptInvocationManager&) = delete;
+  CScriptInvocationManager const& operator=(CScriptInvocationManager const&) = delete;
   virtual ~CScriptInvocationManager();
 
   typedef struct {
@@ -130,6 +119,6 @@ private:
   LanguageInvocationHandlerMap m_invocationHandlers;
   LanguageInvokerThreadMap m_scripts;
   std::map<std::string, int> m_scriptPaths;
-  int m_nextId;
-  CCriticalSection m_critSection;
+  int m_nextId = 0;
+  mutable CCriticalSection m_critSection;
 };

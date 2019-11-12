@@ -1,34 +1,27 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
  \file Key.h
  \brief
  */
-#pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+//! @todo Remove dependence on CAction
+#include "input/actions/Action.h"
+#include "input/actions/ActionIDs.h"
 
-#include <string>
 #include <stdint.h>
+#include <string>
 
 // Reserved 0 - 255
-//  XBIRRemote.h
+//  IRRemote.h
 //  XINPUT_IR_REMOTE-*
 
 /*
@@ -72,35 +65,6 @@
 #define KEY_BUTTON_LEFT_THUMB_STICK_LEFT    282
 #define KEY_BUTTON_LEFT_THUMB_STICK_RIGHT   283
 
-/*
- * joystick.xml keys based on Xbox 360 controller
- */
-#define KEY_JOYSTICK_BUTTON_A                        284
-#define KEY_JOYSTICK_BUTTON_B                        285
-#define KEY_JOYSTICK_BUTTON_X                        286
-#define KEY_JOYSTICK_BUTTON_Y                        287
-#define KEY_JOYSTICK_BUTTON_LEFT_SHOULDER            288
-#define KEY_JOYSTICK_BUTTON_RIGHT_SHOULDER           289
-#define KEY_JOYSTICK_BUTTON_LEFT_TRIGGER             290
-#define KEY_JOYSTICK_BUTTON_RIGHT_TRIGGER            291
-#define KEY_JOYSTICK_BUTTON_LEFT_STICK_BUTTON        292
-#define KEY_JOYSTICK_BUTTON_RIGHT_STICK_BUTTON       293
-#define KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_UP     294
-#define KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_DOWN   295
-#define KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_LEFT   296
-#define KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_RIGHT  297
-#define KEY_JOYSTICK_BUTTON_DPAD_UP                  298
-#define KEY_JOYSTICK_BUTTON_DPAD_DOWN                299
-#define KEY_JOYSTICK_BUTTON_DPAD_LEFT                300
-#define KEY_JOYSTICK_BUTTON_DPAD_RIGHT               301
-#define KEY_JOYSTICK_BUTTON_START                    302
-#define KEY_JOYSTICK_BUTTON_BACK                     303
-#define KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_UP      304
-#define KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_DOWN    305
-#define KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_LEFT    306
-#define KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_RIGHT   307
-#define KEY_JOYSTICK_BUTTON_GUIDE                    308
-
 // 0xF000 -> 0xF200 is reserved for the keyboard; a keyboard press is either
 #define KEY_VKEY            0xF000 // a virtual key/functional key e.g. cursor left
 #define KEY_ASCII           0xF100 // a printable character in the range of TRUE ASCII (from 0 to 127) // FIXME make it clean and pure unicode! remove the need for KEY_ASCII
@@ -130,9 +94,6 @@
 // 0xD000 -> 0xD0FF is reserved for WM_APPCOMMAND messages
 #define KEY_APPCOMMAND      0xD000
 
-// 0xF000 -> 0xF0FF is reserved for mouse actions
-#define KEY_TOUCH           0xF000
-
 #define KEY_INVALID         0xFFFF
 
 // actions that we have defined...
@@ -143,6 +104,7 @@
  * @{
  * @brief Actions that we have defined.
  */
+ /* KRYPTON
 #define ACTION_NONE                    0
 #define ACTION_MOVE_LEFT               1
 #define ACTION_MOVE_RIGHT              2
@@ -220,6 +182,7 @@
 
 #define ACTION_PLAY                   68  //!< Unused at the moment
 #define ACTION_PLAYER_PROCESS_INFO    69 //!< show player process info (video decoder, pixel format, pvr signal strength and the like
+*/
 #ifdef HAS_DS_PLAYER
 #define ACTION_DSPLAYER_USERSETTINGS_ATSTART 900
 #define ACTION_DSPLAYER_USERSETTINGS_1       901
@@ -230,6 +193,7 @@
 #define ACTION_DSPLAYER_USERSETTINGS_1080    906
 #define ACTION_DSPLAYER_USERSETTINGS_2160    907
 #endif
+/* KRYPTON
 #define ACTION_SMALL_STEP_BACK        76  //!< jumps a few seconds back during playback of movie. Can b used in videoFullScreen.xml window id=2005
 
 #define ACTION_PLAYER_FORWARD         77  //!< FF in current file played. global action, can be used anywhere
@@ -430,7 +394,7 @@
 // system mappings. ERROR action is used to play an error sound
 #define ACTION_ERROR                  998
 #define ACTION_NOOP                   999
-
+*/
 #define ICON_TYPE_NONE          101
 #define ICON_TYPE_PROGRAMS      102
 #define ICON_TYPE_MUSIC         103
@@ -441,93 +405,6 @@
 #define ICON_TYPE_SETTINGS      109
 
 #ifndef SWIG
-
-class CKey;
-
-/*!
-  \ingroup actionkeys
-  \brief class encapsulating information regarding a particular user action to be sent to windows and controls
-  */
-class CAction
-{
-public:
-  CAction(int actionID, float amount1 = 1.0f, float amount2 = 0.0f, const std::string &name = "", unsigned int holdTime = 0);
-  CAction(int actionID, wchar_t unicode);
-  CAction(int actionID, unsigned int state, float posX, float posY, float offsetX, float offsetY, const std::string &name = "");
-  CAction(int actionID, const std::string &name, const CKey &key);
-  CAction(int actionID, const std::string &name);
-
-  CAction(const CAction& other) { *this = other; }
-  CAction& operator=(const CAction& rhs);
-
-  /*! \brief Identifier of the action
-   \return id of the action
-   */
-  int GetID() const { return m_id; };
-
-  /*! \brief Is this an action from the mouse
-   \return true if this is a mouse action, false otherwise
-   */
-  bool IsMouse() const { return (m_id >= ACTION_MOUSE_START && m_id <= ACTION_MOUSE_END); };
-
-  bool IsGesture() const { return (m_id >= ACTION_GESTURE_NOTIFY && m_id <= ACTION_GESTURE_END); };
-
-  /*! \brief Human-readable name of the action
-   \return name of the action
-   */
-  const std::string &GetName() const { return m_name; };
-  
-  /*! \brief Text of the action if any
-   \return text payload of this action.
-   */
-  const std::string &GetText() const { return m_text; };
-  
-  /*! \brief Set the text payload of the action
-   \param text to be set
-   */
-  void SetText(const std::string &text) { m_text = text; };
-
-  /*! \brief Get an amount associated with this action
-   \param zero-based index of amount to retrieve, defaults to 0
-   \return an amount associated with this action
-   */
-  float GetAmount(unsigned int index = 0) const { return (index < max_amounts) ? m_amount[index] : 0; };
-
-  /*! \brief Unicode value associated with this action
-   \return unicode value associated with this action, for keyboard input.
-   */
-  wchar_t GetUnicode() const { return m_unicode; };
-
-  /*! \brief Time in ms that the key has been held
-   \return time that the key has been held down in ms.
-   */
-  unsigned int GetHoldTime() const { return m_holdTime; };
-
-  /*! \brief Time since last repeat in ms
-   \return time since last repeat in ms. Returns 0 if unknown.
-   */
-  float GetRepeat() const { return m_repeat; };
-
-  /*! \brief Button code that triggered this action
-   \return button code
-   */
-  unsigned int GetButtonCode() const { return m_buttonCode; };
-
-  bool IsAnalog() const;
-
-private:
-  int          m_id;
-  std::string   m_name;
-
-  static const unsigned int max_amounts = 4; // Must be at least 4.
-  float        m_amount[max_amounts];
-
-  float        m_repeat;
-  unsigned int m_holdTime;
-  unsigned int m_buttonCode;
-  wchar_t      m_unicode;
-  std::string  m_text;
-};
 
 /*!
   \ingroup actionkeys, mouse
@@ -560,7 +437,7 @@ public:
   CKey(void);
   CKey(uint32_t buttonCode, uint8_t leftTrigger = 0, uint8_t rightTrigger = 0, float leftThumbX = 0.0f, float leftThumbY = 0.0f, float rightThumbX = 0.0f, float rightThumbY = 0.0f, float repeat = 0.0f);
   CKey(uint32_t buttonCode, unsigned int held);
-  CKey(uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, unsigned int held);
+  CKey(uint32_t keycode, uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, uint32_t lockingModifiers, unsigned int held);
   CKey(const CKey& key);
   void Reset();
 
@@ -580,10 +457,12 @@ public:
   bool GetFromService() const { return m_fromService; }
 
   inline uint32_t GetButtonCode() const { return m_buttonCode; }
+  inline uint32_t GetKeycode() const    { return m_keycode; } // XBMCKey enum in XBMC_keysym.h
   inline uint8_t  GetVKey() const       { return m_vkey; }
   inline wchar_t  GetUnicode() const    { return m_unicode; }
   inline char     GetAscii() const      { return m_ascii; }
   inline uint32_t GetModifiers() const  { return m_modifiers; };
+  inline uint32_t GetLockingModifiers() const { return m_lockingModifiers; };
   inline unsigned int GetHeld() const   { return m_held; }
 
   enum Modifier {
@@ -593,15 +472,20 @@ public:
     MODIFIER_RALT  = 0x00080000,
     MODIFIER_SUPER = 0x00100000,
     MODIFIER_META  = 0X00200000,
-    MODIFIER_LONG  = 0X01000000
+    MODIFIER_LONG  = 0X01000000,
+    MODIFIER_NUMLOCK = 0X02000000,
+    MODIFIER_CAPSLOCK = 0X04000000,
+    MODIFIER_SCROLLLOCK = 0X08000000,
   };
 
 private:
   uint32_t m_buttonCode;
+  uint32_t m_keycode;
   uint8_t  m_vkey;
   wchar_t  m_unicode;
   char     m_ascii;
   uint32_t m_modifiers;
+  uint32_t m_lockingModifiers;
   unsigned int m_held;
 
   uint8_t m_leftTrigger;
@@ -614,4 +498,3 @@ private:
   bool m_fromService;
 };
 #endif //undef SWIG
-

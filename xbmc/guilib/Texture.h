@@ -1,31 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "system.h"
 #include "XBTF.h"
 #include "guilib/imagefactory.h"
-#ifdef TARGET_POSIX
-#include "linux/XMemUtils.h"
-#endif
 
 #pragma pack(1)
 struct COLOR {unsigned char b,g,r,x;};	// Windows GDI expects 4bytes per color
@@ -35,6 +19,12 @@ class CTexture;
 class CGLTexture;
 class CPiTexture;
 class CDXTexture;
+
+enum class TEXTURE_SCALING
+{
+  LINEAR,
+  NEAREST,
+};
 
 /*!
 \ingroup textures
@@ -73,13 +63,17 @@ public:
   static CBaseTexture *LoadFromFileInMemory(unsigned char* buffer, size_t bufferSize, const std::string& mimeType,
                                             unsigned int idealWidth = 0, unsigned int idealHeight = 0);
 
-  bool LoadFromMemory(unsigned int width, unsigned int height, unsigned int pitch, unsigned int format, bool hasAlpha, unsigned char* pixels);
+  bool LoadFromMemory(unsigned int width, unsigned int height, unsigned int pitch, unsigned int format, bool hasAlpha, const unsigned char* pixels);
   bool LoadPaletted(unsigned int width, unsigned int height, unsigned int pitch, unsigned int format, const unsigned char *pixels, const COLOR *palette);
 
   bool HasAlpha() const;
 
   void SetMipmapping();
   bool IsMipmapped() const;
+  void SetScalingMethod(TEXTURE_SCALING scalingMethod) { m_scalingMethod = scalingMethod; }
+  TEXTURE_SCALING GetScalingMethod() const { return m_scalingMethod; }
+  void SetCacheMemory(bool bCacheMemory) { m_bCacheMemory = bCacheMemory; }
+  bool GetCacheMemory() const { return m_bCacheMemory; }
 
   virtual void CreateTextureObject() = 0;
   virtual void DestroyTextureObject() = 0;
@@ -110,7 +104,7 @@ public:
 
 private:
   // no copy constructor
-  CBaseTexture(const CBaseTexture &copy);
+  CBaseTexture(const CBaseTexture &copy) = delete;
 
 protected:
   bool LoadFromFileInMem(unsigned char* buffer, size_t size, const std::string& mimeType,
@@ -133,11 +127,13 @@ protected:
   bool m_loadedToGPU;
   unsigned int m_format;
   int m_orientation;
-  bool m_hasAlpha;
-  bool m_mipmapping;
+  bool m_hasAlpha =  true ;
+  bool m_mipmapping =  false ;
+  TEXTURE_SCALING m_scalingMethod = TEXTURE_SCALING::LINEAR;
+  bool m_bCacheMemory = false;
 };
 
-#if defined(HAS_OMXPLAYER)
+#if defined(TARGET_RASPBERRY_PI)
 #include "TexturePi.h"
 #define CTexture CPiTexture
 #elif defined(HAS_GL) || defined(HAS_GLES)

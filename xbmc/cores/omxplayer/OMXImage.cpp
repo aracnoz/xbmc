@@ -1,49 +1,36 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#elif defined(TARGET_WINDOWS)
-#include "system.h"
-#endif
 
 #include "OMXImage.h"
 
-#include "utils/log.h"
-#include "linux/XMemUtils.h"
-
-#include <sys/time.h>
-#include <inttypes.h>
-#include "guilib/GraphicContext.h"
+#include "Application.h"
+#include "ServiceBroker.h"
+#include "URL.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/DisplaySettings.h"
 #include "settings/Settings.h"
-#include "linux/RBP.h"
+#include "settings/SettingsComponent.h"
 #include "utils/URIUtils.h"
-#include "windowing/WindowingFactory.h"
-#include "Application.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
+#include "windowing/WinSystem.h"
+#include "windowing/rpi/WinSystemRpiGLESContext.h"
+
+#include "platform/linux/RBP.h"
+
 #include <algorithm>
 #include <cassert>
+#include <inttypes.h>
+
+#include <sys/time.h>
 
 #ifdef _DEBUG
-#define CheckError() m_result = eglGetError(); if (m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+#define CheckError() { GLint result = eglGetError(); if (result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x", __FUNCTION__, result); }
 #else
 #define CheckError()
 #endif
@@ -123,7 +110,7 @@ COMXImageFile *COMXImage::LoadJpeg(const std::string& texturePath)
   COMXImageFile *file = new COMXImageFile();
   if (!file->ReadFile(texturePath))
   {
-    CLog::Log(LOGNOTICE, "%s: unable to load %s", __func__, texturePath.c_str());
+    CLog::Log(LOGNOTICE, "%s: unable to load %s", __func__, CURL::GetRedacted(texturePath).c_str());
     delete file;
     file = NULL;
   }
@@ -154,7 +141,7 @@ bool COMXImage::DecodeJpeg(COMXImageFile *file, unsigned int width, unsigned int
 
 bool COMXImage::ClampLimits(unsigned int &width, unsigned int &height, unsigned int m_width, unsigned int m_height, bool transposed)
 {
-  RESOLUTION_INFO& res_info = CDisplaySettings::GetInstance().GetResolutionInfo(g_graphicsContext.GetVideoResolution());
+  RESOLUTION_INFO& res_info = CDisplaySettings::GetInstance().GetResolutionInfo(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution());
   unsigned int max_width = width;
   unsigned int max_height = height;
   const unsigned int gui_width = transposed ? res_info.iHeight:res_info.iWidth;
@@ -164,13 +151,15 @@ bool COMXImage::ClampLimits(unsigned int &width, unsigned int &height, unsigned 
 
   if (max_width == 0 || max_height == 0)
   {
-    max_height = g_advancedSettings.m_imageRes;
+    const std::shared_ptr<CAdvancedSettings> advancedSettings = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings();
 
-    if (g_advancedSettings.m_fanartRes > g_advancedSettings.m_imageRes)
+    max_height = advancedSettings->m_imageRes;
+
+    if (advancedSettings->m_fanartRes > advancedSettings->m_imageRes)
     { // 16x9 images larger than the fanart res use that rather than the image res
-      if (fabsf(aspect / (16.0f/9.0f) - 1.0f) <= 0.01f && m_height >= g_advancedSettings.m_fanartRes)
+      if (fabsf(aspect / (16.0f/9.0f) - 1.0f) <= 0.01f && m_height >= advancedSettings->m_fanartRes)
       {
-        max_height = g_advancedSettings.m_fanartRes;
+        max_height = advancedSettings->m_fanartRes;
       }
     }
     max_width = max_height * 16/9;
@@ -228,7 +217,8 @@ bool COMXImage::SendMessage(bool (*callback)(EGLDisplay egl_display, EGLContext 
   // we can only call gl functions from the application thread or texture thread
   if ( g_application.IsCurrentThread() )
   {
-    return callback(g_Windowing.GetEGLDisplay(), GetEGLContext(), cookie);
+    CWinSystemRpiGLESContext *winsystem = static_cast<CWinSystemRpiGLESContext *>(CServiceBroker::GetWinSystem());
+    return callback(winsystem->GetEGLDisplay(), GetEGLContext(), cookie);
   }
   struct callbackinfo mess;
   mess.callback = callback;
@@ -263,12 +253,11 @@ bool COMXImage::AllocTextureInternal(EGLDisplay egl_display, EGLContext egl_cont
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  GLenum type = CSettings::GetInstance().GetBool("videoscreen.textures32") ? GL_UNSIGNED_BYTE:GL_UNSIGNED_SHORT_5_6_5;
+  GLenum type = CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool("videoscreen.textures32") ? GL_UNSIGNED_BYTE:GL_UNSIGNED_SHORT_5_6_5;
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex->width, tex->height, 0, GL_RGB, type, 0);
   tex->egl_image = eglCreateImageKHR(egl_display, egl_context, EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)tex->texture, NULL);
   if (!tex->egl_image)
     CLog::Log(LOGDEBUG, "%s: eglCreateImageKHR failed to allocate", __func__);
-  GLint m_result;
   CheckError();
   return true;
 }
@@ -319,7 +308,6 @@ bool COMXImage::DecodeJpegToTexture(COMXImageFile *file, unsigned int width, uns
   tex->height = height;
   tex->texture = 0;
   tex->egl_image = NULL;
-  tex->filename = file->GetFilename();
 
   SendMessage(AllocTextureCallback, tex);
 
@@ -340,8 +328,9 @@ bool COMXImage::DecodeJpegToTexture(COMXImageFile *file, unsigned int width, uns
 EGLContext COMXImage::GetEGLContext()
 {
   CSingleLock lock(m_texqueue_lock);
+  CWinSystemRpiGLESContext *winsystem = static_cast<CWinSystemRpiGLESContext *>(CServiceBroker::GetWinSystem());
   if (g_application.IsCurrentThread())
-    return g_Windowing.GetEGLContext();
+    return winsystem->GetEGLContext();
   if (m_egl_context == EGL_NO_CONTEXT)
     CreateContext();
   return m_egl_context;
@@ -352,7 +341,6 @@ static bool ChooseConfig(EGLDisplay display, const EGLint *configAttrs, EGLConfi
   EGLBoolean eglStatus = true;
   EGLint     configCount = 0;
   EGLConfig* configList = NULL;
-  GLint m_result;
   // Find out how many configurations suit our needs
   eglStatus = eglChooseConfig(display, configAttrs, NULL, 0, &configCount);
   CheckError();
@@ -390,8 +378,8 @@ static bool ChooseConfig(EGLDisplay display, const EGLint *configAttrs, EGLConfi
 void COMXImage::CreateContext()
 {
   EGLConfig egl_config;
-  GLint m_result;
-  EGLDisplay egl_display = g_Windowing.GetEGLDisplay();
+  CWinSystemRpiGLESContext *winsystem = static_cast<CWinSystemRpiGLESContext *>(CServiceBroker::GetWinSystem());
+  EGLDisplay egl_display = winsystem->GetEGLDisplay();
 
   eglInitialize(egl_display, NULL, NULL);
   CheckError();
@@ -418,7 +406,7 @@ void COMXImage::CreateContext()
     CLog::Log(LOGERROR, "%s: Could not find a compatible configuration",__FUNCTION__);
     return;
   }
-  m_egl_context = eglCreateContext(egl_display, egl_config, g_Windowing.GetEGLContext(), contextAttrs);
+  m_egl_context = eglCreateContext(egl_display, egl_config, winsystem->GetEGLContext(), contextAttrs);
   CheckError();
   if (m_egl_context == EGL_NO_CONTEXT)
   {
@@ -456,7 +444,8 @@ void COMXImage::Process()
       m_texqueue.pop();
       lock.Leave();
 
-      mess->result = mess->callback(g_Windowing.GetEGLDisplay(), GetEGLContext(), mess->cookie);
+      CWinSystemRpiGLESContext *winsystem = static_cast<CWinSystemRpiGLESContext *>(CServiceBroker::GetWinSystem());
+      mess->result = mess->callback(winsystem->GetEGLDisplay(), GetEGLContext(), mess->cookie);
       {
         CSingleLock lock(m_texqueue_lock);
         mess->sync.Set();
@@ -485,7 +474,6 @@ COMXImageFile::COMXImageFile()
   m_orientation   = 0;
   m_width         = 0;
   m_height        = 0;
-  m_filename      = "";
 }
 
 COMXImageFile::~COMXImageFile()
@@ -603,7 +591,7 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
 
   if(!m_image_size)
   {
-    CLog::Log(LOGERROR, "%s::%s %s m_image_size unexpected (%lu)\n", CLASSNAME, __func__, m_filename, m_image_size);
+    CLog::Log(LOGERROR, "%s::%s %s m_image_size unexpected (%lu)\n", CLASSNAME, __func__, GetFilename(), m_image_size);
     return OMX_IMAGE_CodingMax;
   }
 
@@ -620,7 +608,7 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
     unsigned short block_size = 0;
     bool nMarker = false;
 
-    while(p < q)
+    while(p < q && !progressive)
     {
       switch(marker)
       {
@@ -721,32 +709,32 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
         // Exif header
         if(READ32(p) == 0x45786966)
         {
-          bool bMotorolla = false;
+          bool bMotorola = false;
           bool bError = false;
           SKIPN(p, 1 * 2);
           readBits += 2;
-        
+
           char o1 = READ8(p);
           char o2 = READ8(p);
           readBits += 2;
 
           /* Discover byte order */
           if(o1 == 'M' && o2 == 'M')
-            bMotorolla = true;
+            bMotorola = true;
           else if(o1 == 'I' && o2 == 'I')
-            bMotorolla = false;
+            bMotorola = false;
           else
             bError = true;
-        
+
           SKIPN(p, 1 * 2);
           readBits += 2;
 
           if(!bError)
           {
             unsigned int offset, a, b, numberOfTags, tagNumber;
-  
+
             // Get first IFD offset (offset to IFD0)
-            if(bMotorolla)
+            if(bMotorola)
             {
               SKIPN(p, 1 * 2);
               readBits += 2;
@@ -772,10 +760,10 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
             {
               SKIPN(p, 1 * offset);
               readBits += offset;
-            } 
+            }
 
             // Get the number of directory entries contained in this IFD
-            if(bMotorolla)
+            if(bMotorola)
             {
               a = READ8(p);
               b = READ8(p);
@@ -792,7 +780,7 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
             while(numberOfTags && p < q)
             {
               // Get Tag number
-              if(bMotorolla)
+              if(bMotorola)
               {
                 a = READ8(p);
                 b = READ8(p);
@@ -810,7 +798,7 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
               //found orientation tag
               if(tagNumber == EXIF_TAG_ORIENTATION)
               {
-                if(bMotorolla)
+                if(bMotorola)
                 {
                   SKIPN(p, 1 * 7);
                   readBits += 7;
@@ -879,10 +867,10 @@ OMX_IMAGE_CODINGTYPE COMXImageFile::GetCodingType(unsigned int &width, unsigned 
 bool COMXImageFile::ReadFile(const std::string& inputFile, int orientation)
 {
   XFILE::CFile      m_pFile;
-  m_filename = inputFile.c_str();
+  m_filename = CURL::GetRedacted(inputFile);
   if(!m_pFile.Open(inputFile, 0))
   {
-    CLog::Log(LOGERROR, "%s::%s %s not found\n", CLASSNAME, __func__, m_filename);
+    CLog::Log(LOGERROR, "%s::%s %s not found\n", CLASSNAME, __func__, GetFilename());
     return false;
   }
 
@@ -894,23 +882,23 @@ bool COMXImageFile::ReadFile(const std::string& inputFile, int orientation)
 
   if(!m_image_size)
   {
-    CLog::Log(LOGERROR, "%s::%s %s m_image_size zero\n", CLASSNAME, __func__, m_filename);
+    CLog::Log(LOGERROR, "%s::%s %s m_image_size zero\n", CLASSNAME, __func__, GetFilename());
     return false;
   }
   m_image_buffer = (uint8_t *)malloc(m_image_size);
   if(!m_image_buffer)
   {
-    CLog::Log(LOGERROR, "%s::%s %s m_image_buffer null (%lu)\n", CLASSNAME, __func__, m_filename, m_image_size);
+    CLog::Log(LOGERROR, "%s::%s %s m_image_buffer null (%lu)\n", CLASSNAME, __func__, GetFilename(), m_image_size);
     return false;
   }
-  
+
   m_pFile.Read(m_image_buffer, m_image_size);
   m_pFile.Close();
 
   OMX_IMAGE_CODINGTYPE eCompressionFormat = GetCodingType(m_width, m_height, orientation);
   if(eCompressionFormat != OMX_IMAGE_CodingJPEG || m_width < 1 || m_height < 1)
   {
-    CLog::Log(LOGDEBUG, "%s::%s %s GetCodingType=0x%x (%dx%d)\n", CLASSNAME, __func__, m_filename, eCompressionFormat, m_width, m_height);
+    CLog::Log(LOGDEBUG, "%s::%s %s GetCodingType=0x%x (%dx%d)\n", CLASSNAME, __func__, GetFilename(), eCompressionFormat, m_width, m_height);
     return false;
   }
 
@@ -1263,7 +1251,7 @@ bool COMXImageEnc::Encode(unsigned char *buffer, int size, unsigned width, unsig
   if (pitch == 0)
      pitch = 4 * width;
 
-  if (!buffer || !size) 
+  if (!buffer || !size)
   {
     CLog::Log(LOGERROR, "%s::%s error no buffer\n", CLASSNAME, __func__);
     return false;
@@ -1987,7 +1975,8 @@ void COMXTexture::Close()
 
 bool COMXTexture::HandlePortSettingChange(unsigned int resize_width, unsigned int resize_height, void *egl_image, bool port_settings_changed)
 {
-  EGLDisplay egl_display = g_Windowing.GetEGLDisplay();
+  CWinSystemRpiGLESContext *winsystem = static_cast<CWinSystemRpiGLESContext *>(CServiceBroker::GetWinSystem());
+  EGLDisplay egl_display = winsystem->GetEGLDisplay();
   OMX_ERRORTYPE omx_err;
 
   if (port_settings_changed)
@@ -2253,7 +2242,8 @@ bool COMXTexture::Decode(const uint8_t *demuxer_content, unsigned demuxer_bytes,
       }
       if (omx_buffer != m_egl_buffer)
       {
-        CLog::Log(LOGERROR, "%s::%s error m_omx_egl_render.GetOutputBuffer (%p,%p)", CLASSNAME, __func__, omx_buffer, m_egl_buffer);
+        CLog::Log(LOGERROR, "%s::%s error m_omx_egl_render.GetOutputBuffer (%p,%p)", CLASSNAME,
+                  __func__, static_cast<void*>(omx_buffer), static_cast<void*>(m_egl_buffer));
         return false;
       }
 

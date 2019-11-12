@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <map>
 #include <string>
@@ -49,7 +38,7 @@ public:
   *   \param[in] lang2 The second language string to compare given as english language name.
   *   \return true if the two language strings represent the same language, false otherwise.
   *   For example "Abkhaz" and "Abkhazian" represent the same language.
-  */ 
+  */
   bool CompareFullLanguageNames(const std::string& lang1, const std::string& lang2);
 
   /** \brief Determines if two languages given as ISO 639-1, ISO 639-2/T, or ISO 639-2/B codes represent the same language.
@@ -57,33 +46,43 @@ public:
   *   \param[in] code2 The second language to compare given as ISO 639-1, ISO 639-2/T, or ISO 639-2/B code.
   *   \return true if the two language codes represent the same language, false otherwise.
   *   For example "ger", "deu" and "de" represent the same language.
-  */ 
+  */
   bool CompareISO639Codes(const std::string& code1, const std::string& code2);
 
   /** \brief Converts a language given as 2-Char (ISO 639-1),
   *          3-Char (ISO 639-2/T or ISO 639-2/B),
-  *          or full english name string to a 2-Char (ISO 639-1) code.  
+  *          or full english name string to a 2-Char (ISO 639-1) code.
   *   \param[out] code The 2-Char language code of the given language lang.
   *   \param[in] lang The language that should be converted.
-  *   \return true if the conversion succeeded, false otherwise. 
-  */ 
+  *   \return true if the conversion succeeded, false otherwise.
+  */
   bool ConvertToISO6391(const std::string& lang, std::string& code);
 
   /** \brief Converts a language given as 2-Char (ISO 639-1),
   *          3-Char (ISO 639-2/T or ISO 639-2/B),
-  *          or full english name string to a 3-Char ISO 639-2/T code.
+  *          or full english name string to a 3-Char ISO 639-2/B code.
   *   \param[in] lang The language that should be converted.
-  *   \return The 3-Char ISO 639-2/T code of lang if that code exists, lang otherwise.
+  *   \return The 3-Char ISO 639-2/B code of lang if that code exists, lang otherwise.
   */
-  std::string ConvertToISO6392T(const std::string& lang);
+  std::string ConvertToISO6392B(const std::string& lang);
 
   /** \brief Converts a language given as 2-Char (ISO 639-1) to a 3-Char (ISO 639-2/T) code.
   *   \param[in] strISO6391 The language that should be converted.
-  *   \param[out] strISO6392T The 3-Char (ISO 639-2/T) language code of the given language strISO6391.
+  *   \param[out] strISO6392B The 3-Char (ISO 639-2/B) language code of the given language strISO6391.
   *   \param[in] checkWin32Locales Whether to also check WIN32 specific language codes.
   *   \return true if the conversion succeeded, false otherwise.
   */
-  static bool ConvertISO6391ToISO6392T(const std::string& strISO6391, std::string& strISO6392T, bool checkWin32Locales = false);
+  static bool ConvertISO6391ToISO6392B(const std::string& strISO6391, std::string& strISO6392B, bool checkWin32Locales = false);
+
+  /** \brief Converts a language given as 2-Char (ISO 639-1),
+  *          3-Char (ISO 639-2/T or ISO 639-2/B),
+  *          or full english name string to a 3-Char ISO 639-2/T code.
+  *   \param[in] strCharCode The language that should be converted.
+  *   \param[out] strISO6392B The 3-Char (ISO 639-2/B) language code of the given language strISO6391.
+  *   \param[in] checkWin32Locales Whether to also check WIN32 specific language codes.
+  *   \return true if the conversion succeeded, false otherwise.
+  */
+  bool ConvertToISO6392B(const std::string& strCharCode, std::string& strISO6392B, bool checkWin32Locales = false);
 
   /** \brief Converts a language given as 2-Char (ISO 639-1),
   *          3-Char (ISO 639-2/T or ISO 639-2/B),
@@ -95,9 +94,17 @@ public:
   */
   bool ConvertToISO6392T(const std::string& strCharCode, std::string& strISO6392T, bool checkWin32Locales = false);
 
+  /** \brief Converts a language given as 2-Char (ISO 639-1),
+  *          3-Char (ISO 639-2/T or ISO 639-2/B),
+  *          or full english name string to a 3-Char ISO 639-2/T code.
+  *   \param[in] lang The language that should be converted.
+  *   \return The 3-Char ISO 639-2/T code of lang if that code exists, lang otherwise.
+  */
+  std::string ConvertToISO6392T(const std::string& lang);
+
 #ifdef TARGET_WINDOWS
-  static bool ConvertISO36111Alpha2ToISO36111Alpha3(const std::string& strISO36111Alpha2, std::string& strISO36111Alpha3);
-  static bool ConvertWindowsLanguageCodeToISO6392T(const std::string& strWindowsLanguageCode, std::string& strISO6392T);
+  static bool ConvertISO31661Alpha2ToISO31661Alpha3(const std::string& strISO31661Alpha2, std::string& strISO31661Alpha3);
+  static bool ConvertWindowsLanguageCodeToISO6392B(const std::string& strWindowsLanguageCode, std::string& strISO6392B);
 #endif
 
   std::vector<std::string> GetLanguageNames(LANGFORMATS format = ISO_639_1, bool customNames = false);
@@ -107,7 +114,7 @@ protected:
   *          to its string representation.
   *   \param[in] code The language code given as a long, see #MAKECODE(a, b, c, d).
   *   \param[out] ret The string representation of the given language code code.
-  */ 
+  */
   static void CodeToString(long code, std::string& ret);
 
   static bool LookupInISO639Tables(const std::string& code, std::string& desc);
@@ -118,7 +125,7 @@ protected:
   *   \param[in] desc The english language name for which a code is looked for.
   *   \param[out] code The ISO 639-1, ISO 639-2/T, or ISO 639-2/B code of the given language desc.
   *   \return true if the a code was found, false otherwise.
-  */ 
+  */
   bool ReverseLookup(const std::string& desc, std::string& code);
 
 

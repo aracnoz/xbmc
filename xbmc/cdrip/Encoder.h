@@ -1,30 +1,19 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "IEncoder.h"
-#include <string>
+
+#include <memory>
 #include <stdint.h>
 #include <stdio.h>
-#include <memory>
+#include <string>
 
 #define WRITEBUFFER_SIZE 131072 // 128k buffer
 
@@ -33,7 +22,7 @@ namespace XFILE { class CFile; }
 class CEncoder
 {
 public:
-  CEncoder(std::shared_ptr<IEncoder> encoder);
+  explicit CEncoder(std::shared_ptr<IEncoder> encoder);
   virtual ~CEncoder();
   virtual bool Init(const char* strFile, int iInChannels, int iInRate, int iInBits);
   virtual int Encode(int nNumBytesRead, uint8_t* pbtStream);
@@ -58,7 +47,7 @@ protected:
   int WriteStream(const void *pBuffer, uint32_t iBytes);
   int FlushStream();
 
-  static int WriteCallback(void *opaque, uint8_t *data, int size);
+  static int WriteCallback(void *opaque, const uint8_t *data, int size);
   static int64_t SeekCallback(void *opaque, int64_t offset, int whence);
 
   std::shared_ptr<IEncoder> m_impl;

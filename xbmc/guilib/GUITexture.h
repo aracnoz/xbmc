@@ -1,39 +1,22 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUITexture.h
 \brief
 */
 
-#ifndef GUILIB_GUITEXTURE_H
-#define GUILIB_GUITEXTURE_H
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
-
 #include "TextureManager.h"
-#include "Geometry.h"
-#include "system.h" // HAS_GL, HAS_DX, etc
-#include "GUIInfoTypes.h"
-
-typedef uint32_t color_t;
+#include "utils/Color.h"
+#include "utils/Geometry.h"
+#include "guiinfo/GUIInfoColor.h"
 
 // image alignment for <aspect>keep</aspect>, <aspect>scale</aspect> or <aspect>center</aspect>
 #define ASPECT_ALIGN_CENTER  0
@@ -72,13 +55,13 @@ class CTextureInfo
 {
 public:
   CTextureInfo();
-  CTextureInfo(const std::string &file);
-  CTextureInfo& operator=(const CTextureInfo &right);
+  explicit CTextureInfo(const std::string &file);
+  CTextureInfo& operator=(const CTextureInfo& right) = default;
   bool       useLarge;
   CRect      border;          // scaled  - unneeded if we get rid of scale on load
   int        orientation;     // orientation of the texture (0 - 7 == EXIForientation - 1)
   std::string diffuse;         // diffuse overlay texture
-  CGUIInfoColor diffuseColor; // diffuse color
+  KODI::GUILIB::GUIINFO::CGUIInfoColor diffuseColor; // diffuse color
   std::string filename;        // main texture file
 };
 
@@ -99,7 +82,7 @@ public:
 
   bool SetVisible(bool visible);
   bool SetAlpha(unsigned char alpha);
-  bool SetDiffuseColor(color_t color);
+  bool SetDiffuseColor(UTILS::Color color);
   bool SetPosition(float x, float y);
   bool SetWidth(float width);
   bool SetHeight(float height);
@@ -134,12 +117,12 @@ protected:
   // functions that our implementation classes handle
   virtual void Allocate() {}; ///< called after our textures have been allocated
   virtual void Free() {};     ///< called after our textures have been freed
-  virtual void Begin(color_t color) {};
+  virtual void Begin(UTILS::Color color) {};
   virtual void Draw(float *x, float *y, float *z, const CRect &texture, const CRect &diffuse, int orientation)=0;
   virtual void End() {};
 
   bool m_visible;
-  color_t m_diffuseColor;
+  UTILS::Color m_diffuseColor;
 
   float m_posX;         // size of the frame
   float m_posY;
@@ -186,4 +169,3 @@ protected:
 #define CGUITexture CGUITextureD3D
 #endif
 
-#endif

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -47,6 +47,10 @@ msgstr "Satunnaiset elokuvat"
 msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr "Katsomattomat elokuvat"
+
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr "Näytä kategoria-widgetit"
 
 msgctxt "#31009"
 msgid "Download icons"
@@ -107,6 +111,10 @@ msgstr "Lajittelu"
 msgctxt "#31023"
 msgid "Viewtype"
 msgstr "Näkymä"
+
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr "Valitse näytettävän arvosanan tyyppi"
 
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
@@ -192,10 +200,6 @@ msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Pysäytä painamalla [B]OK[/B]"
 
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Tekstitysraita"
-
 msgctxt "#31052"
 msgid "filtered"
 msgstr "suodatetut"
@@ -214,11 +218,11 @@ msgstr "Avaa toistolista"
 
 msgctxt "#31057"
 msgid "Show login screen on startup"
-msgstr "Näytä kirjautumisruutu käynnistyksessä"
+msgstr "Näytä kirjautumisruutu käynnistyksen yhteydessä"
 
 msgctxt "#31058"
 msgid "Automatic Login on startup"
-msgstr "Automaattinen kirjautuminen käynnistyksessä"
+msgstr "Automaattinen kirjautuminen"
 
 msgctxt "#31061"
 msgid "Main menu items"
@@ -314,7 +318,7 @@ msgstr "Kanavan asetukset"
 
 msgctxt "#31098"
 msgid "Select your Kodi user profile[CR]to login and continue"
-msgstr "Valitse Kodi-käyttäjäprofiili[CR]kirjautuaksesi sisään"
+msgstr "Valitse Kodi-käyttäjäprofiilisi[CR]ja kirjaudu sisään"
 
 msgctxt "#31099"
 msgid "IconWall"
@@ -441,8 +445,12 @@ msgid "Choose skin fanart pack"
 msgstr "Valitse ulkoasun taustakuvapaketti"
 
 msgctxt "#31132"
-msgid "min"
-msgstr "min"
+msgid "Select Program"
+msgstr "Valitse ohjelma"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Valitse resoluutio"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -543,3 +551,27 @@ msgstr "Näytä mediakuvakkeet"
 msgctxt "#31161"
 msgid "Numeric pad"
 msgstr "Numeronäppäimistö"
+
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr "Pelaa omistamiasi pelejä tai lataa pelilisäosia virallisesta ohjelmavarastosta."
+
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr "Näytä fanitaide"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Valitse näytetäänkö profiilin nimi vai kuva"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profiilin nimi"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profiilin kuva"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animoitu taustakuva"

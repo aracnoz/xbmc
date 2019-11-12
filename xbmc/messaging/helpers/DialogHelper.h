@@ -1,23 +1,12 @@
-#pragma once
 /*
-*      Copyright (C) 2005-2015 Team Kodi
-*      http://kodi.tv
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with Kodi; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
 
 #include "utils/Variant.h"
 
@@ -35,7 +24,8 @@ enum class DialogResponse
 {
   CANCELLED,
   YES,
-  NO
+  NO,
+  CUSTOM
 };
 
 /*! \struct DialogYesNoMessage DialogHelper.h "messaging/helpers/DialogHelper.h"
@@ -51,6 +41,7 @@ struct DialogYesNoMessage
   std::array<CVariant, 3> lines;  //!< Body text to be displayed, specified as three lines. This is mutually exclusive with the text above
   CVariant yesLabel;  //!< Text to show on the yes button
   CVariant noLabel; //!< Text to show on the no button
+  CVariant customLabel; //!< Text to show on the 3rd custom button
   uint32_t autoclose{0}; //!< Time in milliseconds before autoclosing the dialog, 0 means don't autoclose
 };
 
@@ -74,8 +65,29 @@ DialogResponse ShowYesNoDialogText(CVariant heading, CVariant text, CVariant noL
                                    CVariant yesLabel = CVariant(), uint32_t autoCloseTimeout = 0);
 
 /*!
+\brief This is a helper method to send a threadmessage to open a Yes/No dialog box with a cutom button
+
+\param[in]  heading           The text to display as the dialog box header
+\param[in]  text              The text to display in the dialog body
+\param[in]  noLabel           The text to display on the No button
+                              defaults to No
+\param[in]  yesLabel          The text to display on the Yes button
+                              defaults to Yes
+\param[in]  customLabel       The text to display on the optional 3rd custom button
+                              defaults to empty and button not shown
+\param[in]  autoCloseTimeout  The time before the dialog closes
+                              defaults to 0 show indefinitely
+\return -1 on cancelled, 0 on no, 1 on yes and 2 on 3rd custom response
+\sa ShowYesNoDialogLines
+\sa CGUIDialogYesNo::ShowAndGetInput
+\sa DialogYesNoMessage
+*/
+DialogResponse ShowYesNoCustomDialog(CVariant heading, CVariant text, CVariant noLabel = CVariant(), CVariant yesLabel = CVariant(),
+                                        CVariant customLabel = CVariant(), uint32_t autoCloseTimeout = 0);
+
+/*!
   \brief This is a helper method to send a threadmessage to open a Yes/No dialog box
-  
+
   \param[in]  heading           The text to display as the dialog box header
   \param[in]  line0             The text to display on the first line
   \param[in]  line1             The text to display on the second line

@@ -1,40 +1,25 @@
+/*
+ *  Copyright (C) 2002, Leo Seib, Hannover
+ *
+ *  Project:Dataset C++ Dynamic Library
+ *  Module: Dataset abstraction layer header file
+ *  Author: Leo Seib      E-Mail: leoseib@web.de
+ *  Begin: 5/04/2002
+ *
+ *  SPDX-License-Identifier: MIT
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/**********************************************************************
- * Copyright (c) 2002, Leo Seib, Hannover
- *
- * Project:Dataset C++ Dynamic Library
- * Module: Dataset abstraction layer header file
- * Author: Leo Seib      E-Mail: leoseib@web.de
- * Begin: 5/04/2002
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- **********************************************************************/
+#include "qry_dat.h"
 
 #include <cstdio>
 #include <list>
 #include <map>
+#include <stdarg.h>
 #include <string>
 #include <vector>
-#include "qry_dat.h"
-#include <stdarg.h>
 
 namespace dbiplus {
 class Dataset;		// forward declaration of class Dataset
@@ -121,11 +106,11 @@ public:
   virtual int status(void) { return DB_CONNECTION_NONE; }
   virtual int setErr(int err_code, const char *qry)=0;
   virtual const char *getErrorMsg(void) { return error.c_str(); }
-	
+
   virtual int connect(bool create) { return DB_COMMAND_OK; }
   virtual int connectFull( const char *newDb, const char *newHost=NULL,
                       const char *newLogin=NULL, const char *newPasswd=NULL,const char *newPort=NULL,
-                      const char *newKey=NULL, const char *newCert=NULL, const char *newCA=NULL, 
+                      const char *newKey=NULL, const char *newCert=NULL, const char *newCA=NULL,
                       const char *newCApath=NULL, const char *newCiphers=NULL, bool newCompression = false);
   virtual void disconnect(void) { active = false; }
   virtual int reset(void) { return DB_COMMAND_OK; }
@@ -151,7 +136,7 @@ public:
 
   /*! \brief Prepare a SQL statement for execution or querying using C printf nomenclature.
    \param format - C printf compliant format string
-   \param ... - optional comma seperated list of variables for substitution in format string placeholders.
+   \param ... - optional comma separated list of variables for substitution in format string placeholders.
    \return escaped and formatted string.
    */
   virtual std::string prepare(const char *format, ...);
@@ -196,7 +181,7 @@ protected:
   Database *db;		// info about db connection
   dsStates ds_state;	        // current state
   Fields *fields_object, *edit_object;
-      
+
   /* query results*/
   result_set result;
   result_set exec_res;
@@ -222,21 +207,21 @@ protected:
    Example:
    update  wt_story set idobject set idobject=:NEW_idobject,body=:NEW_body
    where idobject=:OLD_idobject
-   Essentually fields idobject and body must present in the
+   Essentially fields idobject and body must present in the
    result set (select_sql statement) */
 
   StringList insert_sql; 		// May be an array in complex queries
 /* Field values for inserting must has prefix :NEW_ and field name
    Example:
    insert into wt_story (idobject, body) values (:NEW_idobject, :NEW_body)
-   Essentually fields idobject and body must present in the
+   Essentially fields idobject and body must present in the
    result set (select_sql statement) */
 
   StringList delete_sql; 		// May be an array in complex queries
 /* Field values for deleing must has prefix :OLD_ and field name
    Example:
    delete from wt_story where idobject=:OLD_idobject
-   Essentually field idobject must present in the
+   Essentially field idobject must present in the
    result set (select_sql statement) */
 
 
@@ -268,7 +253,7 @@ public:
  virtual int str_compare(const char * s1, const char * s2);
 /* constructor */
   Dataset();
-  Dataset(Database *newDb);
+  explicit Dataset(Database *newDb);
 
 /* destructor */
   virtual ~Dataset();
@@ -306,7 +291,7 @@ public:
   virtual int  exec (const std::string &sql) = 0;
   virtual int  exec() = 0;
   virtual const void* getExecRes()=0;
-/* as open, but with our query exept Sql */
+/* as open, but with our query exec Sql */
   virtual bool query(const std::string &sql) = 0;
 /* Close SQL Query*/
   virtual void close();
@@ -332,14 +317,14 @@ public:
   virtual void first();
 /* Go to next record in dataset */
   virtual void next();
-/* Go to porevious record */
+/* Go to previous record */
   virtual void prev();
 /* Go to last record in dataset */
   virtual void last();
 
 /* Check for Ending dataset */
   virtual bool eof(void) { return feof; }
-/* Check for Begining dataset */
+/* Check for Beginning dataset */
   virtual bool bof(void) { return fbof; }
 
 /* Start the insert mode */
@@ -355,7 +340,7 @@ public:
   virtual void deletion();
 /* Cancel changes, made in insert or edit states of dataset */
   virtual void cancel() {};
-/* interupt any pending database operation  */
+/* interrupt any pending database operation  */
 	virtual void interrupt() {};
 
   virtual void setParamList(const ParamList &params);
@@ -365,7 +350,7 @@ public:
 
 /* func. retrieves a number of fields */
 /* Number of fields in a record */
-  virtual int field_count();       					
+  virtual int field_count();
   virtual int fieldCount();
 /* func. retrieves a field name with 'n' index */
   virtual const char *fieldName(int n);
@@ -402,16 +387,18 @@ public:
 
 /* --------------- for fast access ---------------- */
   const result_set& get_result_set() { return result; }
-  const sql_record* const get_sql_record();
+  const sql_record* get_sql_record();
 
  private:
+  Dataset(const Dataset&) = delete;
+  Dataset& operator=(const Dataset&) = delete;
 
   unsigned int fieldIndexMapID;
 
 /* Struct to store an indexMapped field access entry */
   struct FieldIndexMapEntry
   {
-   FieldIndexMapEntry(const char *name):fieldIndex(~0), strName(name){};
+   explicit FieldIndexMapEntry(const char *name):fieldIndex(~0), strName(name){};
    bool operator < (const FieldIndexMapEntry &other) const {return strName < other.strName;};
    unsigned int fieldIndex;
    std::string strName;
@@ -420,7 +407,7 @@ public:
 /* Comparator to quickly find an indexMapped field access entry in the unsorted fieldIndexMap_Entries vector */
   struct FieldIndexMapComparator
   {
-   FieldIndexMapComparator(const std::vector<FieldIndexMapEntry> &c): c_(c) {};
+   explicit FieldIndexMapComparator(const std::vector<FieldIndexMapEntry> &c): c_(c) {};
    bool operator()(const unsigned int &v, const FieldIndexMapEntry &o) const
    {
      return c_[v] < o;
@@ -457,7 +444,7 @@ public:
 /* Get the column index from a string field_value request */
   bool get_index_map_entry(const char *f_name);
 
-  void set_ds_state(dsStates new_state) {ds_state = new_state;};	
+  void set_ds_state(dsStates new_state) {ds_state = new_state;};
  public:
 /* return ds_state value */
   dsStates get_state() {return ds_state;};

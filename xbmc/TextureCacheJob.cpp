@@ -1,38 +1,28 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TextureCacheJob.h"
+#include "ServiceBroker.h"
 #include "TextureCache.h"
 #include "guilib/Texture.h"
 #include "settings/AdvancedSettings.h"
-#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/log.h"
 #include "filesystem/File.h"
 #include "pictures/Picture.h"
 #include "utils/URIUtils.h"
 #include "utils/StringUtils.h"
+#include "video/VideoThumbLoader.h"
 #include "URL.h"
 #include "FileItem.h"
 #include "music/MusicThumbLoader.h"
 #include "music/tags/MusicInfoTag.h"
-#if defined(HAS_OMXPLAYER)
+#if defined(TARGET_RASPBERRY_PI)
 #include "cores/omxplayer/OMXImage.h"
 #endif
 
@@ -43,9 +33,7 @@ CTextureCacheJob::CTextureCacheJob(const std::string &url, const std::string &ol
 {
 }
 
-CTextureCacheJob::~CTextureCacheJob()
-{
-}
+CTextureCacheJob::~CTextureCacheJob() = default;
 
 bool CTextureCacheJob::operator==(const CJob* job) const
 {
@@ -90,7 +78,7 @@ bool CTextureCacheJob::CacheTexture(CBaseTexture **out_texture)
   else if (m_details.hash == m_oldHash)
     return true;
 
-#if defined(HAS_OMXPLAYER)
+#if defined(TARGET_RASPBERRY_PI)
   if (COMXImage::CreateThumb(image, width, height, additional_info, CTextureCache::GetCachedPath(m_cachePath + ".jpg")))
   {
     m_details.width = width;
@@ -98,7 +86,9 @@ bool CTextureCacheJob::CacheTexture(CBaseTexture **out_texture)
     m_details.file = m_cachePath + ".jpg";
     if (out_texture)
       *out_texture = LoadImage(CTextureCache::GetCachedPath(m_details.file), width, height, "" /* already flipped */);
-    CLog::Log(LOGDEBUG, "Fast %s image '%s' to '%s': %p", m_oldHash.empty() ? "Caching" : "Recaching", CURL::GetRedacted(image).c_str(), m_details.file.c_str(), out_texture);
+    CLog::Log(LOGDEBUG, "Fast %s image '%s' to '%s': %p",
+              m_oldHash.empty() ? "Caching" : "Recaching", CURL::GetRedacted(image),
+              m_details.file, static_cast<void*>(out_texture));
     return true;
   }
 #endif
@@ -169,6 +159,8 @@ std::string CTextureCacheJob::DecodeImageURL(const std::string &url, unsigned in
       return "";
     if (thumbURL.GetUserName() == "music")
       additional_info = "music";
+    if (StringUtils::StartsWith(thumbURL.GetUserName(), "video_"))
+      additional_info = thumbURL.GetUserName();
 
     image = thumbURL.GetHostName();
 
@@ -176,7 +168,7 @@ std::string CTextureCacheJob::DecodeImageURL(const std::string &url, unsigned in
       additional_info = "flipped";
 
     if (thumbURL.GetOption("size") == "thumb")
-      width = height = g_advancedSettings.m_imageRes;
+      width = height = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageRes;
     else
     {
       if (thumbURL.HasOption("width") && StringUtils::IsInteger(thumbURL.GetOption("width")))
@@ -195,9 +187,16 @@ CBaseTexture *CTextureCacheJob::LoadImage(const std::string &image, unsigned int
 {
   if (additional_info == "music")
   { // special case for embedded music images
-    MUSIC_INFO::EmbeddedArt art;
+    EmbeddedArt art;
     if (CMusicThumbLoader::GetEmbeddedThumb(image, art))
-      return CBaseTexture::LoadFromFileInMemory(&art.data[0], art.size, art.mime, width, height);
+      return CBaseTexture::LoadFromFileInMemory(art.m_data.data(), art.m_size, art.m_mime, width, height);
+  }
+
+  if (StringUtils::StartsWith(additional_info, "video_"))
+  {
+    EmbeddedArt art;
+    if (CVideoThumbLoader::GetEmbeddedThumb(image, additional_info.substr(6), art))
+      return CBaseTexture::LoadFromFileInMemory(art.m_data.data(), art.m_size, art.m_mime, width, height);
   }
 
   // Validate file URL to see if it is an image
@@ -223,14 +222,15 @@ CBaseTexture *CTextureCacheJob::LoadImage(const std::string &image, unsigned int
 bool CTextureCacheJob::UpdateableURL(const std::string &url) const
 {
   // we don't constantly check online images
-  if (StringUtils::StartsWith(url, "http://") ||
-      StringUtils::StartsWith(url, "https://"))
-    return false;
-  return true;
+  return !(StringUtils::StartsWith(url, "http://") || StringUtils::StartsWith(url, "https://"));
 }
 
 std::string CTextureCacheJob::GetImageHash(const std::string &url)
 {
+  // silently ignore - we cannot state these
+  if (URIUtils::IsProtocol(url,"addons") || URIUtils::IsProtocol(url,"plugin"))
+    return "";
+
   struct __stat64 st;
   if (XFILE::CFile::Stat(url, &st) == 0)
   {

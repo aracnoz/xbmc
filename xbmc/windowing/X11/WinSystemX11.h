@@ -1,57 +1,44 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "settings/lib/ISettingCallback.h"
+#include "threads/CriticalSection.h"
+#include "threads/SystemClock.h"
+#include "utils/Stopwatch.h"
+#include "windowing/WinSystem.h"
+
 #include <string>
 #include <vector>
 
-#include "windowing/WinSystem.h"
-#include "utils/Stopwatch.h"
-#include "threads/CriticalSection.h"
-#include "threads/SystemClock.h"
-#include "settings/lib/ISettingCallback.h"
-#include "X11/Xlib.h"
-#include "X11/Xutil.h"
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 class IDispResource;
+class CWinEventsX11;
 
 class CWinSystemX11 : public CWinSystemBase
 {
 public:
   CWinSystemX11();
-  virtual ~CWinSystemX11();
+  ~CWinSystemX11() override;
 
   // CWinSystemBase
   bool InitWindowSystem() override;
   bool DestroyWindowSystem() override;
-  bool CreateNewWindow(const std::string& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction) override;
+  bool CreateNewWindow(const std::string& name, bool fullScreen, RESOLUTION_INFO& res) override;
   bool DestroyWindow() override;
   bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop) override;
+  void FinishWindowResize(int newWidth, int newHeight) override;
   bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) override;
   void UpdateResolutions() override;
-  int  GetNumScreens() override { return 1; }
-  int  GetCurrentScreen() override { return m_nScreen; }
   void ShowOSMouse(bool show) override;
-  void ResetOSScreensaver() override;
-  void EnableSystemScreenSaver(bool bEnable) override;
 
   void NotifyAppActiveChange(bool bActivated) override;
   void NotifyAppFocusChange(bool bGaining) override;
@@ -60,25 +47,33 @@ public:
   bool Restore() override;
   bool Hide() override;
   bool Show(bool raise = true) override;
-  virtual void Register(IDispResource *resource);
-  virtual void Unregister(IDispResource *resource);
+  void Register(IDispResource *resource) override;
+  void Unregister(IDispResource *resource) override;
   bool HasCalibration(const RESOLUTION_INFO &resInfo) override;
+  bool UseLimitedColor() override;
 
   // Local to WinSystemX11 only
   Display*  GetDisplay() { return m_dpy; }
+  int GetScreen() { return m_screen; }
   void NotifyXRREvent();
   void GetConnectedOutputs(std::vector<std::string> *outputs);
   bool IsCurrentOutput(std::string output);
   void RecreateWindow();
   int GetCrtc() { return m_crtc; }
 
+  // winevents override
+  bool MessagePump() override;
+
 protected:
+  std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() override;
+
   virtual bool SetWindow(int width, int height, bool fullscreen, const std::string &output, int *winstate = NULL) = 0;
   virtual XVisualInfo* GetVisual() = 0;
 
   void OnLostDevice();
 
   Window m_glWindow, m_mainWindow;
+  int m_screen = 0;
   Display *m_dpy;
   Cursor m_invisibleCursor;
   Pixmap m_icon;
@@ -96,6 +91,7 @@ protected:
   bool m_bIsInternalXrr;
   int m_MouseX, m_MouseY;
   int m_crtc;
+  CWinEventsX11 *m_winEventsX11;
 
 private:
   bool IsSuitableVisual(XVisualInfo *vInfo);
@@ -103,6 +99,4 @@ private:
   bool CreateIconPixmap();
   bool HasWindowManager();
   void UpdateCrtc();
-
-  CStopWatch m_screensaverReset;
 };

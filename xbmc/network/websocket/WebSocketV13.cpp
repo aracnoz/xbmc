@@ -1,34 +1,22 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <algorithm>
-#include <string>
-#include <sstream>
-
 #include "WebSocketV13.h"
+
 #include "WebSocket.h"
-#include "utils/Base64.h"
 #include "utils/HttpParser.h"
 #include "utils/HttpResponse.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
+
+#include <algorithm>
+#include <sstream>
+#include <string>
 
 #define WS_HTTP_METHOD          "GET"
 #define WS_HTTP_TAG             "HTTP/"
@@ -125,10 +113,10 @@ bool CWebSocketV13::Handshake(const char* data, size_t length, std::string &resp
   if (value && strlen(value) > 0)
   {
     std::vector<std::string> protocols = StringUtils::Split(value, ",");
-    for (std::vector<std::string>::iterator protocol = protocols.begin(); protocol != protocols.end(); ++protocol)
+    for (auto& protocol : protocols)
     {
-      StringUtils::Trim(*protocol);
-      if (*protocol == WS_PROTOCOL_JSONRPC)
+      StringUtils::Trim(protocol);
+      if (protocol == WS_PROTOCOL_JSONRPC)
       {
         websocketProtocol = WS_PROTOCOL_JSONRPC;
         break;
@@ -144,10 +132,8 @@ bool CWebSocketV13::Handshake(const char* data, size_t length, std::string &resp
   if (!websocketProtocol.empty())
     httpResponse.AddHeader(WS_HEADER_PROTOCOL, websocketProtocol);
 
-  char *responseBuffer;
-  int responseLength = httpResponse.Create(responseBuffer);
-  response = std::string(responseBuffer, responseLength);
-  
+  response = httpResponse.Create();
+
   m_state = WebSocketStateConnected;
 
   return true;

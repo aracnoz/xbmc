@@ -1,96 +1,140 @@
 /*
- *      Copyright (C) 2005-2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "DVDInputStream.h"
+#include "IVideoPlayer.h"
+#include "addons/AddonProvider.h"
+#include "addons/binary-addons/AddonInstanceHandler.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/Inputstream.h"
+
 #include <memory>
 #include <vector>
 
-#include "DVDInputStream.h"
-#include "addons/InputStream.h"
-
-//! \brief Input stream class
-class CInputStreamAddon :
-  public CDVDInputStream,
-  public CDVDInputStream::IDisplayTime,
-  public CDVDInputStream::IPosTime,
-  public CDVDInputStream::IDemux
+class CInputStreamProvider
+  : public ADDON::IAddonProvider
 {
 public:
-  //! \brief constructor
-  CInputStreamAddon(const CFileItem& fileitem, std::shared_ptr<ADDON::CInputStream> inputStream);
+  CInputStreamProvider(ADDON::BinaryAddonBasePtr addonBase, kodi::addon::IAddonInstance* parentInstance);
 
-  //! \brief Destructor.
-  virtual ~CInputStreamAddon();
+  void getAddonInstance(INSTANCE_TYPE instance_type, ADDON::BinaryAddonBasePtr& addonBase, kodi::addon::IAddonInstance*& parentInstance) override;
 
-  //! \brief Open a MPD file
-  virtual bool Open() override;
+private:
+  ADDON::BinaryAddonBasePtr m_addonBase;
+  kodi::addon::IAddonInstance* m_parentInstance;
+};
 
-  //! \brief Close input stream
-  virtual void Close() override;
+//! \brief Input stream class
+class CInputStreamAddon
+  : public ADDON::IAddonInstanceHandler
+  , public CDVDInputStream
+  , public CDVDInputStream::IDisplayTime
+  , public CDVDInputStream::ITimes
+  , public CDVDInputStream::IPosTime
+  , public CDVDInputStream::IDemux
+  , public CDVDInputStream::IChapter
+{
+public:
+  CInputStreamAddon(ADDON::BinaryAddonBasePtr& addonBase, IVideoPlayer* player, const CFileItem& fileitem);
+  ~CInputStreamAddon() override;
 
-  //! \brief Read data from stream
-  virtual int Read(uint8_t* buf, int buf_size) override;
+  static bool Supports(ADDON::BinaryAddonBasePtr& addonBase, const CFileItem& fileitem);
 
-  //! \brief Seeek in stream
-  virtual int64_t Seek(int64_t offset, int whence) override;
-
-  //! \brief Pause stream
-  virtual bool Pause(double dTime) override;
-  //! \brief Return true if we have reached EOF
-  virtual bool IsEOF() override;
-
-  virtual bool CanSeek() override;
-  virtual bool CanPause() override;
-
-  //! \brief Get length of input data
-  virtual int64_t GetLength() override;
+  // CDVDInputStream
+  bool Open() override;
+  void Close() override;
+  int Read(uint8_t* buf, int buf_size) override;
+  int64_t Seek(int64_t offset, int whence) override;
+  bool Pause(double dTime) override;
+  int64_t GetLength() override;
+  bool IsEOF() override;
+  bool CanSeek() override; //! @todo drop this
+  bool CanPause() override;
 
   // IDisplayTime
-  virtual CDVDInputStream::IDisplayTime* GetIDisplayTime() override;
-  virtual int GetTotalTime() override;
-  virtual int GetTime() override;
+  CDVDInputStream::IDisplayTime* GetIDisplayTime() override;
+  int GetTotalTime() override;
+  int GetTime() override;
+
+  // ITime
+  CDVDInputStream::ITimes* GetITimes() override;
+  bool GetTimes(Times &times) override;
 
   // IPosTime
-  virtual CDVDInputStream::IPosTime* GetIPosTime() override;
-  virtual bool PosTime(int ms) override;
+  CDVDInputStream::IPosTime* GetIPosTime() override;
+  bool PosTime(int ms) override;
 
-  //IDemux
+  // IDemux
   CDVDInputStream::IDemux* GetIDemux() override;
-  virtual bool OpenDemux() override;
-  virtual DemuxPacket* ReadDemux() override;
-  virtual CDemuxStream* GetStream(int iStreamId) const override;
-  virtual std::vector<CDemuxStream*> GetStreams() const override;
-  virtual void EnableStream(int iStreamId, bool enable) override;
-  virtual int GetNrOfStreams() const override;
-  virtual void SetSpeed(int iSpeed) override;
-  virtual bool SeekTime(double time, bool backward = false, double* startpts = NULL) override;
-  virtual void AbortDemux() override;
-  virtual void FlushDemux() override;
-  virtual void SetVideoResolution(int width, int height) override;
+  bool OpenDemux() override;
+  DemuxPacket* ReadDemux() override;
+  CDemuxStream* GetStream(int streamId) const override;
+  std::vector<CDemuxStream*> GetStreams() const override;
+  void EnableStream(int streamId, bool enable) override;
+  bool OpenStream(int streamid) override;
+
+  int GetNrOfStreams() const override;
+  void SetSpeed(int speed) override;
+  bool SeekTime(double time, bool backward = false, double* startpts = nullptr) override;
+  void AbortDemux() override;
+  void FlushDemux() override;
+  void SetVideoResolution(int width, int height) override;
+  bool IsRealtime() override;
+
+  // IChapter
+  CDVDInputStream::IChapter* GetIChapter() override;
+  int GetChapter() override;
+  int GetChapterCount() override;
+  void GetChapterName(std::string& name, int ch = -1) override;
+  int64_t GetChapterPos(int ch = -1) override;
+  bool SeekChapter(int ch) override;
 
 protected:
-  std::shared_ptr<ADDON::CInputStream> m_addon;
-  bool m_hasDemux;
-  bool m_hasDisplayTime;
-  bool m_hasPosTime;
-  bool m_canPause;
-  bool m_canSeek;
+  static int ConvertVideoCodecProfile(STREAMCODEC_PROFILE profile);
+
+  IVideoPlayer* m_player;
+
+private:
+  std::vector<std::string> m_fileItemProps;
+  INPUTSTREAM_CAPABILITIES m_caps;
+
+  int m_streamCount = 0;
+
+  AddonInstance_InputStream m_struct;
+  std::shared_ptr<CInputStreamProvider> m_subAddonProvider;
+
+  /*!
+   * Callbacks from add-on to kodi
+   */
+  //@{
+  /*!
+   * @brief Allocate a demux packet. Free with FreeDemuxPacket
+   * @param kodiInstance A pointer to the add-on.
+   * @param iDataSize The size of the data that will go into the packet
+   * @return The allocated packet.
+   */
+  static DemuxPacket* cb_allocate_demux_packet(void* kodiInstance, int iDataSize = 0);
+
+  /*!
+  * @brief Allocate an encrypted demux packet. Free with FreeDemuxPacket
+  * @param kodiInstance A pointer to the add-on.
+  * @param dataSize The size of the data that will go into the packet
+  * @param encryptedSubsampleCount The number of subsample description blocks to allocate
+  * @return The allocated packet.
+  */
+  static DemuxPacket* cb_allocate_encrypted_demux_packet(void* kodiInstance, unsigned int dataSize, unsigned int encryptedSubsampleCount);
+
+  /*!
+   * @brief Free a packet that was allocated with AllocateDemuxPacket
+   * @param kodiInstance A pointer to the add-on.
+   * @param pPacket The packet to free.
+   */
+  static void cb_free_demux_packet(void* kodiInstance, DemuxPacket* pPacket);
+  //@}
 };

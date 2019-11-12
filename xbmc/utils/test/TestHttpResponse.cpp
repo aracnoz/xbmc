@@ -1,34 +1,19 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/HttpResponse.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 TEST(TestHttpResponse, General)
 {
   CHttpResponse a(HTTP::POST, HTTP::OK);
-  char *buf = new char(100);
   std::string response, content, refstr;
-  unsigned int size;
-  memset(buf, 0, sizeof(*buf));
 
   a.AddHeader("date", "Sun, 01 Jul 2012 00:00:00 -0400");
   a.AddHeader("content-type", "text/html");
@@ -40,10 +25,9 @@ TEST(TestHttpResponse, General)
              "</html>\r\n";
   a.SetContent(content.c_str(), content.length());
 
-  size = a.Create(buf);
-  EXPECT_EQ((unsigned int)210, size);
+  response = a.Create();;
+  EXPECT_EQ((unsigned int)210, response.size());
 
-  response = buf;
   refstr = "HTTP/1.1 200 OK\r\n"
            "date: Sun, 01 Jul 2012 00:00:00 -0400\r\n"
            "content-type: text/html\r\n"

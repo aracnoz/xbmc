@@ -1,50 +1,38 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "TextureCacheJob.h"
+#include "dbwrappers/Database.h"
+#include "dbwrappers/DatabaseQuery.h"
+
 #include <string>
 #include <vector>
-
-#include "dbwrappers/Database.h"
-#include "TextureCacheJob.h"
-#include "dbwrappers/DatabaseQuery.h"
 
 class CVariant;
 
 class CTextureRule : public CDatabaseQueryRule
 {
 public:
-  CTextureRule() {};
-  virtual ~CTextureRule() {};
+  CTextureRule() = default;
+  ~CTextureRule() override = default;
 
   static void GetAvailableFields(std::vector<std::string> &fieldList);
 protected:
-  virtual int                 TranslateField(const char *field) const;
-  virtual std::string         TranslateField(int field) const;
-  virtual std::string         GetField(int field, const std::string& type) const;
-  virtual FIELD_TYPE          GetFieldType(int field) const;
-  virtual std::string         FormatParameter(const std::string &negate,
+  int                 TranslateField(const char *field) const override;
+  std::string         TranslateField(int field) const override;
+  std::string         GetField(int field, const std::string& type) const override;
+  FIELD_TYPE          GetFieldType(int field) const override;
+  std::string         FormatParameter(const std::string &negate,
                                               const std::string &oper,
                                               const CDatabase &db,
-                                              const std::string &type) const;
+                                              const std::string &type) const override;
 };
 
 class CTextureUtils
@@ -71,8 +59,8 @@ class CTextureDatabase : public CDatabase, public IDatabaseQueryRuleFactory
 {
 public:
   CTextureDatabase();
-  virtual ~CTextureDatabase();
-  virtual bool Open();
+  ~CTextureDatabase() override;
+  bool Open() override;
 
   bool GetCachedTexture(const std::string &originalURL, CTextureDetails &details);
   bool AddCachedTexture(const std::string &originalURL, const CTextureDetails &details);
@@ -119,8 +107,8 @@ public:
   bool GetTextures(CVariant &items, const Filter &filter);
 
   // rule creation
-  virtual CDatabaseQueryRule *CreateRule() const;
-  virtual CDatabaseQueryRuleCombination *CreateCombination() const;
+  CDatabaseQueryRule *CreateRule() const override;
+  CDatabaseQueryRuleCombination *CreateCombination() const override;
 protected:
   /*! \brief retrieve a hash for the given url
    Computes a hash of the current url to use for lookups in the database
@@ -129,9 +117,9 @@ protected:
    */
   unsigned int GetURLHash(const std::string &url) const;
 
-  virtual void CreateTables();
-  virtual void CreateAnalytics();
-  virtual void UpdateTables(int version);
-  virtual int GetSchemaVersion() const { return 13; };
-  const char *GetBaseDBName() const { return "Textures"; };
+  void CreateTables() override;
+  void CreateAnalytics() override;
+  void UpdateTables(int version) override;
+  int GetSchemaVersion() const override { return 13; };
+  const char *GetBaseDBName() const override { return "Textures"; };
 };

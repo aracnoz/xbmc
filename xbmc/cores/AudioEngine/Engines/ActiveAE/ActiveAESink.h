@@ -1,31 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "cores/AudioEngine/AESinkFactory.h"
+#include "cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h"
+#include "cores/AudioEngine/Interfaces/AE.h"
+#include "cores/AudioEngine/Interfaces/AESink.h"
 #include "threads/Event.h"
 #include "threads/Thread.h"
 #include "utils/ActorProtocol.h"
-#include "cores/AudioEngine/Interfaces/AE.h"
-#include "cores/AudioEngine/Interfaces/AESink.h"
-#include "cores/AudioEngine/AESinkFactory.h"
-#include "cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h"
 
 class CAEBitstreamPacker;
 
@@ -93,10 +82,9 @@ public:
 class CActiveAESink : private CThread
 {
 public:
-  CActiveAESink(CEvent *inMsgEvent);
+  explicit CActiveAESink(CEvent *inMsgEvent);
   void EnumerateSinkList(bool force);
   void EnumerateOutputDevices(AEDeviceList &devices, bool passthrough);
-  std::string GetDefaultDevice(bool passthrough);
   void Start();
   void Dispose();
   AEDeviceType GetDeviceType(const std::string &device);
@@ -106,7 +94,7 @@ public:
   CSinkDataProtocol m_dataPort;
 
 protected:
-  void Process();
+  void Process() override;
   void StateMachine(int signal, Protocol *port, Message *msg);
   void PrintSinks();
   void GetDeviceFriendlyName(std::string &device);
@@ -143,7 +131,7 @@ protected:
 
   std::string m_deviceFriendlyName;
   std::string m_device;
-  AESinkInfoList m_sinkInfoList;
+  std::vector<AE::AESinkInfo> m_sinkInfoList;
   IAESink *m_sink;
   AEAudioFormat m_sinkFormat, m_requestedFormat;
   CEngineStats *m_stats;

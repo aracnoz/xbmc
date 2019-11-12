@@ -1,36 +1,27 @@
-#pragma once
-
 /*
  * Socket classes
- *      Copyright (c) 2008 d4rk
- *      Copyright (C) 2008-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (c) 2008 d4rk
+ *  Copyright (C) 2008-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string.h>
+#pragma once
+
 #include <map>
+#include <string.h>
 #include <vector>
-#include <sys/socket.h>
-#include <netinet/in.h>
+
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "PlatformDefs.h"
 #ifdef TARGET_POSIX
 typedef int SOCKET;
 #endif
@@ -57,7 +48,7 @@ namespace SOCKETS
       sockaddr_in6 saddr6;
       sockaddr saddr_generic;
     } saddr;
-    socklen_t   size;
+    socklen_t size;
 
   public:
     CAddress()
@@ -68,7 +59,7 @@ namespace SOCKETS
       size = sizeof(saddr.saddr4);
     }
 
-    CAddress(const char *address)
+    explicit CAddress(const char *address)
     {
       SetAddress(address);
     }
@@ -123,7 +114,7 @@ namespace SOCKETS
           hash = 0xfffffffeu;
         return (unsigned long)htonl(hash);
       }
-      else 
+      else
         return (unsigned long)saddr.saddr4.sin_addr.s_addr;
     }
   };
@@ -149,10 +140,10 @@ namespace SOCKETS
     virtual void Close() {};
 
     // state functions
-    bool        Ready()  { return m_bReady; }
-    bool        Bound()  { return m_bBound; }
-    SocketType  Type()   { return m_Type; }
-    int         Port()   { return m_iPort; }
+    bool Ready() { return m_bReady; }
+    bool Bound() { return m_bBound; }
+    SocketType Type() { return m_Type; }
+    int Port() { return m_iPort; }
     virtual SOCKET Socket() = 0;
 
   protected:
@@ -161,9 +152,9 @@ namespace SOCKETS
 
   protected:
     SocketType m_Type;
-    bool       m_bReady;
-    bool       m_bBound;
-    int        m_iPort;
+    bool m_bReady;
+    bool m_bBound;
+    int m_iPort;
   };
 
   /**********************************************************************/
@@ -181,7 +172,7 @@ namespace SOCKETS
                        const void* buffer) = 0;
 
     // read datagrams, return no. of bytes read or -1 or error
-    virtual int  Read(CAddress& addr, const int buffersize, void *buffer) = 0;
+    virtual int Read(CAddress& addr, const int buffersize, void *buffer) = 0;
     virtual bool Broadcast(const CAddress& addr, const int datasize,
                            const void* data) = 0;
   };
@@ -200,21 +191,21 @@ namespace SOCKETS
         m_ipv6Socket = false;
       }
 
-    bool Bind(bool localOnly, int port, int range=0);
-    bool Connect() { return false; }
+    bool Bind(bool localOnly, int port, int range=0) override;
+    bool Connect() override { return false; }
     bool Listen(int timeout);
-    int  SendTo(const CAddress& addr, const int datasize, const void* data);
-    int  Read(CAddress& addr, const int buffersize, void *buffer);
-    bool Broadcast(const CAddress& addr, const int datasize, const void* data)
+    int SendTo(const CAddress& addr, const int datasize, const void* data) override;
+    int Read(CAddress& addr, const int buffersize, void *buffer) override;
+    bool Broadcast(const CAddress& addr, const int datasize, const void* data) override
     {
       //! @todo implement
       return false;
     }
-    SOCKET  Socket() { return m_iSock; }
-    void Close();
+    SOCKET Socket() override { return m_iSock; }
+    void Close() override;
 
   protected:
-    SOCKET   m_iSock;
+    SOCKET m_iSock;
     CAddress m_addr;
 
   private:
@@ -241,18 +232,18 @@ namespace SOCKETS
   {
   public:
     CSocketListener();
-    void         AddSocket(CBaseSocket *);
-    bool         Listen(int timeoutMs); // in ms, -1=>never timeout, 0=>poll
-    void         Clear();
+    void AddSocket(CBaseSocket *);
+    bool Listen(int timeoutMs); // in ms, -1=>never timeout, 0=>poll
+    void Clear();
     CBaseSocket* GetFirstReadySocket();
     CBaseSocket* GetNextReadySocket();
 
   protected:
     std::vector<CBaseSocket*> m_sockets;
-    int                       m_iReadyCount;
-    int                       m_iMaxSockets;
-    int                       m_iCurrentSocket;
-    fd_set                    m_fdset;
+    int m_iReadyCount;
+    int m_iMaxSockets;
+    int m_iCurrentSocket;
+    fd_set m_fdset;
   };
 
 }

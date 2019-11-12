@@ -1,0 +1,33 @@
+package @APP_PACKAGE@.model;
+
+import @APP_PACKAGE@.model.Media;
+
+/**
+ * Created by cbro on 22/12/2017
+ */
+
+public class TVShow extends Media
+{
+  private String year;
+  private String rating;
+
+  public String getYear()
+  {
+    return year;
+  }
+
+  public void setYear(String year)
+  {
+    this.year = year;
+  }
+
+  public String getRating()
+  {
+    return rating;
+  }
+
+  public void setRating(String rating)
+  {
+    this.rating = rating;
+  }  
+}

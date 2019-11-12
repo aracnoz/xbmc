@@ -5,9 +5,9 @@ host_alias=@use_host@
 fi
 
 LD="@LD@"
-CC="@CC@"
-CXX="@CXX@"
-CPP="@CPP@"
+CC="@CCACHE@ @CC@"
+CXX="@CCACHE@ @CXX@"
+CPP="@CCACHE@ @CPP@"
 AR="@AR@"
 AS="@AS@"
 NM="@NM@"
@@ -15,7 +15,7 @@ STRIP="@STRIP@"
 RANLIB="@RANLIB@"
 OBJDUMP="@OBJDUMP@"
 
-if test "@platform_os@" = "ios" ; then
+if test "@platform_os@" = "darwin_embedded" ; then
   export AS="@prefix@/@tool_dir@/bin/gas-preprocessor.pl @CC@ -arch @use_cpu@"
   export CCAS="--tag CC @prefix@/@tool_dir@/bin/gas-preprocessor.pl @CC@ -arch @use_cpu@"
 fi
@@ -70,7 +70,7 @@ ac_cv_file__proc_sys_kernel_core_pattern=no
 samba_cv_SYSCONF_SC_NPROCESSORS_ONLN=no
 libreplace_cv_HAVE_GETADDRINFO=no
 
-if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "ios"; then
+if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "darwin_embedded"; then
   # disable python support
   export PYTHON_VER=0.0
   # ios/osx-10.6 issue with collision of _MD5 exported from a system lib
@@ -87,8 +87,6 @@ if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "osx"; then
   # various configure overrides
   ac_cv_header_libunwind_h=no
   ac_cv_header_execinfo_h=no
-  # fixes crash on 10.6 if xbmc is built using 10.7 SDK with 10.6 min
-  ac_cv_func_vdprintf=no
 fi
 
 if test "@platform_os@" = "android"; then
@@ -127,22 +125,12 @@ if test "@platform_os@" = "osx" ; then
 fi
 
 
-if test "@platform_os@" = "ios"; then
-  # tweaks for libffi (ios must use llvm-gcc-4.2)
-  if test "${PACKAGE_NAME}" = "libffi" ; then
-      case "@use_xcode@" in
-        3.*.* | 4.* | 4.*.*)
-          export CC="@use_toolchain@/usr/bin/llvm-gcc-4.2"
-          export CPP="@use_toolchain@/usr/bin/llvm-gcc-4.2 -E"
-          ;;
-        *)
-          export CC="@use_toolchain@/usr/bin/clang"
-          export CPP="@use_toolchain@/usr/bin/clang -E"
-          ;;
-        esac
-    unset AS
-    unset CCAS
-  fi
+if test "@platform_os@" = "darwin_embedded"; then
+  # Xcode 8 + 10.11, clock_gettime getentropy is present
+  # in 10.12 but will get wrongly detected if building on 10.11
+  ac_cv_search_clock_gettime=no
+  ac_cv_func_clock_gettime=no
+  ac_cv_func_getentropy=no
 
   # tweaks for flac
   if test "${ac_unique_file}" = "src/flac/main.c" ; then

@@ -1,36 +1,28 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIOperations.h"
+
 #include "Application.h"
-#include "messaging/ApplicationMessenger.h"
 #include "GUIInfoManager.h"
-#include "guilib/GUIWindowManager.h"
-#include "input/Key.h"
-#include "interfaces/builtins/Builtins.h"
-#include "dialogs/GUIDialogKaiToast.h"
+#include "ServiceBroker.h"
 #include "addons/AddonManager.h"
-#include "settings/Settings.h"
-#include "utils/Variant.h"
+#include "dialogs/GUIDialogKaiToast.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
 #include "guilib/StereoscopicsManager.h"
-#include "windowing/WindowingFactory.h"
+#include "input/Key.h"
+#include "input/WindowTranslator.h"
+#include "messaging/ApplicationMessenger.h"
+#include "rendering/RenderSystem.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "utils/Variant.h"
 
 using namespace JSONRPC;
 using namespace ADDON;
@@ -57,17 +49,20 @@ JSONRPC_STATUS CGUIOperations::GetProperties(const std::string &method, ITranspo
 
 JSONRPC_STATUS CGUIOperations::ActivateWindow(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  CVariant params = parameterObject["parameters"];
-  std::string cmd = "ActivateWindow(" + parameterObject["window"].asString();
-  for (CVariant::iterator_array param = params.begin_array(); param != params.end_array(); param++)
+  int iWindow = CWindowTranslator::TranslateWindow(parameterObject["window"].asString());
+  if (iWindow != WINDOW_INVALID)
   {
-    if (param->isString() && !param->empty())
-      cmd += "," + param->asString();
+    std::vector<std::string> params;
+    for (CVariant::const_iterator_array param = parameterObject["parameters"].begin_array(); param != parameterObject["parameters"].end_array(); param++)
+    {
+      if (param->isString() && !param->empty())
+        params.push_back(param->asString());
+    }
+    CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTIVATE_WINDOW, iWindow, 0, nullptr, "", params);
+    return ACK;
   }
-  cmd += ")";
-  CBuiltins::GetInstance().Execute(cmd);
 
-  return ACK;
+  return InvalidParams;
 }
 
 JSONRPC_STATUS CGUIOperations::ShowNotification(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
@@ -106,7 +101,7 @@ JSONRPC_STATUS CGUIOperations::SetFullscreen(const std::string &method, ITranspo
 
 JSONRPC_STATUS CGUIOperations::SetStereoscopicMode(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  CAction action = CStereoscopicsManager::GetInstance().ConvertActionCommandToAction("SetStereoMode", parameterObject["mode"].asString());
+  CAction action = CStereoscopicsManager::ConvertActionCommandToAction("SetStereoMode", parameterObject["mode"].asString());
   if (action.GetID() != ACTION_NONE)
   {
     CApplicationMessenger::GetInstance().SendMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(action)));
@@ -121,7 +116,7 @@ JSONRPC_STATUS CGUIOperations::GetStereoscopicModes(const std::string &method, I
   for (int i = RENDER_STEREO_MODE_OFF; i < RENDER_STEREO_MODE_COUNT; i++)
   {
     RENDER_STEREO_MODE mode = (RENDER_STEREO_MODE) i;
-    if (g_Windowing.SupportsStereo(mode))
+    if (CServiceBroker::GetRenderSystem()->SupportsStereo(mode))
       result["stereoscopicmodes"].push_back(GetStereoModeObjectFromGuiMode(mode));
   }
 
@@ -132,16 +127,16 @@ JSONRPC_STATUS CGUIOperations::GetPropertyValue(const std::string &property, CVa
 {
   if (property == "currentwindow")
   {
-    result["label"] = g_infoManager.GetLabel(g_infoManager.TranslateString("System.CurrentWindow"));
-    result["id"] = g_windowManager.GetFocusedWindow();
+    result["label"] = CServiceBroker::GetGUI()->GetInfoManager().GetLabel(CServiceBroker::GetGUI()->GetInfoManager().TranslateString("System.CurrentWindow"));
+    result["id"] = CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindowOrDialog();
   }
   else if (property == "currentcontrol")
-    result["label"] = g_infoManager.GetLabel(g_infoManager.TranslateString("System.CurrentControl"));
+    result["label"] = CServiceBroker::GetGUI()->GetInfoManager().GetLabel(CServiceBroker::GetGUI()->GetInfoManager().TranslateString("System.CurrentControl"));
   else if (property == "skin")
   {
-    std::string skinId = CSettings::GetInstance().GetString(CSettings::SETTING_LOOKANDFEEL_SKIN);
+    std::string skinId = CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_LOOKANDFEEL_SKIN);
     AddonPtr addon;
-    if (!CAddonMgr::GetInstance().GetAddon(skinId, addon, ADDON_SKIN))
+    if (!CServiceBroker::GetAddonMgr().GetAddon(skinId, addon, ADDON_SKIN))
       return InternalError;
 
     result["id"] = skinId;
@@ -151,7 +146,11 @@ JSONRPC_STATUS CGUIOperations::GetPropertyValue(const std::string &property, CVa
   else if (property == "fullscreen")
     result = g_application.IsFullScreen();
   else if (property == "stereoscopicmode")
-    result = GetStereoModeObjectFromGuiMode( CStereoscopicsManager::GetInstance().GetStereoMode() );
+  {
+    const CStereoscopicsManager &stereoscopicsManager = CServiceBroker::GetGUI()->GetStereoscopicsManager();
+
+    result = GetStereoModeObjectFromGuiMode(stereoscopicsManager.GetStereoMode());
+  }
   else
     return InvalidParams;
 
@@ -160,8 +159,10 @@ JSONRPC_STATUS CGUIOperations::GetPropertyValue(const std::string &property, CVa
 
 CVariant CGUIOperations::GetStereoModeObjectFromGuiMode(const RENDER_STEREO_MODE &mode)
 {
+  const CStereoscopicsManager &stereoscopicsManager = CServiceBroker::GetGUI()->GetStereoscopicsManager();
+
   CVariant modeObj(CVariant::VariantTypeObject);
-  modeObj["mode"] = CStereoscopicsManager::GetInstance().ConvertGuiStereoModeToString(mode);
-  modeObj["label"] = CStereoscopicsManager::GetInstance().GetLabelForStereoMode(mode);
+  modeObj["mode"] = stereoscopicsManager.ConvertGuiStereoModeToString(mode);
+  modeObj["label"] = stereoscopicsManager.GetLabelForStereoMode(mode);
   return modeObj;
 }

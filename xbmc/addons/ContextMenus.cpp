@@ -1,29 +1,19 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ContextMenus.h"
+
 #include "AddonManager.h"
+#include "GUIDialogAddonInfo.h"
 #include "Repository.h"
 #include "RepositoryUpdater.h"
-#include "GUIDialogAddonInfo.h"
-#include "GUIDialogAddonSettings.h"
+#include "ServiceBroker.h"
+#include "settings/GUIDialogAddonSettings.h"
 
 
 namespace CONTEXTMENU
@@ -35,15 +25,15 @@ bool CAddonSettings::IsVisible(const CFileItem& item) const
 {
   AddonPtr addon;
   return item.HasAddonInfo()
-         && CAddonMgr::GetInstance().GetAddon(item.GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
+         && CServiceBroker::GetAddonMgr().GetAddon(item.GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
          && addon->HasSettings();
 }
 
 bool CAddonSettings::Execute(const CFileItemPtr& item) const
 {
   AddonPtr addon;
-  return CAddonMgr::GetInstance().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
-         && CGUIDialogAddonSettings::ShowAndGetInput(addon);
+  return CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_UNKNOWN, false)
+         && CGUIDialogAddonSettings::ShowForAddon(addon);
 }
 
 bool CCheckForUpdates::IsVisible(const CFileItem& item) const
@@ -54,11 +44,36 @@ bool CCheckForUpdates::IsVisible(const CFileItem& item) const
 bool CCheckForUpdates::Execute(const CFileItemPtr& item) const
 {
   AddonPtr addon;
-  if (item->HasAddonInfo() && CAddonMgr::GetInstance().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_REPOSITORY))
+  if (item->HasAddonInfo() && CServiceBroker::GetAddonMgr().GetAddon(item->GetAddonInfo()->ID(), addon, ADDON_REPOSITORY))
   {
-    CRepositoryUpdater::GetInstance().CheckForUpdates(std::static_pointer_cast<CRepository>(addon), true);
+    CServiceBroker::GetRepositoryUpdater().CheckForUpdates(std::static_pointer_cast<CRepository>(addon), true);
     return true;
   }
   return false;
+}
+
+
+bool CEnableAddon::IsVisible(const CFileItem& item) const
+{
+  return item.HasAddonInfo() &&
+      CServiceBroker::GetAddonMgr().IsAddonDisabled(item.GetAddonInfo()->ID()) &&
+      CServiceBroker::GetAddonMgr().CanAddonBeEnabled(item.GetAddonInfo()->ID());
+}
+
+bool CEnableAddon::Execute(const CFileItemPtr& item) const
+{
+  return CServiceBroker::GetAddonMgr().EnableAddon(item->GetAddonInfo()->ID());
+}
+
+bool CDisableAddon::IsVisible(const CFileItem& item) const
+{
+  return item.HasAddonInfo() &&
+      !CServiceBroker::GetAddonMgr().IsAddonDisabled(item.GetAddonInfo()->ID()) &&
+      CServiceBroker::GetAddonMgr().CanAddonBeDisabled(item.GetAddonInfo()->ID());
+}
+
+bool CDisableAddon::Execute(const CFileItemPtr& item) const
+{
+  return CServiceBroker::GetAddonMgr().DisableAddon(item->GetAddonInfo()->ID());
 }
 }

@@ -1,26 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUISpinControl.h"
+
+#include "GUIMessage.h"
 #include "input/Key.h"
 #include "utils/StringUtils.h"
+
 #include <stdio.h>
 
 #define SPIN_BUTTON_DOWN 1
@@ -56,8 +47,7 @@ CGUISpinControl::CGUISpinControl(int parentID, int controlID, float posX, float 
   m_showOnePage = true;
 }
 
-CGUISpinControl::~CGUISpinControl(void)
-{}
+CGUISpinControl::~CGUISpinControl(void) = default;
 
 bool CGUISpinControl::OnAction(const CAction &action)
 {
@@ -258,10 +248,11 @@ bool CGUISpinControl::OnMessage(CGUIMessage& message)
     case GUI_MSG_SET_LABELS:
       if (message.GetPointer())
       {
-        const std::vector< std::pair<std::string, int> > *labels = (const std::vector< std::pair<std::string, int> > *)message.GetPointer();
+        auto labels =
+            static_cast<const std::vector<std::pair<std::string, int>>*>(message.GetPointer());
         Clear();
-        for (std::vector< std::pair<std::string, int> >::const_iterator i = labels->begin(); i != labels->end(); ++i)
-          AddLabel(i->first, i->second);
+        for (const auto& i : *labels)
+          AddLabel(i.first, i.second);
         SetValue( message.GetParam1());
       }
       break;
@@ -298,7 +289,7 @@ bool CGUISpinControl::OnMessage(CGUIMessage& message)
 
     case GUI_MSG_MOVE_OFFSET:
       {
-        int count = (int)message.GetParam1();
+        int count = message.GetParam1();
         while (count < 0)
         {
           MoveUp();
@@ -420,11 +411,11 @@ void CGUISpinControl::Process(unsigned int currentTime, CDirtyRegionList &dirtyr
     {
       if (m_bShowRange)
       {
-        text = StringUtils::Format("(%i/%i) %s", m_iValue + 1, (int)m_vecLabels.size(), std::string(m_vecLabels[m_iValue]).c_str() );
+        text = StringUtils::Format("(%i/%i) %s", m_iValue + 1, (int)m_vecLabels.size(), m_vecLabels[m_iValue].c_str() );
       }
       else
       {
-        text = StringUtils::Format("%s", std::string(m_vecLabels[m_iValue]).c_str() );
+        text = StringUtils::Format("%s", m_vecLabels[m_iValue].c_str() );
       }
     }
     else text = StringUtils::Format("?%i?", m_iValue);
@@ -543,6 +534,9 @@ void CGUISpinControl::SetValueFromLabel(const std::string &label)
   }
   else
     m_iValue = atoi(label.c_str());
+
+  MarkDirtyRegion();
+  SetInvalid();
 }
 
 void CGUISpinControl::SetValue(int iValue)
@@ -557,6 +551,7 @@ void CGUISpinControl::SetValue(int iValue)
   else
     m_iValue = iValue;
 
+  MarkDirtyRegion();
   SetInvalid();
 }
 

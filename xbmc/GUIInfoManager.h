@@ -1,123 +1,69 @@
-/*!
-\file GUIInfoManager.h
-\brief
-*/
-
-#ifndef GUIINFOMANAGER_H_
-#define GUIINFOMANAGER_H_
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "threads/CriticalSection.h"
-#include "guilib/IMsgTargetCallback.h"
-#include "messaging/IMessageTarget.h"
-#include "inttypes.h"
-#include "XBDateTime.h"
-#include "utils/Observer.h"
-#include "utils/Temperature.h"
+#pragma once
+
+#include "guilib/guiinfo/GUIInfoProviders.h"
 #include "interfaces/info/InfoBool.h"
 #include "interfaces/info/SkinVariable.h"
-#include "cores/IPlayer.h"
-#include "FileItem.h"
+#include "messaging/IMessageTarget.h"
+#include "threads/CriticalSection.h"
 
-#include <memory>
-#include <list>
 #include <map>
+#include <memory>
+#include <set>
+#include <string>
 #include <vector>
 
-namespace MUSIC_INFO
-{
-  class CMusicInfoTag;
-}
-namespace PVR
-{
-  class CPVRRadioRDSInfoTag;
-  typedef std::shared_ptr<PVR::CPVRRadioRDSInfoTag> CPVRRadioRDSInfoTagPtr;
-}
-class CVideoInfoTag;
 class CFileItem;
+class CVideoInfoTag;
+
 class CGUIListItem;
-class CDateTime;
+typedef std::shared_ptr<CGUIListItem> CGUIListItemPtr;
+
+namespace KODI
+{
+namespace GUILIB
+{
+namespace GUIINFO
+{
+  class CGUIInfo;
+  class IGUIInfoProvider;
+}
+}
+}
 namespace INFO
 {
   class InfoSingle;
 }
-
-// forward
-class CGUIWindow;
-namespace EPG
+namespace MUSIC_INFO
 {
-  class CEpgInfoTag;
-  typedef std::shared_ptr<EPG::CEpgInfoTag> CEpgInfoTagPtr;
+  class CMusicInfoTag;
 }
-
-
-
-// structure to hold multiple integer data
-// for storage referenced from a single integer
-class GUIInfo
-{
-public:
-  GUIInfo(int info, uint32_t data1 = 0, int data2 = 0, uint32_t flag = 0)
-  {
-    m_info = info;
-    m_data1 = data1;
-    m_data2 = data2;
-    if (flag)
-      SetInfoFlag(flag);
-  }
-  bool operator ==(const GUIInfo &right) const
-  {
-    return (m_info == right.m_info && m_data1 == right.m_data1 && m_data2 == right.m_data2);
-  };
-  uint32_t GetInfoFlag() const;
-  uint32_t GetData1() const;
-  int GetData2() const;
-  int m_info;
-private:
-  void SetInfoFlag(uint32_t flag);
-  uint32_t m_data1;
-  int m_data2;
-};
-
-class CSetCurrentItemJob;
 
 /*!
  \ingroup strings
  \brief
  */
-class CGUIInfoManager : public IMsgTargetCallback, public Observable,
-                        public KODI::MESSAGING::IMessageTarget
+class CGUIInfoManager : public KODI::MESSAGING::IMessageTarget
 {
-friend CSetCurrentItemJob;
-
 public:
   CGUIInfoManager(void);
-  virtual ~CGUIInfoManager(void);
+  ~CGUIInfoManager(void) override;
+
+  void Initialize();
 
   void Clear();
-  virtual bool OnMessage(CGUIMessage &message) override;
+  void ResetCache();
 
-  virtual int GetMessageMask() override;
-  virtual void OnApplicationMessage(KODI::MESSAGING::ThreadMessage* pMsg) override;
+  // KODI::MESSAGING::IMessageTarget implementation
+  int GetMessageMask() override;
+  void OnApplicationMessage(KODI::MESSAGING::ThreadMessage* pMsg) override;
 
   /*! \brief Register a boolean condition/expression
    This routine allows controls or other clients of the info manager to register
@@ -131,6 +77,9 @@ public:
    */
   INFO::InfoPtr Register(const std::string &expression, int context = 0);
 
+  /// \brief iterates through boolean conditions and compares their stored values to current values. Returns true if any condition changed value.
+  bool ConditionsChangedValues(const std::map<INFO::InfoPtr, bool>& map);
+
   /*! \brief Evaluate a boolean expression
    \param expression the expression to evaluate
    \param context the context in which to evaluate the expression (currently windows)
@@ -140,7 +89,15 @@ public:
   bool EvaluateBool(const std::string &expression, int context = 0, const CGUIListItemPtr &item = nullptr);
 
   int TranslateString(const std::string &strCondition);
+  int TranslateSingleString(const std::string &strCondition, bool &listItemDependent);
 
+  std::string GetLabel(int info, int contextWindow = 0, std::string *fallback = nullptr) const;
+  std::string GetImage(int info, int contextWindow, std::string *fallback = nullptr);
+  bool GetInt(int &value, int info, int contextWindow = 0, const CGUIListItem *item = nullptr) const;
+  bool GetBool(int condition, int contextWindow = 0, const CGUIListItem *item = nullptr);
+
+  std::string GetItemLabel(const CFileItem *item, int contextWindow, int info, std::string *fallback = nullptr) const;
+  std::string GetItemImage(const CGUIListItem *item, int contextWindow, int info, std::string *fallback = nullptr) const;
   /*! \brief Get integer value of info.
    \param value int reference to pass value of given info
    \param info id of info
@@ -149,109 +106,43 @@ public:
    \return true if given info was handled
    \sa GetItemInt, GetMultiInfoInt
    */
-  bool GetInt(int &value, int info, int contextWindow = 0, const CGUIListItem *item = NULL) const;
-  std::string GetLabel(int info, int contextWindow = 0, std::string *fallback = NULL);
-
-  std::string GetImage(int info, int contextWindow, std::string *fallback = NULL);
-
-  std::string GetTime(TIME_FORMAT format = TIME_FORMAT_GUESS) const;
-  std::string GetDate(bool bNumbersOnly = false);
-  std::string GetDuration(TIME_FORMAT format = TIME_FORMAT_GUESS) const;
+  bool GetItemInt(int &value, const CGUIListItem *item, int contextWindow, int info) const;
+  bool GetItemBool(const CGUIListItem *item, int contextWindow, int condition) const;
 
   /*! \brief Set currently playing file item
-   \param blocking whether to run in current thread (true) or background thread (false)
    */
-  void SetCurrentItem(const CFileItemPtr item);
+  void SetCurrentItem(const CFileItem &item);
   void ResetCurrentItem();
-  // Current song stuff
-  /// \brief Retrieves tag info (if necessary) and fills in our current song path.
-  void SetCurrentSong(CFileItem &item);
-  void SetCurrentAlbumThumb(const std::string &thumbFileName);
-  void SetCurrentMovie(CFileItem &item);
-  void SetCurrentSlide(CFileItem &item);
-  const CFileItem &GetCurrentSlide() const;
-  void ResetCurrentSlide();
-  void SetCurrentSongTag(const MUSIC_INFO::CMusicInfoTag &tag);
-  void SetCurrentVideoTag(const CVideoInfoTag &tag);
+  void UpdateCurrentItem(const CFileItem &item);
 
+  // Current song stuff
+  void SetCurrentAlbumThumb(const std::string &thumbFileName);
   const MUSIC_INFO::CMusicInfoTag *GetCurrentSongTag() const;
-  const PVR::CPVRRadioRDSInfoTagPtr GetCurrentRadioRDSInfoTag() const;
+
+  // Current video stuff
   const CVideoInfoTag* GetCurrentMovieTag() const;
 
-  std::string GetRadioRDSLabel(int item);
-  std::string GetMusicLabel(int item);
-  std::string GetMusicTagLabel(int info, const CFileItem *item);
-  std::string GetVideoLabel(int item);
-  std::string GetPlaylistLabel(int item, int playlistid = -1 /* PLAYLIST_NONE */) const;
-  std::string GetMusicPartyModeLabel(int item);
-  const std::string GetMusicPlaylistInfo(const GUIInfo& info);
-  std::string GetPictureLabel(int item);
-
-  int64_t GetPlayTime() const;  // in ms
-  std::string GetCurrentPlayTime(TIME_FORMAT format = TIME_FORMAT_GUESS) const;
-  std::string GetCurrentSeekTime(TIME_FORMAT format = TIME_FORMAT_GUESS) const;
-  int GetPlayTimeRemaining() const;
-  int GetTotalPlayTime() const;
-  float GetSeekPercent() const;
-  std::string GetCurrentPlayTimeRemaining(TIME_FORMAT format) const;
-
-  bool GetDisplayAfterSeek();
-  void SetDisplayAfterSeek(unsigned int timeOut = 2500, int seekOffset = 0);
-  void SetShowTime(bool showtime) { m_playerShowTime = showtime; };
-  void SetShowInfo(bool showinfo);
-  bool GetShowInfo() const { return m_playerShowInfo; }
-  bool ToggleShowInfo();
-  bool IsPlayerChannelPreviewActive() const;
-
-  std::string GetSystemHeatInfo(int info);
-  CTemperature GetGPUTemperature();
-
-  void UpdateFPS();
   void UpdateAVInfo();
-  inline float GetFPS() const { return m_fps; };
-
-  void SetNextWindow(int windowID) { m_nextWindowID = windowID; };
-  void SetPreviousWindow(int windowID) { m_prevWindowID = windowID; };
-
-  void ResetCache();
-  bool GetItemInt(int &value, const CGUIListItem *item, int info) const;
-  std::string GetItemLabel(const CFileItem *item, int info, std::string *fallback = NULL);
-  std::string GetItemImage(const CFileItem *item, int info, std::string *fallback = NULL);
-
-  /*! \brief containers call here to specify that the focus is changing
-   \param id control id
-   \param next true if we're moving to the next item, false if previous
-   \param scrolling true if the container is scrolling, false if the movement requires no scroll
-   */
-  void SetContainerMoving(int id, bool next, bool scrolling)
-  {
-    // magnitude 2 indicates a scroll, sign indicates direction
-    m_containerMoves[id] = (next ? 1 : -1) * (scrolling ? 2 : 1);
-  }
-
-  void SetLibraryBool(int condition, bool value);
-  bool GetLibraryBool(int condition);
-  void ResetLibraryBools();
-  std::string LocalizeTime(const CDateTime &time, TIME_FORMAT format) const;
-
-  int TranslateSingleString(const std::string &strCondition);
 
   int RegisterSkinVariableString(const INFO::CSkinVariableString* info);
   int TranslateSkinVariableString(const std::string& name, int context);
-  std::string GetSkinVariableString(int info, bool preferImage = false, const CGUIListItem *item=NULL);
 
-  /// \brief iterates through boolean conditions and compares their stored values to current values. Returns true if any condition changed value.
-  bool ConditionsChangedValues(const std::map<INFO::InfoPtr, bool>& map);
+  /*! \brief register a guiinfo provider
+   \param the guiinfo provider to register
+   */
+  void RegisterInfoProvider(KODI::GUILIB::GUIINFO::IGUIInfoProvider *provider);
 
-protected:
-  friend class INFO::InfoSingle;
-  bool GetBool(int condition, int contextWindow = 0, const CGUIListItem *item=NULL);
-  int TranslateSingleString(const std::string &strCondition, bool &listItemDependent);
+  /*! \brief unregister a guiinfo provider
+   \param the guiinfo provider to unregister
+   */
+  void UnregisterInfoProvider(KODI::GUILIB::GUIINFO::IGUIInfoProvider *provider);
 
-  // routines for window retrieval
-  bool CheckWindowCondition(CGUIWindow *window, int condition) const;
-  CGUIWindow *GetWindowWithCondition(int contextWindow, int condition) const;
+  /*! \brief get access to the registered guiinfo providers
+   \return the guiinfo providers
+   */
+  KODI::GUILIB::GUIINFO::CGUIInfoProviders& GetInfoProviders() { return m_infoProviders; }
 
+private:
   /*! \brief class for holding information on properties
    */
   class Property
@@ -267,107 +158,52 @@ protected:
     std::vector<std::string> params;
   };
 
-  bool GetMultiInfoBool(const GUIInfo &info, int contextWindow = 0, const CGUIListItem *item = NULL);
-  bool GetMultiInfoInt(int &value, const GUIInfo &info, int contextWindow = 0) const;
-  std::string GetMultiInfoLabel(const GUIInfo &info, int contextWindow = 0, std::string *fallback = NULL);
-  int TranslateListItem(const Property &info);
-  int TranslateMusicPlayerString(const std::string &info) const;
-  TIME_FORMAT TranslateTimeFormat(const std::string &format);
-  bool GetItemBool(const CGUIListItem *item, int condition) const;
-
   /*! \brief Split an info string into it's constituent parts and parameters
    Format is:
-     
+
      info1(params1).info2(params2).info3(params3) ...
-   
+
    where the parameters are an optional comma separated parameter list.
-   
+
    \param infoString the original string
    \param info the resulting pairs of info and parameters.
    */
   void SplitInfoString(const std::string &infoString, std::vector<Property> &info);
 
-  // Conditional string parameters for testing are stored in a vector for later retrieval.
-  // The offset into the string parameters array is returned.
-  int ConditionalStringParameter(const std::string &strParameter, bool caseSensitive = false);
-  int AddMultiInfo(const GUIInfo &info);
-  int AddListItemProp(const std::string &str, int offset=0);
+  int TranslateSingleString(const std::string &strCondition);
+  int TranslateListItem(const Property& cat, const Property& prop, int id, bool container);
+  int TranslateMusicPlayerString(const std::string &info) const;
+  static TIME_FORMAT TranslateTimeFormat(const std::string &format);
 
-  /*!
-   * @brief Get the EPG tag that is currently active
-   * @return the currently active tag or NULL if no active tag was found
-   */
-  EPG::CEpgInfoTagPtr GetEpgInfoTag() const;
+  std::string GetMultiInfoLabel(const KODI::GUILIB::GUIINFO::CGUIInfo &info, int contextWindow, std::string *fallback = nullptr) const;
+  bool GetMultiInfoInt(int &value, const KODI::GUILIB::GUIINFO::CGUIInfo &info, int contextWindow, const CGUIListItem *item) const;
+  bool GetMultiInfoBool(const KODI::GUILIB::GUIINFO::CGUIInfo &info, int contextWindow, const CGUIListItem *item);
 
-  void SetCurrentItemJob(const CFileItemPtr item);
+  std::string GetMultiInfoItemLabel(const CFileItem *item, int contextWindow, const KODI::GUILIB::GUIINFO::CGUIInfo &info, std::string *fallback = nullptr) const;
+  std::string GetMultiInfoItemImage(const CFileItem *item, int contextWindow, const KODI::GUILIB::GUIINFO::CGUIInfo &info, std::string *fallback = nullptr) const;
 
-  // Conditional string parameters are stored here
-  std::vector<std::string> m_stringParameters;
+  std::string GetSkinVariableString(int info, bool preferImage = false, const CGUIListItem *item = nullptr) const;
 
-  // Array of multiple information mapped to a single integer lookup
-  std::vector<GUIInfo> m_multiInfo;
-  std::vector<std::string> m_listitemProperties;
+  int AddMultiInfo(const KODI::GUILIB::GUIINFO::CGUIInfo &info);
 
-  std::string m_currentMovieDuration;
+  int ResolveMultiInfo(int info) const;
+  bool IsListItemInfo(int info) const;
+
+  void SetCurrentSongTag(const MUSIC_INFO::CMusicInfoTag &tag);
+  void SetCurrentVideoTag(const CVideoInfoTag &tag);
+
+  // Vector of multiple information mapped to a single integer lookup
+  std::vector<KODI::GUILIB::GUIINFO::CGUIInfo> m_multiInfo;
 
   // Current playing stuff
   CFileItem* m_currentFile;
-  std::string m_currentMovieThumb;
-  CFileItem* m_currentSlide;
 
-  // fan stuff
-  unsigned int m_lastSysHeatInfoTime;
-  int m_fanSpeed;
-  CTemperature m_gpuTemp;
-  CTemperature m_cpuTemp;
-
-  //Fullscreen OSD Stuff
-  unsigned int m_AfterSeekTimeout;
-  int m_seekOffset;
-  std::atomic_bool m_playerShowTime;
-  std::atomic_bool m_playerShowInfo;
-
-  // FPS counters
-  float m_fps;
-  unsigned int m_frameCounter;
-  unsigned int m_lastFPSTime;
-
-  std::map<int, int> m_containerMoves;  // direction of list moving
-  int m_nextWindowID;
-  int m_prevWindowID;
-
-  std::vector<INFO::InfoPtr> m_bools;
+  typedef std::set<INFO::InfoPtr, bool(*)(const INFO::InfoPtr&, const INFO::InfoPtr&)> INFOBOOLTYPE;
+  INFOBOOLTYPE m_bools;
+  unsigned int m_refreshCounter = 0;
   std::vector<INFO::CSkinVariableString> m_skinVariableStrings;
-
-  int m_libraryHasMusic;
-  int m_libraryHasMovies;
-  int m_libraryHasTVShows;
-  int m_libraryHasMusicVideos;
-  int m_libraryHasMovieSets;
-  int m_libraryHasSingles;
-  int m_libraryHasCompilations;
-  
-  //Count of artists in music library contributing to song by role e.g. composers, conductors etc.
-  //For checking visibiliy of custom nodes for a role.
-  std::vector<std::pair<std::string, int>> m_libraryRoleCounts; 
-
-  SPlayerVideoStreamInfo m_videoInfo;
-  SPlayerAudioStreamInfo m_audioInfo;
-  bool m_isPvrChannelPreview;
 
   CCriticalSection m_critInfo;
 
-private:
-  static std::string FormatRatingAndVotes(float rating, int votes);
+  KODI::GUILIB::GUIINFO::CGUIInfoProviders m_infoProviders;
 };
-
-/*!
- \ingroup strings
- \brief
- */
-extern CGUIInfoManager g_infoManager;
-#endif
-
-
-
-

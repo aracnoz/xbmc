@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "XBMCOperations.h"
+
+#include "ServiceBroker.h"
 #include "messaging/ApplicationMessenger.h"
-#include "utils/Variant.h"
 #include "powermanagement/PowerManager.h"
+#include "utils/Variant.h"
 
 using namespace JSONRPC;
 using namespace KODI::MESSAGING;
@@ -68,15 +58,15 @@ JSONRPC_STATUS CXBMCOperations::GetInfoBooleans(const std::string &method, ITran
     // Need to override power management of whats in infomanager since jsonrpc
     // have a security layer aswell.
     if (field == "system.canshutdown")
-      result[parameterObject["booleans"][i].asString()] = (g_powerManager.CanPowerdown() && CanControlPower);
+      result[parameterObject["booleans"][i].asString()] = (CServiceBroker::GetPowerManager().CanPowerdown() && CanControlPower);
     else if (field == "system.canpowerdown")
-      result[parameterObject["booleans"][i].asString()] = (g_powerManager.CanPowerdown() && CanControlPower);
+      result[parameterObject["booleans"][i].asString()] = (CServiceBroker::GetPowerManager().CanPowerdown() && CanControlPower);
     else if (field == "system.cansuspend")
-      result[parameterObject["booleans"][i].asString()] = (g_powerManager.CanSuspend() && CanControlPower);
+      result[parameterObject["booleans"][i].asString()] = (CServiceBroker::GetPowerManager().CanSuspend() && CanControlPower);
     else if (field == "system.canhibernate")
-      result[parameterObject["booleans"][i].asString()] = (g_powerManager.CanHibernate() && CanControlPower);
+      result[parameterObject["booleans"][i].asString()] = (CServiceBroker::GetPowerManager().CanHibernate() && CanControlPower);
     else if (field == "system.canreboot")
-      result[parameterObject["booleans"][i].asString()] = (g_powerManager.CanReboot() && CanControlPower);
+      result[parameterObject["booleans"][i].asString()] = (CServiceBroker::GetPowerManager().CanReboot() && CanControlPower);
     else
       info.push_back(parameterObject["booleans"][i].asString());
   }

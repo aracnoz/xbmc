@@ -1,26 +1,17 @@
-#pragma once
-
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "guilib/Geometry.h"
+#pragma once
+
+#include "utils/Geometry.h"
+#include "utils/Vector.h"
+
+#include <deque>
 
 class CApplication;
 class CAction;
@@ -30,18 +21,28 @@ class CInertialScrollingHandler
   friend class CApplication;
   public:
     CInertialScrollingHandler();
-    
-    bool IsScrolling(){return m_bScrolling;}    
-    
+
+    bool IsScrolling(){return m_bScrolling;}
+
   private:
     bool CheckForInertialScrolling(const CAction* action);
     bool ProcessInertialScroll(float frameTime);
-  
+
     //-------------------------------------------vars for inertial scrolling animation with gestures
-    bool          m_bScrolling;        //flag indicating that we currently do the inertial scrolling emulation
-    bool          m_bAborting;         //flag indicating an abort of scrolling
-    CPoint        m_iFlickVelocity;
+    bool          m_bScrolling = false;        //flag indicating that we currently do the inertial scrolling emulation
+    bool          m_bAborting = false;         //flag indicating an abort of scrolling
+    CVector       m_iFlickVelocity;
+
+    struct PanPoint
+    {
+      unsigned int time;
+      CVector velocity;
+      PanPoint(unsigned int time, CVector velocity)
+        : time(time), velocity(velocity) {}
+      unsigned int TimeElapsed() const;
+    };
+    std::deque<PanPoint> m_panPoints;
     CPoint        m_iLastGesturePoint;
-    CPoint        m_inertialDeacceleration;
-    unsigned int  m_inertialStartTime;  
+    CVector       m_inertialDeacceleration;
+    unsigned int  m_inertialStartTime = 0;
 };

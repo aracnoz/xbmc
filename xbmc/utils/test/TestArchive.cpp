@@ -1,22 +1,14 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#if defined(TARGET_WINDOWS)
+#  include <windows.h>
+#endif
 
 #include "utils/Archive.h"
 #include "utils/Variant.h"
@@ -24,7 +16,7 @@
 
 #include "test/TestUtils.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 class TestArchive : public testing::Test
 {
@@ -33,7 +25,7 @@ protected:
   {
     file = XBMC_CREATETEMPFILE(".ar");
   }
-  ~TestArchive()
+  ~TestArchive() override
   {
     EXPECT_TRUE(XBMC_DELETETEMPFILE(file));
   }
@@ -286,10 +278,10 @@ TEST_F(TestArchive, StringVectorArchive)
 {
   ASSERT_NE(nullptr, file);
   std::vector<std::string> strArray_ref, strArray_var;
-  strArray_ref.push_back("test strArray_ref 0");
-  strArray_ref.push_back("test strArray_ref 1");
-  strArray_ref.push_back("test strArray_ref 2");
-  strArray_ref.push_back("test strArray_ref 3");
+  strArray_ref.emplace_back("test strArray_ref 0");
+  strArray_ref.emplace_back("test strArray_ref 1");
+  strArray_ref.emplace_back("test strArray_ref 2");
+  strArray_ref.emplace_back("test strArray_ref 3");
 
   CArchive arstore(file, CArchive::store);
   arstore << strArray_ref;
@@ -347,10 +339,10 @@ TEST_F(TestArchive, MultiTypeArchive)
   SYSTEMTIME SYSTEMTIME_var = { 0, 0, 0, 0, 0, 0, 0, 0 };
   CVariant CVariant_ref((int)1), CVariant_var;
   std::vector<std::string> strArray_ref, strArray_var;
-  strArray_ref.push_back("test strArray_ref 0");
-  strArray_ref.push_back("test strArray_ref 1");
-  strArray_ref.push_back("test strArray_ref 2");
-  strArray_ref.push_back("test strArray_ref 3");
+  strArray_ref.emplace_back("test strArray_ref 0");
+  strArray_ref.emplace_back("test strArray_ref 1");
+  strArray_ref.emplace_back("test strArray_ref 2");
+  strArray_ref.emplace_back("test strArray_ref 3");
   std::vector<int> iArray_ref, iArray_var;
   iArray_ref.push_back(0);
   iArray_ref.push_back(1);

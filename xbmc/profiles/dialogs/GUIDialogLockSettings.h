@@ -1,26 +1,13 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "GUIPassword.h"
+#pragma once
+
 #include "profiles/Profile.h"
 #include "settings/dialogs/GUIDialogSettingsManualBase.h"
 
@@ -28,7 +15,7 @@ class CGUIDialogLockSettings : public CGUIDialogSettingsManualBase
 {
 public:
   CGUIDialogLockSettings();
-  virtual ~CGUIDialogLockSettings();
+  ~CGUIDialogLockSettings() override;
 
   static bool ShowAndGetLock(LockType &lockMode, std::string &password, int header = 20091);
   static bool ShowAndGetLock(CProfile::CLock &locks, int buttonLabel = 20091, bool conditional = false, bool details = true);
@@ -36,30 +23,31 @@ public:
 
 protected:
   // implementations of ISettingCallback
-  virtual void OnSettingChanged(const CSetting *setting);
-  virtual void OnSettingAction(const CSetting *setting);
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
 
   // specialization of CGUIDialogSettingsBase
-  virtual bool AllowResettingSettings() const { return false; }
-  virtual void Save() { }
-  virtual void OnCancel();
-  virtual void SetupView();
+  bool AllowResettingSettings() const override { return false; }
+  void Save() override { }
+  void OnCancel() override;
+  void SetupView() override;
 
   // specialization of CGUIDialogSettingsManualBase
-  virtual void InitializeSettings();
+  void InitializeSettings() override;
 
 private:
-  void setDetailSettingsEnabled(bool enabled);
-  void setLockCodeLabel();
+  std::string GetLockModeLabel();
+  void SetDetailSettingsEnabled(bool enabled);
+  void SetSettingLockCodeLabel();
 
-  bool m_changed;
+  bool m_changed = false;
 
   CProfile::CLock m_locks;
   std::string m_user;
   std::string m_url;
-  bool m_details;
-  bool m_conditionalDetails;
-  bool m_getUser;
+  bool m_details = true;
+  bool m_conditionalDetails = false;
+  bool m_getUser = false;
   bool* m_saveUserDetails;
-  int m_buttonLabel;
+  int m_buttonLabel = 20091;
 };

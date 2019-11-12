@@ -3,7 +3,7 @@
 \page skin_controls Controls
 \brief Controls are the substance of your skin. They define everything from
 buttons, to text labels, to visualization placement. This portion of the
-manual will explain each and every control in detail. 
+manual will explain each and every control in detail.
 
 - \subpage Addon_Rendering_control - Control where rendering becomes performed from add-on
 - \subpage skin_Button_control - a standard push button control.
@@ -11,6 +11,7 @@ manual will explain each and every control in detail.
 - \subpage skin_Edit_control - used as an input control for the osd keyboard and other input fields.
 - \subpage Fade_Label_Control - used to show multiple pieces of text in the same position, by fading from one to the other.
 - \subpage Fixed_List_Container - used for a list of items with a fixed focus. Same as the \ref Wrap_List_Container "Wrap List Container" except it doesn't wrap.
+- \subpage Game_Control - used to display the currently playing game, with optional effects, whilst in the GUI.
 - \subpage Group_Control -  used to group controls together.
 - \subpage Group_List_Control - special case of the group control that forms a scrolling list of controls.
 - \subpage Image_Control - used to show an image.
@@ -21,6 +22,7 @@ manual will explain each and every control in detail.
 - \subpage Panel_Container - used for a scrolling panel of items. Replaces the thumbnail panel.
 - \subpage Progress_Control - Used to show the progress of a particular operation.
 - \subpage RSS_feed_Control - used to display scrolling RSS feeds.
+- \subpage Ranges_Control - Used to show multiple range blocks.
 - \subpage Radio_button_control - a radio button control (as used for on/off settings).
 - \subpage Resize_Control - used to set the pixel ratio in Video Calibration.
 - \subpage Scroll_Bar_Control - used for a implementing a scroll bar.

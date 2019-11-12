@@ -1,32 +1,19 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIFont.h"
+
 #include "GUIFontTTF.h"
-#include "GraphicContext.h"
-
 #include "threads/SingleLock.h"
-#include "utils/TimeUtils.h"
-#include "utils/MathUtils.h"
-
 #include "utils/CharsetConverter.h"
+#include "utils/MathUtils.h"
+#include "utils/TimeUtils.h"
+#include "windowing/GraphicContext.h"
 
 #define ROUND(x) (float)(MathUtils::round_int(x))
 
@@ -63,8 +50,8 @@ float CScrollInfo::GetPixelsPerFrame()
   return pixelSpeed * m_averageFrameTime;
 }
 
-CGUIFont::CGUIFont(const std::string& strFontName, uint32_t style, color_t textColor,
-                  color_t shadowColor, float lineSpacing, float origHeight, CGUIFontTTFBase *font):
+CGUIFont::CGUIFont(const std::string& strFontName, uint32_t style, UTILS::Color textColor,
+                   UTILS::Color shadowColor, float lineSpacing, float origHeight, CGUIFontTTFBase *font):
   m_strFontName(strFontName)
 {
   m_style = style & FONT_STYLE_MASK;
@@ -89,7 +76,7 @@ std::string& CGUIFont::GetFontName()
   return m_strFontName;
 }
 
-void CGUIFont::DrawText( float x, float y, const vecColors &colors, color_t shadowColor,
+void CGUIFont::DrawText( float x, float y, const std::vector<UTILS::Color> &colors, UTILS::Color shadowColor,
                 const vecText &text, uint32_t alignment, float maxPixelWidth)
 {
   if (!m_font) return;
@@ -98,15 +85,15 @@ void CGUIFont::DrawText( float x, float y, const vecColors &colors, color_t shad
   if (clip && ClippedRegionIsEmpty(x, y, maxPixelWidth, alignment))
     return;
 
-  maxPixelWidth = ROUND(maxPixelWidth / g_graphicsContext.GetGUIScaleX());
-  vecColors renderColors;
+  maxPixelWidth = ROUND(maxPixelWidth / CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX());
+  std::vector<UTILS::Color> renderColors;
   for (unsigned int i = 0; i < colors.size(); i++)
-    renderColors.push_back(g_graphicsContext.MergeAlpha(colors[i] ? colors[i] : m_textColor));
+    renderColors.push_back(CServiceBroker::GetWinSystem()->GetGfxContext().MergeAlpha(colors[i] ? colors[i] : m_textColor));
   if (!shadowColor) shadowColor = m_shadowColor;
   if (shadowColor)
   {
-    shadowColor = g_graphicsContext.MergeAlpha(shadowColor);
-    vecColors shadowColors;
+    shadowColor = CServiceBroker::GetWinSystem()->GetGfxContext().MergeAlpha(shadowColor);
+    std::vector<UTILS::Color> shadowColors;
     for (unsigned int i = 0; i < renderColors.size(); i++)
       shadowColors.push_back((renderColors[i] & 0xff000000) != 0 ? shadowColor : 0);
     m_font->DrawTextInternal(x + 1, y + 1, shadowColors, text, alignment, maxPixelWidth, false);
@@ -114,7 +101,7 @@ void CGUIFont::DrawText( float x, float y, const vecColors &colors, color_t shad
   m_font->DrawTextInternal( x, y, renderColors, text, alignment, maxPixelWidth, false);
 
   if (clip)
-    g_graphicsContext.RestoreClipRegion();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
 }
 
 bool CGUIFont::UpdateScrollInfo(const vecText &text, CScrollInfo &scrollInfo)
@@ -131,7 +118,7 @@ bool CGUIFont::UpdateScrollInfo(const vecText &text, CScrollInfo &scrollInfo)
   if (scrollInfo.waitTime)
   {
     scrollInfo.waitTime--;
-    return false;
+    return true;
   }
 
   if (text.empty())
@@ -140,7 +127,7 @@ bool CGUIFont::UpdateScrollInfo(const vecText &text, CScrollInfo &scrollInfo)
   CScrollInfo old(scrollInfo);
 
   // move along by the appropriate scroll amount
-  float scrollAmount = fabs(scrollInfo.GetPixelsPerFrame() * g_graphicsContext.GetGUIScaleX());
+  float scrollAmount = fabs(scrollInfo.GetPixelsPerFrame() * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX());
 
   if (!scrollInfo.m_widthValid)
   {
@@ -154,13 +141,16 @@ bool CGUIFont::UpdateScrollInfo(const vecText &text, CScrollInfo &scrollInfo)
   while (scrollInfo.pixelPos >= scrollInfo.m_totalWidth)
     scrollInfo.pixelPos -= scrollInfo.m_totalWidth;
 
+  if (scrollInfo.pixelPos < old.pixelPos)
+    ++scrollInfo.m_loopCount;
+
   if (scrollInfo.pixelPos != old.pixelPos)
     return true;
   else
     return false;
 }
 
-void CGUIFont::DrawScrollingText(float x, float y, const vecColors &colors, color_t shadowColor,
+void CGUIFont::DrawScrollingText(float x, float y, const std::vector<UTILS::Color> &colors, UTILS::Color shadowColor,
                 const vecText &text, uint32_t alignment, float maxWidth, const CScrollInfo &scrollInfo)
 {
   if (!m_font) return;
@@ -179,8 +169,8 @@ void CGUIFont::DrawScrollingText(float x, float y, const vecColors &colors, colo
 
   assert(scrollInfo.m_totalWidth != 0);
 
-  float textPixelWidth = ROUND(scrollInfo.m_textWidth / g_graphicsContext.GetGUIScaleX());
-  float suffixPixelWidth = ROUND((scrollInfo.m_totalWidth - scrollInfo.m_textWidth) / g_graphicsContext.GetGUIScaleX());
+  float textPixelWidth = ROUND(scrollInfo.m_textWidth / CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX());
+  float suffixPixelWidth = ROUND((scrollInfo.m_totalWidth - scrollInfo.m_textWidth) / CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX());
 
   float offset;
   if(scrollInfo.pixelSpeed >= 0)
@@ -188,15 +178,15 @@ void CGUIFont::DrawScrollingText(float x, float y, const vecColors &colors, colo
   else
     offset = scrollInfo.m_totalWidth - scrollInfo.pixelPos;
 
-  vecColors renderColors;
+  std::vector<UTILS::Color> renderColors;
   for (unsigned int i = 0; i < colors.size(); i++)
-    renderColors.push_back(g_graphicsContext.MergeAlpha(colors[i] ? colors[i] : m_textColor));
+    renderColors.push_back(CServiceBroker::GetWinSystem()->GetGfxContext().MergeAlpha(colors[i] ? colors[i] : m_textColor));
 
   bool scroll =  !scrollInfo.waitTime && scrollInfo.pixelSpeed;
   if (shadowColor)
   {
-    shadowColor = g_graphicsContext.MergeAlpha(shadowColor);
-    vecColors shadowColors;
+    shadowColor = CServiceBroker::GetWinSystem()->GetGfxContext().MergeAlpha(shadowColor);
+    std::vector<UTILS::Color> shadowColors;
     for (unsigned int i = 0; i < renderColors.size(); i++)
       shadowColors.push_back((renderColors[i] & 0xff000000) != 0 ? shadowColor : 0);
     for (float dx = -offset; dx < maxWidth; dx += scrollInfo.m_totalWidth)
@@ -211,7 +201,7 @@ void CGUIFont::DrawScrollingText(float x, float y, const vecColors &colors, colo
     m_font->DrawTextInternal(x + dx + scrollInfo.m_textWidth, y, renderColors, scrollInfo.suffix, alignment, suffixPixelWidth, scroll);
   }
 
-  g_graphicsContext.RestoreClipRegion();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
 }
 
 // remaps unsupported font glpyhs to other suitable ones
@@ -231,39 +221,39 @@ bool CGUIFont::ClippedRegionIsEmpty(float x, float y, float width, uint32_t alig
   if (alignment & XBFONT_CENTER_Y)
     y -= m_font->GetLineHeight(m_lineSpacing);
 
-  return !g_graphicsContext.SetClipRegion(x, y, width, m_font->GetTextHeight(1, 2) * g_graphicsContext.GetGUIScaleY());
+  return !CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(x, y, width, m_font->GetTextHeight(1, 2) * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleY());
 }
 
 float CGUIFont::GetTextWidth( const vecText &text )
 {
   if (!m_font) return 0;
-  CSingleLock lock(g_graphicsContext);
-  return m_font->GetTextWidthInternal(text.begin(), text.end()) * g_graphicsContext.GetGUIScaleX();
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+  return m_font->GetTextWidthInternal(text.begin(), text.end()) * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX();
 }
 
 float CGUIFont::GetCharWidth( character_t ch )
 {
   if (!m_font) return 0;
-  CSingleLock lock(g_graphicsContext);
-  return m_font->GetCharWidthInternal(ch) * g_graphicsContext.GetGUIScaleX();
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+  return m_font->GetCharWidthInternal(ch) * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleX();
 }
 
 float CGUIFont::GetTextHeight(int numLines) const
 {
   if (!m_font) return 0;
-  return m_font->GetTextHeight(m_lineSpacing, numLines) * g_graphicsContext.GetGUIScaleY();
+  return m_font->GetTextHeight(m_lineSpacing, numLines) * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleY();
 }
 
 float CGUIFont::GetTextBaseLine() const
 {
   if (!m_font) return 0;
-  return m_font->GetTextBaseLine() * g_graphicsContext.GetGUIScaleY();
+  return m_font->GetTextBaseLine() * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleY();
 }
 
 float CGUIFont::GetLineHeight() const
 {
   if (!m_font) return 0;
-  return m_font->GetLineHeight(m_lineSpacing) * g_graphicsContext.GetGUIScaleY();
+  return m_font->GetLineHeight(m_lineSpacing) * CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIScaleY();
 }
 
 float CGUIFont::GetScaleFactor() const

@@ -1,27 +1,10 @@
 /*
- * dirent.h - dirent API for Microsoft Visual Studio
+ *  dirent.h - dirent API for Microsoft Visual Studio
  *
- * Copyright (C) 2006-2012 Toni Ronkko
+ *  Copyright (C) 2006-2012 Toni Ronkko
  *
- * Permission is hereby granted, free of charge, to any person obtaining
- * a copy of this software and associated documentation files (the
- * ``Software''), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to
- * the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL TONI RONKKO BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
+ *  SPDX-License-Identifier: MIT
+ *  See LICENSES/README.md for more information.
  *
  * Version 1.13, Dec 12 2012, Toni Ronkko
  * Use traditional 8+3 file name if the name cannot be represented in the
@@ -33,7 +16,7 @@
  * capital W) in order to maintain compatibility with MingW.
  *
  * Version 1.12, Sep 30 2012, Toni Ronkko
- * Define PATH_MAX and NAME_MAX.  Added wide-character variants _wDIR, 
+ * Define PATH_MAX and NAME_MAX.  Added wide-character variants _wDIR,
  * _wdirent, _wopendir(), _wreaddir(), _wclosedir() and _wrewinddir().
  * Thanks to Edgar Buerkle and Jan Nijtmans for ideas and code.
  *
@@ -88,9 +71,9 @@
  *
  * May 28 1998, Toni Ronkko
  * First version.
- *****************************************************************************/
-#ifndef DIRENT_H
-#define DIRENT_H
+ */
+
+#pragma once
 
 #if !defined(_68K_) && !defined(_MPPC_) && !defined(_X86_) && !defined(_IA64_) && !defined(_AMD64_) && defined(_M_IX86)
 #   define _X86_
@@ -410,11 +393,11 @@ _wreaddir(
     if (datap) {
         size_t n;
         DWORD attr;
-        
+
         /* Pointer to directory entry to return */
         entp = &dirp->ent;
 
-        /* 
+        /*
          * Copy file name as wide-character string.  If the file name is too
          * long to fit in to the destination buffer, then truncate file name
          * to PATH_MAX characters and zero-terminate the buffer.
@@ -570,12 +553,12 @@ dirent_next(
     return p;
 }
 
-/* 
+/*
  * Open directory stream using plain old C-string.
  */
 static DIR*
 opendir(
-    const char *dirname) 
+    const char *dirname)
 {
     struct DIR *dirp;
     int error;
@@ -608,7 +591,7 @@ opendir(
             }
 
         } else {
-            /* 
+            /*
              * Cannot convert file name to wide-character string.  This
              * occurs if the string contains invalid multi-byte sequences or
              * the output buffer is too small to contain the resulting
@@ -642,11 +625,11 @@ opendir(
  * to 1252 using chcp utility and use Lucida Console font, or (2) use
  * _cprintf function when writing to console.  The _cprinf() will re-encode
  * ANSI strings to the console code page so many non-ASCII characters will
- * display correcly.
+ * display correctly.
  */
 static struct dirent*
 readdir(
-    DIR *dirp) 
+    DIR *dirp)
 {
     WIN32_FIND_DATAW *datap;
     struct dirent *entp;
@@ -661,7 +644,7 @@ readdir(
         error = dirent_wcstombs_s(
             &n, dirp->ent.d_name, MAX_PATH + 1, datap->cFileName, MAX_PATH);
 
-        /* 
+        /*
          * If the file name cannot be represented by a multi-byte string,
          * then attempt to use old 8+3 file name.  This allows traditional
          * Unix-code to access some file names despite of unicode
@@ -674,7 +657,7 @@ readdir(
         if (error  &&  datap->cAlternateFileName[0] != '\0') {
             error = dirent_wcstombs_s(
                 &n, dirp->ent.d_name, MAX_PATH + 1, datap->cAlternateFileName,
-                sizeof (datap->cAlternateFileName) / 
+                sizeof (datap->cAlternateFileName) /
                     sizeof (datap->cAlternateFileName[0]));
         }
 
@@ -702,9 +685,9 @@ readdir(
             entp->d_reclen = sizeof (struct dirent);
 
         } else {
-            /* 
+            /*
              * Cannot convert file name to multi-byte string so construct
-             * an errornous directory entry and return that.  Note that
+             * an erroneous directory entry and return that.  Note that
              * we cannot return NULL as that would stop the processing
              * of directory entries completely.
              */
@@ -730,7 +713,7 @@ readdir(
  */
 static int
 closedir(
-    DIR *dirp) 
+    DIR *dirp)
 {
     int ok;
     if (dirp) {
@@ -757,7 +740,7 @@ closedir(
  */
 static void
 rewinddir(
-    DIR* dirp) 
+    DIR* dirp)
 {
     /* Rewind wide-character string directory stream */
     _wrewinddir (dirp->wdirp);
@@ -793,7 +776,7 @@ dirent_mbstowcs_s(
             wcstr[n] = 0;
         }
 
-        /* Length of resuting multi-byte string WITH zero terminator */
+        /* Length of resulting multi-byte string WITH zero terminator */
         if (pReturnValue) {
             *pReturnValue = n + 1;
         }
@@ -843,7 +826,7 @@ dirent_wcstombs_s(
             mbstr[n] = '\0';
         }
 
-        /* Lenght of resulting multi-bytes string WITH zero-terminator */
+        /* Length of resulting multi-bytes string WITH zero-terminator */
         if (pReturnValue) {
             *pReturnValue = n + 1;
         }
@@ -885,5 +868,4 @@ dirent_set_errno(
 #ifdef __cplusplus
 }
 #endif
-#endif /*DIRENT_H*/
 

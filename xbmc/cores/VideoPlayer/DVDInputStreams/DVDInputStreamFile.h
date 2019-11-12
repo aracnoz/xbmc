@@ -1,45 +1,34 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "DVDInputStream.h"
 
 class CDVDInputStreamFile : public CDVDInputStream
 {
 public:
-  CDVDInputStreamFile(const CFileItem& fileitem);
-  virtual ~CDVDInputStreamFile();
-  virtual bool Open();
-  virtual void Close();
-  virtual int Read(uint8_t* buf, int buf_size);
-  virtual int64_t Seek(int64_t offset, int whence);
-  virtual bool Pause(double dTime) { return false; };
-  virtual bool IsEOF();
-  virtual int64_t GetLength();
-  virtual BitstreamStats GetBitstreamStats() const ;
-  virtual int GetBlockSize();
-  virtual void SetReadRate(unsigned rate);
-  virtual bool GetCacheStatus(XFILE::SCacheStatus *status);
+  explicit CDVDInputStreamFile(const CFileItem& fileitem, unsigned int flags);
+  ~CDVDInputStreamFile() override;
+  bool Open() override;
+  void Close() override;
+  int Read(uint8_t* buf, int buf_size) override;
+  int64_t Seek(int64_t offset, int whence) override;
+  bool Pause(double dTime) override { return false; };
+  bool IsEOF() override;
+  int64_t GetLength() override;
+  BitstreamStats GetBitstreamStats() const override ;
+  int GetBlockSize() override;
+  void SetReadRate(unsigned rate) override;
+  bool GetCacheStatus(XFILE::SCacheStatus *status) override;
 
 protected:
-  XFILE::CFile* m_pFile;
-  bool m_eof;
+  XFILE::CFile* m_pFile = nullptr;
+  bool m_eof = false;
+  unsigned int m_flags = 0;
 };

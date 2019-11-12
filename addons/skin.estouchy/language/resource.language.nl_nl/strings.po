@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -30,11 +30,11 @@ msgstr "Caps[CR]Lock"
 
 msgctxt "#31005"
 msgid "Visualization Options"
-msgstr "Visualisatie Opties"
+msgstr "Visualisatie-opties"
 
 msgctxt "#31006"
 msgid "Visualization Presets"
-msgstr "Visualisatie voorinstellingen"
+msgstr "Visualisatievoorinstellingen"
 
 msgctxt "#31007"
 msgid "Context Menu"
@@ -46,7 +46,7 @@ msgstr "Bezig..."
 
 msgctxt "#31011"
 msgid "Recent"
-msgstr "Recent"
+msgstr "Recente"
 
 msgctxt "#31013"
 msgid "Movies"
@@ -110,7 +110,7 @@ msgstr "Afspeelsnelheid"
 
 msgctxt "#31049"
 msgid "End Time"
-msgstr "Eind tijd"
+msgstr "Eindtijd"
 
 msgctxt "#31050"
 msgid "Sort: Ascending"
@@ -134,7 +134,7 @@ msgstr "Sluit afspeellijst"
 
 msgctxt "#31058"
 msgid "System music files"
-msgstr "Systeem muziekbestanden"
+msgstr "Systeemmuziekbestanden"
 
 msgctxt "#31059"
 msgid "Current playlist"
@@ -238,11 +238,11 @@ msgstr "Kies je Kodi gebruikersprofiel[CR]om in te loggen en door te gaan"
 
 msgctxt "#31548"
 msgid "Home menu"
-msgstr "Begin menu"
+msgstr "Beginmenu"
 
 msgctxt "#31549"
 msgid "Home Add-ons"
-msgstr "Begin Add-ons"
+msgstr "Begin add-ons"
 
 msgctxt "#31550"
 msgid "Backgrounds"
@@ -250,7 +250,7 @@ msgstr "Achtergronden"
 
 msgctxt "#31551"
 msgid "Add-on Shortcut"
-msgstr "Add-on snelkoppelingen"
+msgstr "Add-on snelkoppeling"
 
 msgctxt "#31552"
 msgid "SYNC"

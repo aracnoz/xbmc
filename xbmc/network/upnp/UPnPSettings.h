@@ -1,34 +1,24 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
-#include <string>
 
 #include "settings/lib/ISettingsHandler.h"
 #include "threads/CriticalSection.h"
+
+#include <string>
 
 class CUPnPSettings : public ISettingsHandler
 {
 public:
   static CUPnPSettings& GetInstance();
-  
-  virtual void OnSettingsUnloaded() override;
+
+  void OnSettingsUnloaded() override;
 
   bool Load(const std::string &file);
   bool Save(const std::string &file) const;
@@ -48,9 +38,9 @@ public:
 
 protected:
   CUPnPSettings();
-  CUPnPSettings(const CUPnPSettings&);
-  CUPnPSettings const& operator=(CUPnPSettings const&);
-  virtual ~CUPnPSettings();
+  CUPnPSettings(const CUPnPSettings&) = delete;
+  CUPnPSettings& operator=(CUPnPSettings const&) = delete;
+  ~CUPnPSettings() override;
 
 private:
   std::string m_serverUUID;
@@ -59,5 +49,5 @@ private:
   std::string m_rendererUUID;
   int m_rendererPort;
 
-  CCriticalSection m_critical;
+  mutable CCriticalSection m_critical;
 };

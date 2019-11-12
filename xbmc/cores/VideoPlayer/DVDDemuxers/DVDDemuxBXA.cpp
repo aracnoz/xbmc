@@ -1,40 +1,27 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "DVDInputStreams/DVDInputStream.h"
 #include "DVDDemuxBXA.h"
+
 #include "DVDDemuxUtils.h"
+#include "DVDInputStreams/DVDInputStream.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "utils/StringUtils.h"
-#include "../DVDClock.h"
 
 // AirTunes audio Demuxer.
 
 class CDemuxStreamAudioBXA
   : public CDemuxStreamAudio
 {
-  CDVDDemuxBXA  *m_parent;
   std::string    m_codec;
 public:
   CDemuxStreamAudioBXA(CDVDDemuxBXA *parent, const std::string& codec)
-    : m_parent(parent)
-    , m_codec(codec)
+    : m_codec(codec)
 
   {}
 };
@@ -52,7 +39,7 @@ CDVDDemuxBXA::~CDVDDemuxBXA()
   Dispose();
 }
 
-bool CDVDDemuxBXA::Open(CDVDInputStream* pInput)
+bool CDVDDemuxBXA::Open(std::shared_ptr<CDVDInputStream> pInput)
 {
   Abort();
 
@@ -99,11 +86,11 @@ void CDVDDemuxBXA::Dispose()
   memset(&m_header, 0x0, sizeof(Demux_BXA_FmtHeader));
 }
 
-void CDVDDemuxBXA::Reset()
+bool CDVDDemuxBXA::Reset()
 {
-  CDVDInputStream* pInputStream = m_pInput;
+  std::shared_ptr<CDVDInputStream> pInputStream = m_pInput;
   Dispose();
-  Open(pInputStream);
+  return Open(pInputStream);
 }
 
 void CDVDDemuxBXA::Abort()

@@ -1,26 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIProgressControl.h"
+
 #include "GUIInfoManager.h"
 #include "GUIListItem.h"
+#include "GUIMessage.h"
 #include "utils/StringUtils.h"
 
 CGUIProgressControl::CGUIProgressControl(int parentID, int controlID,
@@ -45,9 +35,7 @@ CGUIProgressControl::CGUIProgressControl(int parentID, int controlID,
   m_bChanged = false;
 }
 
-CGUIProgressControl::~CGUIProgressControl(void)
-{
-}
+CGUIProgressControl::~CGUIProgressControl(void) = default;
 
 void CGUIProgressControl::SetPosition(float posX, float posY)
 {
@@ -84,10 +72,10 @@ void CGUIProgressControl::Render()
     {
       if (m_bReveal && !m_guiMidClipRect.IsEmpty())
       {
-        bool restore = g_graphicsContext.SetClipRegion(m_guiMidClipRect.x1, m_guiMidClipRect.y1, m_guiMidClipRect.Width(), m_guiMidClipRect.Height());
+        bool restore = CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_guiMidClipRect.x1, m_guiMidClipRect.y1, m_guiMidClipRect.Width(), m_guiMidClipRect.Height());
         m_guiMid.Render();
         if (restore)
-          g_graphicsContext.RestoreClipRegion();
+          CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
       }
       else if (!m_bReveal && m_guiMid.GetWidth() > 0)
         m_guiMid.Render();
@@ -98,10 +86,10 @@ void CGUIProgressControl::Render()
 
       if (m_bReveal && !m_guiMidClipRect.IsEmpty())
       {
-        bool restore = g_graphicsContext.SetClipRegion(m_guiMidClipRect.x1, m_guiMidClipRect.y1, m_guiMidClipRect.Width(), m_guiMidClipRect.Height());
+        bool restore = CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_guiMidClipRect.x1, m_guiMidClipRect.y1, m_guiMidClipRect.Width(), m_guiMidClipRect.Height());
         m_guiMid.Render();
         if (restore)
-          g_graphicsContext.RestoreClipRegion();
+          CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
       }
       else if (!m_bReveal && m_guiMid.GetWidth() > 0)
         m_guiMid.Render();
@@ -190,9 +178,10 @@ void CGUIProgressControl::SetInvalid()
   m_guiOverlay.SetInvalid();
 }
 
-void CGUIProgressControl::SetInfo(int iInfo)
+void CGUIProgressControl::SetInfo(int iInfo, int iInfo2)
 {
   m_iInfoCode = iInfo;
+  m_iInfoCode2 = iInfo2;
 }
 
 bool CGUIProgressControl::UpdateColors()
@@ -209,7 +198,7 @@ bool CGUIProgressControl::UpdateColors()
 
 std::string CGUIProgressControl::GetDescription() const
 {
-  return StringUtils::Format("%2.f", m_fPercent);
+  return StringUtils::Format("{:2.0f}", m_fPercent);
 }
 
 bool CGUIProgressControl::UpdateLayout(void)
@@ -233,17 +222,15 @@ bool CGUIProgressControl::UpdateLayout(void)
 
   if (m_guiLeft.GetFileName().empty() && m_guiRight.GetFileName().empty())
   { // rendering without left and right image - fill the mid image completely
-    float width = m_fPercent * m_width * 0.01f;
-    float offset = fabs(fScaleY * 0.5f * (m_guiMid.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
-    if (offset > 0)  //  Center texture to the background if necessary
-      bChanged |= m_guiMid.SetPosition(posX, posY + offset);
-    else
-      bChanged |= m_guiMid.SetPosition(posX, posY);
+    float width = (m_fPercent - m_fPercent2) * m_width * 0.01f;
+    float offsetX = m_fPercent2 * m_width * 0.01f;;
+    float offsetY = fabs(fScaleY * 0.5f * (m_guiMid.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
+    bChanged |= m_guiMid.SetPosition(posX + (offsetX > 0 ? offsetX : 0), posY + (offsetY > 0 ? offsetY : 0));
     bChanged |= m_guiMid.SetHeight(fScaleY * m_guiMid.GetTextureHeight());
     if (m_bReveal)
     {
       bChanged |= m_guiMid.SetWidth(m_width);
-      float x = posX, y = posY + offset, w = width, h = fScaleY * m_guiMid.GetTextureHeight();
+      float x = posX + offsetX, y = posY + offsetY, w = width, h = fScaleY * m_guiMid.GetTextureHeight();
       CRect rect(x, y, x + w, y + h);
       if (rect != m_guiMidClipRect)
       {
@@ -259,30 +246,25 @@ bool CGUIProgressControl::UpdateLayout(void)
   }
   else
   {
-    float fWidth = m_fPercent;
+    float fWidth = m_fPercent - m_fPercent2;
     float fFullWidth = m_guiBackground.GetTextureWidth() - m_guiLeft.GetTextureWidth() - m_guiRight.GetTextureWidth();
     fWidth /= 100.0f;
     fWidth *= fFullWidth;
 
-    float offset = fabs(fScaleY * 0.5f * (m_guiLeft.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
-    if (offset > 0)  //  Center texture to the background if necessary
-      bChanged |= m_guiLeft.SetPosition(posX, posY + offset);
-    else
-      bChanged |= m_guiLeft.SetPosition(posX, posY);
+    float offsetY = fabs(fScaleY * 0.5f * (m_guiLeft.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
+    bChanged |= m_guiLeft.SetPosition(posX, posY + (offsetY > 0 ? offsetY : 0));
     bChanged |= m_guiLeft.SetHeight(fScaleY * m_guiLeft.GetTextureHeight());
     bChanged |= m_guiLeft.SetWidth(fScaleX * m_guiLeft.GetTextureWidth());
 
     posX += fScaleX * m_guiLeft.GetTextureWidth();
-    offset = fabs(fScaleY * 0.5f * (m_guiMid.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
-    if (offset > 0)  //  Center texture to the background if necessary
-      bChanged |= m_guiMid.SetPosition(posX, posY + offset);
-    else
-      bChanged |= m_guiMid.SetPosition(posX, posY);
+    float offsetX = m_fPercent2 * fWidth * 0.01f;;
+    offsetY = fabs(fScaleY * 0.5f * (m_guiMid.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
+    bChanged |= m_guiMid.SetPosition(posX + offsetX, posY + (offsetY > 0 ? offsetY : 0));
     bChanged |= m_guiMid.SetHeight(fScaleY * m_guiMid.GetTextureHeight());
     if (m_bReveal)
     {
       bChanged |= m_guiMid.SetWidth(fScaleX * fFullWidth);
-      float x = posX, y = posY + offset, w =  fScaleX * fWidth, h = fScaleY * m_guiMid.GetTextureHeight();
+      float x = posX + offsetX, y = posY + offsetY, w = fScaleX * fWidth, h = fScaleY * m_guiMid.GetTextureHeight();
       CRect rect(x, y, x + w, y + h);
       if (rect != m_guiMidClipRect)
       {
@@ -298,11 +280,8 @@ bool CGUIProgressControl::UpdateLayout(void)
 
     posX += fWidth * fScaleX;
 
-    offset = fabs(fScaleY * 0.5f * (m_guiRight.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
-    if (offset > 0)  //  Center texture to the background if necessary
-      bChanged |= m_guiRight.SetPosition(posX, posY + offset);
-    else
-      bChanged |= m_guiRight.SetPosition(posX, posY);
+    offsetY = fabs(fScaleY * 0.5f * (m_guiRight.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
+    bChanged |= m_guiRight.SetPosition(posX, posY + (offsetY > 0 ? offsetY : 0));
     bChanged |= m_guiRight.SetHeight(fScaleY * m_guiRight.GetTextureHeight());
     bChanged |= m_guiRight.SetWidth(fScaleX * m_guiRight.GetTextureWidth());
   }
@@ -324,11 +303,14 @@ void CGUIProgressControl::UpdateInfo(const CGUIListItem *item)
     if (m_iInfoCode)
     {
       int value;
-      if (g_infoManager.GetInt(value, m_iInfoCode, m_parentID, item))
-        m_fPercent = (float)value;
-
-      if (m_fPercent < 0.0f) m_fPercent = 0.0f;
-      if (m_fPercent > 100.0f) m_fPercent = 100.0f;
+      if (CServiceBroker::GetGUI()->GetInfoManager().GetInt(value, m_iInfoCode, m_parentID, item))
+        m_fPercent = std::max(0.0f, std::min(static_cast<float>(value), 100.0f));
+    }
+    if (m_iInfoCode2)
+    {
+      int value;
+      if (CServiceBroker::GetGUI()->GetInfoManager().GetInt(value, m_iInfoCode2, m_parentID, item))
+        m_fPercent2 = std::max(0.0f, std::min(static_cast<float>(value), 100.0f));
     }
   }
 }

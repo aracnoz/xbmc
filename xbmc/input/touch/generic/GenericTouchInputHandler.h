@@ -1,32 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <set>
+#pragma once
 
 #include "input/touch/ITouchInputHandler.h"
 #include "input/touch/TouchTypes.h"
 #include "threads/CriticalSection.h"
 #include "threads/Timer.h"
 
-#define TOUCH_MAX_POINTERS  2
+#include <array>
+#include <memory>
+#include <set>
 
 class IGenericTouchGestureDetector;
 
@@ -49,17 +38,18 @@ public:
    \brief Get an instance of the touch input manager
    */
   static CGenericTouchInputHandler &GetInstance();
+  static constexpr int MAX_POINTERS = 2;
 
   // implementation of ITouchInputHandler
-  virtual bool HandleTouchInput(TouchInput event, float x, float y, int64_t time, int32_t pointer = 0, float size = 0.0f);
-  virtual bool UpdateTouchPointer(int32_t pointer, float x, float y, int64_t time, float size = 0.0f);
+  bool HandleTouchInput(TouchInput event, float x, float y, int64_t time, int32_t pointer = 0, float size = 0.0f) override;
+  bool UpdateTouchPointer(int32_t pointer, float x, float y, int64_t time, float size = 0.0f) override;
 
 private:
-  // private construction, and no assignements; use the provided singleton methods
+  // private construction, and no assignments; use the provided singleton methods
   CGenericTouchInputHandler();
-  CGenericTouchInputHandler(const CGenericTouchInputHandler&);
-  CGenericTouchInputHandler const& operator=(CGenericTouchInputHandler const&);
-  virtual ~CGenericTouchInputHandler();
+  ~CGenericTouchInputHandler() override;
+  CGenericTouchInputHandler(const CGenericTouchInputHandler&) = delete;
+  CGenericTouchInputHandler const& operator=(CGenericTouchInputHandler const&) = delete;
 
   typedef enum {
     TouchGestureUnknown = 0,
@@ -80,17 +70,18 @@ private:
   } TouchGestureState;
 
   // implementation of ITimerCallback
-  virtual void OnTimeout();
+  void OnTimeout() override;
 
   void saveLastTouch();
   void setGestureState(TouchGestureState gestureState) { m_gestureStateOld = m_gestureState; m_gestureState = gestureState; }
   void triggerDetectors(TouchInput event, int32_t pointer);
+  float AdjustPointerSize(float size);
 
   CCriticalSection m_critical;
-  CTimer *m_holdTimer;
-  Pointer m_pointers[TOUCH_MAX_POINTERS];
-  std::set<IGenericTouchGestureDetector*> m_detectors;
+  std::unique_ptr<CTimer> m_holdTimer;
+  std::array<Pointer, MAX_POINTERS> m_pointers;
+  std::set<std::unique_ptr<IGenericTouchGestureDetector>> m_detectors;
 
-  TouchGestureState m_gestureState;
-  TouchGestureState m_gestureStateOld;
+  TouchGestureState m_gestureState = TouchGestureUnknown;
+  TouchGestureState m_gestureStateOld = TouchGestureUnknown;
 };

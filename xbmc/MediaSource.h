@@ -1,34 +1,24 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "LockType.h"
 
 #include <string>
 #include <vector>
-#include "GUIPassword.h"
 
 /*!
 \ingroup windows
 \brief Represents a share.
 \sa VECMediaSource, IVECSOURCES
 */
-class CMediaSource
+class CMediaSource final
 {
 public:
   enum SourceType
@@ -41,14 +31,12 @@ public:
     SOURCE_TYPE_VPATH        = 5,
     SOURCE_TYPE_REMOVABLE    = 6
   };
-  CMediaSource() { m_iDriveType=SOURCE_TYPE_UNKNOWN; m_iLockMode=LOCK_MODE_EVERYONE; m_iBadPwdCount=0; m_iHasLock=0; m_ignore=false; m_allowSharing=true; };
-  virtual ~CMediaSource() {};
 
   bool operator==(const CMediaSource &right) const;
 
   void FromNameAndPaths(const std::string &category, const std::string &name, const std::vector<std::string> &paths);
   bool IsWritable() const;
-  std::string strName; ///< Name of the share, can be choosen freely.
+  std::string strName; ///< Name of the share, can be chosen freely.
   std::string strStatus; ///< Status of the share (eg has disk etc.)
   std::string strDiskUniqueId; ///< removable:// + DVD Label + DVD ID for resume point storage, if available
   std::string strPath; ///< Path of the share, eg. iso9660:// or F:
@@ -68,7 +56,7 @@ public:
   - SOURCE_TYPE_REMOTE \n
   Network source.
   */
-  SourceType m_iDriveType;
+  SourceType m_iDriveType = SOURCE_TYPE_UNKNOWN;
 
   /*!
   \brief The type of Lock UI to show when accessing the media source.
@@ -89,16 +77,16 @@ public:
   - LOCK_MODE_UNKNOWN \n
   Value is unknown or unspecified.
   */
-  LockType m_iLockMode;
+  LockType m_iLockMode = LOCK_MODE_EVERYONE;
   std::string m_strLockCode;  ///< Input code for Lock UI to verify, can be chosen freely.
-  int m_iHasLock;
-  int m_iBadPwdCount; ///< Number of wrong passwords user has entered since share was last unlocked
+  int m_iHasLock = 0;
+  int m_iBadPwdCount = 0; ///< Number of wrong passwords user has entered since share was last unlocked
 
   std::string m_strThumbnailImage; ///< Path to a thumbnail image for the share, or blank for default
 
   std::vector<std::string> vecPaths;
-  bool m_ignore; /// <Do not store in xml
-  bool m_allowSharing; /// <Allow browsing of source from UPnP / WebServer
+  bool m_ignore = false; /// <Do not store in xml
+  bool m_allowSharing = true; /// <Allow browsing of source from UPnP / WebServer
 };
 
 /*!

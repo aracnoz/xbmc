@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2005-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PictureBuiltins.h"
 
-#include "guilib/GUIWindowManager.h"
 #include "GUIUserMessages.h"
+#include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
 #include "utils/StringUtils.h"
 
 /*! \brief Show a picture.
@@ -32,7 +22,7 @@ static int Show(const std::vector<std::string>& params)
 {
   CGUIMessage msg(GUI_MSG_SHOW_PICTURE, 0, 0);
   msg.SetStringParam(params[0]);
-  CGUIWindow *pWindow = g_windowManager.GetWindow(WINDOW_SLIDESHOW);
+  CGUIWindow *pWindow = CServiceBroker::GetGUI()->GetWindowManager().GetWindow(WINDOW_SLIDESHOW);
   if (pWindow)
     pWindow->OnMessage(msg);
 
@@ -84,14 +74,14 @@ static int Slideshow(const std::vector<std::string>& params)
   strParams.push_back(params[0]);
   strParams.push_back(beginSlidePath);
   msg.SetStringParams(strParams);
-  CGUIWindow *pWindow = g_windowManager.GetWindow(WINDOW_SLIDESHOW);
+  CGUIWindow *pWindow = CServiceBroker::GetGUI()->GetWindowManager().GetWindow(WINDOW_SLIDESHOW);
   if (pWindow)
     pWindow->OnMessage(msg);
 
   return 0;
 }
 
-// Note: For new Texts with comma add a "\" before!!! Is used for table text 
+// Note: For new Texts with comma add a "\" before!!! Is used for table text
 //
 /// \page page_List_of_built_in_functions
 /// \section built_in_functions_11 Picture built-in's

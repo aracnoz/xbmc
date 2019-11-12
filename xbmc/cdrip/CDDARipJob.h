@@ -1,26 +1,15 @@
-#pragma once
 /*
-*      Copyright (C) 2012-2013 Team XBMC
-*      http://xbmc.org
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
-#include "utils/Job.h"
+#pragma once
+
 #include "music/tags/MusicInfoTag.h"
+#include "utils/Job.h"
 
 class CEncoder;
 
@@ -46,11 +35,11 @@ public:
               bool eject=false, unsigned int rate=44100,
               unsigned int channels=2, unsigned int bps=16);
 
-  virtual ~CCDDARipJob();
+  ~CCDDARipJob() override;
 
-  virtual const char* GetType() const { return "cdrip"; };
-  virtual bool operator==(const CJob *job) const;
-  virtual bool DoWork();
+  const char* GetType() const override { return "cdrip"; };
+  bool operator==(const CJob *job) const override;
+  bool DoWork() override;
   std::string GetOutput() const { return m_output; }
 protected:
   //! \brief Setup the audio encoder
@@ -69,7 +58,7 @@ protected:
   //! \sa CCDDARipper::GetData, CEncoder::Encode
   int RipChunk(XFILE::CFile& reader, CEncoder* encoder, int& percent);
 
-  unsigned int m_rate; //< The sample rate of the input file 
+  unsigned int m_rate; //< The sample rate of the input file
   unsigned int m_channels; //< The number of channels in input file
   unsigned int m_bps; //< The bits per sample of input
   MUSIC_INFO::CMusicInfoTag m_tag; //< Music tag to attach to output file

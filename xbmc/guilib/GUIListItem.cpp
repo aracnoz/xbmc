@@ -1,32 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIListItem.h"
-
-#include <utility>
 
 #include "GUIListItemLayout.h"
 #include "utils/Archive.h"
 #include "utils/CharsetConverter.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
+
+#include <utility>
 
 bool CGUIListItem::icompare::operator()(const std::string &s1, const std::string &s2) const
 {
@@ -35,8 +23,6 @@ bool CGUIListItem::icompare::operator()(const std::string &s1, const std::string
 
 CGUIListItem::CGUIListItem(const CGUIListItem& item)
 {
-  m_layout = NULL;
-  m_focusedLayout = NULL;
   *this = item;
   SetInvalid();
 }
@@ -46,8 +32,7 @@ CGUIListItem::CGUIListItem(void)
   m_bIsFolder = false;
   m_bSelected = false;
   m_overlayIcon = ICON_OVERLAY_NONE;
-  m_layout = NULL;
-  m_focusedLayout = NULL;
+  m_currentItem = 1;
 }
 
 CGUIListItem::CGUIListItem(const std::string& strLabel):
@@ -57,8 +42,7 @@ CGUIListItem::CGUIListItem(const std::string& strLabel):
   SetSortLabel(strLabel);
   m_bSelected = false;
   m_overlayIcon = ICON_OVERLAY_NONE;
-  m_layout = NULL;
-  m_focusedLayout = NULL;
+  m_currentItem = 1;
 }
 
 CGUIListItem::~CGUIListItem(void)
@@ -136,12 +120,13 @@ void CGUIListItem::ClearArt()
 {
   m_art.clear();
   m_artFallbacks.clear();
+  SetProperty("libraryartfilled", false);
 }
 
 void CGUIListItem::AppendArt(const ArtMap &art, const std::string &prefix)
 {
-  for (ArtMap::const_iterator i = art.begin(); i != art.end(); ++i)
-    SetArt(prefix.empty() ? i->first : prefix + '.' + i->first, i->second);
+  for (const auto& i : art)
+    SetArt(prefix.empty() ? i.first : prefix + '.' + i.first, i.second);
 }
 
 std::string CGUIListItem::GetArt(const std::string &type) const
@@ -167,19 +152,6 @@ const CGUIListItem::ArtMap &CGUIListItem::GetArt() const
 bool CGUIListItem::HasArt(const std::string &type) const
 {
   return !GetArt(type).empty();
-}
-
-void CGUIListItem::SetIconImage(const std::string& strIcon)
-{
-  if (m_strIcon == strIcon)
-    return;
-  m_strIcon = strIcon;
-  SetInvalid();
-}
-
-const std::string& CGUIListItem::GetIconImage() const
-{
-  return m_strIcon;
 }
 
 void CGUIListItem::SetOverlayImage(GUIIconOverlay icon, bool bOnOff)
@@ -217,11 +189,6 @@ void CGUIListItem::Select(bool bOnOff)
   m_bSelected = bOnOff;
 }
 
-bool CGUIListItem::HasIcon() const
-{
-  return (m_strIcon.size() != 0);
-}
-
 bool CGUIListItem::HasOverlay() const
 {
   return (m_overlayIcon != CGUIListItem::ICON_OVERLAY_NONE);
@@ -240,7 +207,6 @@ CGUIListItem& CGUIListItem::operator =(const CGUIListItem& item)
   m_sortLabel = item.m_sortLabel;
   FreeMemory();
   m_bSelected = item.m_bSelected;
-  m_strIcon = item.m_strIcon;
   m_overlayIcon = item.m_overlayIcon;
   m_bIsFolder = item.m_bIsFolder;
   m_mapProperties = item.m_mapProperties;
@@ -258,26 +224,25 @@ void CGUIListItem::Archive(CArchive &ar)
     ar << m_strLabel;
     ar << m_strLabel2;
     ar << m_sortLabel;
-    ar << m_strIcon;
     ar << m_bSelected;
     ar << m_overlayIcon;
     ar << (int)m_mapProperties.size();
-    for (PropertyMap::const_iterator it = m_mapProperties.begin(); it != m_mapProperties.end(); ++it)
+    for (const auto& it : m_mapProperties)
     {
-      ar << it->first;
-      ar << it->second;
+      ar << it.first;
+      ar << it.second;
     }
     ar << (int)m_art.size();
-    for (ArtMap::const_iterator i = m_art.begin(); i != m_art.end(); ++i)
+    for (const auto& i : m_art)
     {
-      ar << i->first;
-      ar << i->second;
+      ar << i.first;
+      ar << i.second;
     }
     ar << (int)m_artFallbacks.size();
-    for (ArtMap::const_iterator i = m_artFallbacks.begin(); i != m_artFallbacks.end(); ++i)
+    for (const auto& i : m_artFallbacks)
     {
-      ar << i->first;
-      ar << i->second;
+      ar << i.first;
+      ar << i.second;
     }
   }
   else
@@ -286,7 +251,6 @@ void CGUIListItem::Archive(CArchive &ar)
     ar >> m_strLabel;
     ar >> m_strLabel2;
     ar >> m_sortLabel;
-    ar >> m_strIcon;
     ar >> m_bSelected;
 
     int overlayIcon;
@@ -328,22 +292,20 @@ void CGUIListItem::Serialize(CVariant &value)
   value["strLabel"] = m_strLabel;
   value["strLabel2"] = m_strLabel2;
   value["sortLabel"] = m_sortLabel;
-  value["strIcon"] = m_strIcon;
   value["selected"] = m_bSelected;
 
-  for (PropertyMap::const_iterator it = m_mapProperties.begin(); it != m_mapProperties.end(); ++it)
+  for (const auto& it : m_mapProperties)
   {
-    value["properties"][it->first] = it->second;
+    value["properties"][it.first] = it.second;
   }
-  for (ArtMap::const_iterator it = m_art.begin(); it != m_art.end(); ++it)
-    value["art"][it->first] = it->second;
+  for (const auto& it : m_art)
+    value["art"][it.first] = it.second;
 }
 
 void CGUIListItem::FreeIcons()
 {
   FreeMemory();
   ClearArt();
-  m_strIcon = "";
   SetInvalid();
 }
 
@@ -352,37 +314,33 @@ void CGUIListItem::FreeMemory(bool immediately)
   if (m_layout)
   {
     m_layout->FreeResources(immediately);
-    delete m_layout;
-    m_layout = NULL;
+    m_layout.reset();
   }
   if (m_focusedLayout)
   {
     m_focusedLayout->FreeResources(immediately);
-    delete m_focusedLayout;
-    m_focusedLayout = NULL;
+    m_focusedLayout.reset();
   }
 }
 
-void CGUIListItem::SetLayout(CGUIListItemLayout *layout)
+void CGUIListItem::SetLayout(CGUIListItemLayoutPtr layout)
 {
-  delete m_layout;
-  m_layout = layout;
+  m_layout = std::move(layout);
 }
 
 CGUIListItemLayout *CGUIListItem::GetLayout()
 {
-  return m_layout;
+  return m_layout.get();
 }
 
-void CGUIListItem::SetFocusedLayout(CGUIListItemLayout *layout)
+void CGUIListItem::SetFocusedLayout(CGUIListItemLayoutPtr layout)
 {
-  delete m_focusedLayout;
-  m_focusedLayout = layout;
+  m_focusedLayout = std::move(layout);
 }
 
 CGUIListItemLayout *CGUIListItem::GetFocusedLayout()
 {
-  return m_focusedLayout;
+  return m_focusedLayout.get();
 }
 
 void CGUIListItem::SetInvalid()
@@ -410,7 +368,7 @@ const CVariant &CGUIListItem::GetProperty(const std::string &strKey) const
 {
   PropertyMap::const_iterator iter = m_mapProperties.find(strKey);
   static CVariant nullVariant = CVariant(CVariant::VariantTypeNull);
-  
+
   if (iter == m_mapProperties.end())
     return nullVariant;
 
@@ -461,6 +419,16 @@ void CGUIListItem::IncrementProperty(const std::string &strKey, double dVal)
 
 void CGUIListItem::AppendProperties(const CGUIListItem &item)
 {
-  for (PropertyMap::const_iterator i = item.m_mapProperties.begin(); i != item.m_mapProperties.end(); ++i)
-    SetProperty(i->first, i->second);
+  for (const auto& i : item.m_mapProperties)
+    SetProperty(i.first, i.second);
+}
+
+void CGUIListItem::SetCurrentItem(unsigned int position)
+{
+  m_currentItem = position;
+}
+
+unsigned int CGUIListItem::GetCurrentItem() const
+{
+  return m_currentItem;
 }

@@ -1,40 +1,30 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <cstdlib>
-
 #include "LabelFormatter.h"
-#include "settings/AdvancedSettings.h"
-#include "settings/Settings.h"
-#include "RegExp.h"
-#include "Util.h"
-#include "video/VideoInfoTag.h"
-#include "music/tags/MusicInfoTag.h"
-#include "pictures/PictureInfoTag.h"
+
 #include "FileItem.h"
+#include "RegExp.h"
+#include "ServiceBroker.h"
 #include "StringUtils.h"
 #include "URIUtils.h"
-#include "guilib/LocalizeStrings.h"
+#include "Util.h"
 #include "Variant.h"
+#include "guilib/LocalizeStrings.h"
+#include "music/tags/MusicInfoTag.h"
+#include "pictures/PictureInfoTag.h"
+#include "settings/AdvancedSettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "video/VideoInfoTag.h"
 
 #include <cassert>
+#include <cstdlib>
 
 using namespace MUSIC_INFO;
 
@@ -101,7 +91,7 @@ using namespace MUSIC_INFO;
  *  %Y - Year
  *  %Z - tvshow title
  *  %a - Date Added
- *  %c - Relevance - Used for actors' appearences
+ *  %c - Relevance - Used for actors' appearances
  *  %d - Date and Time
  *  %p - Last Played
  *  %r - User Rating
@@ -116,7 +106,7 @@ CLabelFormatter::CLabelFormatter(const std::string &mask, const std::string &mas
   AssembleMask(0, mask);
   AssembleMask(1, mask2);
   // save a bool for faster lookups
-  m_hideFileExtensions = !CSettings::GetInstance().GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS);
+  m_hideFileExtensions = !CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS);
 }
 
 std::string CLabelFormatter::GetContent(unsigned int label, const CFileItem *item) const
@@ -178,7 +168,7 @@ std::string CLabelFormatter::GetMaskContent(const CMaskString &mask, const CFile
     if (music && music->GetArtistString().size())
       value = music->GetArtistString();
     if (movie && movie->m_artist.size())
-      value = StringUtils::Join(movie->m_artist, g_advancedSettings.m_videoItemSeparator);
+      value = StringUtils::Join(movie->m_artist, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
     break;
   case 'T':
     if (music && music->GetTitle().size())
@@ -198,9 +188,9 @@ std::string CLabelFormatter::GetMaskContent(const CMaskString &mask, const CFile
     break;
   case 'G':
     if (music && music->GetGenre().size())
-      value = StringUtils::Join(music->GetGenre(), g_advancedSettings.m_musicItemSeparator);
+      value = StringUtils::Join(music->GetGenre(), CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_musicItemSeparator);
     if (movie && movie->m_genre.size())
-      value = StringUtils::Join(movie->m_genre, g_advancedSettings.m_videoItemSeparator);
+      value = StringUtils::Join(movie->m_genre, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
     break;
   case 'Y':
     if (music)
@@ -301,14 +291,14 @@ std::string CLabelFormatter::GetMaskContent(const CMaskString &mask, const CFile
   case 'U':
     if (movie && !movie->m_studio.empty())
     {// Studios
-      value = StringUtils::Join(movie ->m_studio, g_advancedSettings.m_videoItemSeparator);
+      value = StringUtils::Join(movie ->m_studio, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
     }
     break;
   case 'V': // Playcount
     if (music)
       value = StringUtils::Format("%i", music->GetPlayCount());
     if (movie)
-      value = StringUtils::Format("%i", movie->m_playCount);
+      value = StringUtils::Format("%i", movie->GetPlayCount());
     break;
   case 'X': // Bitrate
     if( !item->m_bIsFolder && item->m_dwSize != 0 )
@@ -378,8 +368,7 @@ void CLabelFormatter::SplitMask(unsigned int label, const std::string &mask)
   while ((findStart = reg.RegFind(work.c_str())) >= 0)
   { // we've found a match
     m_staticContent[label].push_back(work.substr(0, findStart));
-    m_dynamicContent[label].push_back(CMaskString("", 
-          reg.GetMatch(1)[0], ""));
+    m_dynamicContent[label].emplace_back("", reg.GetMatch(1)[0], "");
     work = work.substr(findStart + reg.GetFindLen());
   }
   m_staticContent[label].push_back(work);
@@ -402,10 +391,7 @@ void CLabelFormatter::AssembleMask(unsigned int label, const std::string& mask)
   { // we've found a match for a pre/postfixed string
     // send anything
     SplitMask(label, work.substr(0, findStart) + reg.GetMatch(1));
-    m_dynamicContent[label].push_back(CMaskString(
-            reg.GetMatch(2),
-            reg.GetMatch(4)[0],
-            reg.GetMatch(5)));
+    m_dynamicContent[label].emplace_back(reg.GetMatch(2), reg.GetMatch(4)[0], reg.GetMatch(5));
     work = work.substr(findStart + reg.GetFindLen());
   }
   SplitMask(label, work);

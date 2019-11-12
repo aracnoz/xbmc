@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ZeroconfMDNS.h"
@@ -23,8 +11,8 @@
 
 #include <string>
 #include <sstream>
-#include <threads/SingleLock.h>
-#include <utils/log.h>
+#include "threads/SingleLock.h"
+#include "utils/log.h"
 #include "dialogs/GUIDialogKaiToast.h"
 #include "guilib/LocalizeStrings.h"
 #if defined(TARGET_WINDOWS)
@@ -34,8 +22,6 @@
 #if defined(HAS_MDNS_EMBEDDED)
 #include <mDnsEmbedded.h>
 #endif //HAS_MDNS_EMBEDDED
-
-#pragma comment(lib, "dnssd.lib")
 
 extern HWND g_hWnd;
 
@@ -52,7 +38,7 @@ void CZeroconfMDNS::Process()
 }
 
 
-CZeroconfMDNS::CZeroconfMDNS()  : CThread("ZerocconfEmbedded")
+CZeroconfMDNS::CZeroconfMDNS()  : CThread("ZeroconfEmbedded")
 {
   m_service = NULL;
 #if defined(HAS_MDNS_EMBEDDED)
@@ -109,9 +95,13 @@ bool CZeroconfMDNS::doPublishService(const std::string& fcr_identifier,
       CLog::Log(LOGERROR, "ZeroconfMDNS: DNSServiceCreateConnection failed with error = %ld", (int) err);
       return false;
     }
+#ifdef TARGET_WINDOWS_STORE
+    CLog::Log(LOGERROR, "ZeroconfMDNS: WSAAsyncSelect not yet supported for TARGET_WINDOWS_STORE");
+#else
     err = WSAAsyncSelect( (SOCKET) DNSServiceRefSockFD( m_service ), g_hWnd, BONJOUR_EVENT, FD_READ | FD_CLOSE );
     if (err != kDNSServiceErr_NoError)
       CLog::Log(LOGERROR, "ZeroconfMDNS: WSAAsyncSelect failed with error = %ld", (int) err);
+#endif
   }
 #endif //!HAS_MDNS_EMBEDDED
 
@@ -120,11 +110,11 @@ bool CZeroconfMDNS::doPublishService(const std::string& fcr_identifier,
   //add txt records
   if(!txt.empty())
   {
-    for(std::vector<std::pair<std::string, std::string> >::const_iterator it = txt.begin(); it != txt.end(); ++it)
+    for (const auto& it : txt)
     {
-      CLog::Log(LOGDEBUG, "ZeroconfMDNS: key:%s, value:%s",it->first.c_str(),it->second.c_str());
-      uint8_t txtLen = (uint8_t)strlen(it->second.c_str());
-      TXTRecordSetValue(&txtRecord, it->first.c_str(), txtLen, it->second.c_str());
+      CLog::Log(LOGDEBUG, "ZeroconfMDNS: key:%s, value:%s", it.first.c_str(), it.second.c_str());
+      uint8_t txtLen = (uint8_t)strlen(it.second.c_str());
+      TXTRecordSetValue(&txtRecord, it.first.c_str(), txtLen, it.second.c_str());
     }
   }
 
@@ -198,17 +188,19 @@ void CZeroconfMDNS::doStop()
   {
     CSingleLock lock(m_data_guard);
     CLog::Log(LOGDEBUG, "ZeroconfMDNS: Shutdown services");
-    for(tServiceMap::iterator it = m_services.begin(); it != m_services.end(); ++it)
+    for (auto& it : m_services)
     {
-      DNSServiceRefDeallocate(it->second.serviceRef);
-      TXTRecordDeallocate(&it->second.txtRecordRef);
-      CLog::Log(LOGDEBUG, "ZeroconfMDNS: Removed service %s", it->first.c_str());
+      DNSServiceRefDeallocate(it.second.serviceRef);
+      TXTRecordDeallocate(&it.second.txtRecordRef);
+      CLog::Log(LOGDEBUG, "ZeroconfMDNS: Removed service %s", it.first.c_str());
     }
     m_services.clear();
   }
   {
     CSingleLock lock(m_data_guard);
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_STORE)
+    CLog::Log(LOGERROR, "ZeroconfMDNS: WSAAsyncSelect not yet supported for TARGET_WINDOWS_STORE");
+#else
     WSAAsyncSelect( (SOCKET) DNSServiceRefSockFD( m_service ), g_hWnd, BONJOUR_EVENT, 0 );
 #endif //TARGET_WINDOWS
 

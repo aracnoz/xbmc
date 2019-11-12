@@ -5,7 +5,7 @@
 \image html logo-python.png
 \brief \htmlonly
       <h3><span  style="text-decoration: underline;"><span  style="font-style: italic;"><span
-               style="color: rgb(102, 102, 102);">Python Script Add-On Development</span></span></span></h3>
+               style="color: rgb(102, 102, 102);">Python Add-On Development</span></span></span></h3>
        \endhtmlonly
 
 Kodi includes a built-in [Python interpreter](http://en.wikipedia.org/wiki/Python_%28programming_language%29)
@@ -39,8 +39,9 @@ uses a handful of custom modules to expose Kodi functionality to Python.
 | \ref python_xbmcgui    "xbmcgui"    | Offers classes and functions that manipulate the Graphical User Interface through windows, dialogs, and various control widgets.
 | \ref python_xbmcplugin "xbmcplugin" | Offers classes and functions that allow a developer to present information through Kodi's standard menu structure. While plugins don't have the same flexibility as scripts, they boast significantly quicker development time and a more consistent user experience.
 | \ref python_xbmcaddon  "xbmcaddon"  | Offers classes and functions that manipulate the add-on settings, information and localization.
-| \ref python_xbmcvfs    "xbmcvfs"    | Offers classes and functions offers access to the Virtual File Server (VFS) which you can use to manipulate files and folders.
+| \ref python_xbmcvfs    "xbmcvfs"    | Offers classes and functions that alow access to the Virtual File Server (VFS) which you can use to manipulate files and folders.
 | \ref python_xbmcwsgi   "xbmcwsgi"   | The [<b>Web Server Gateway Interface (WSGI)</b>](https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface) is a specification for simple and universal interface between web servers and web applications or frameworks for the Python programming language.
+| \ref python_xbmcdrm    "xbmcdrm"    | Offers classes and functions to create and manipulate a DRM CryptoSession .
 
 _ _ _
 
@@ -138,38 +139,79 @@ so the distinction is more theoretical than practical.
 The [<b>Web Server Gateway Interface (WSGI)</b>](https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface)
 is a specification for simple and universal interface between web servers and
 web applications or frameworks for the Python programming language.
+
+\ingroup python
+\defgroup python_xbmcdrm Library - xbmcdrm
 @}
 
 */
 
 /*!
-@page python_v12 Python API v12
+@page python_v19 Python API v19
+\python_removed_function{
+      onDatabaseUpdated,
+      "",
+      <b>xbmc.monitor().onDatabaseUpdated()</b> function was removed completely.
+}
+\python_removed_function{
+      onDatabaseScanStarted,
+      "",
+      <b>xbmc.monitor().onDatabaseScanStarted()</b> function was removed completely.
+}
 */
 /*!
-@page python_v13 Python API v13
+@page python_v18 Python API v18
 */
 /*!
-@page python_v14 Python API v14
-*/
-/*!
-@page python_v15 Python API v15
+@page python_v17 Python API v17
+\python_removed_function{
+      getCaptureState,
+      http://mirrors.kodi.tv/docs/python-docs/16.x-jarvis/xbmc.html#RenderCapture-getCaptureState,
+      <b>xbmc.RenderCapture().getCaptureState()</b> function was removed completely.
+}
+\python_removed_function{
+      waitForCaptureStateChangeEvent,
+      http://mirrors.kodi.tv/docs/python-docs/16.x-jarvis/xbmc.html#RenderCapture-waitForCaptureStateChangeEvent,
+      <b>xbmc.RenderCapture().waitForCaptureStateChangeEvent()</b> function was removed completely.
+}
+\python_removed_function{
+      disableSubtitles,
+      http://mirrors.kodi.tv/docs/python-docs/16.x-jarvis/xbmc.html#Player,
+      <b>xbmc.Player().disableSubtitles()</b> function was removed completely.
+      Use \endhtmlonly \link XBMCAddon::xbmc::Player::showSubtitles() xbmc.Player().showSubtitles(...) \endlink \htmlonly instead.
+}
 */
 /*!
 @page python_v16 Python API v16
 */
 /*!
-@page python_v17 Python API v17
+@page python_v15 Python API v15
 */
-
+/*!
+@page python_v14 Python API v14
+*/
+/*!
+@page python_v13 Python API v13
+*/
+/*!
+@page python_v12 Python API v12
+\python_removed_function{
+      executehttpapi,
+      http://mirrors.kodi.tv/docs/python-docs/12.2-frodo/xbmc.html#-executehttpapi,
+      <b>xbmc.executehttpapi()</b> function was removed completely.
+}
+*/
 /*!
 @page python_revisions Python API Changes
 @brief Overview of changes on Python API for Kodi
 
-- @subpage python_v12
-- @subpage python_v13
-- @subpage python_v14
-- @subpage python_v15
-- @subpage python_v16
+- @subpage python_v19
+- @subpage python_v18
 - @subpage python_v17
+- @subpage python_v16
+- @subpage python_v15
+- @subpage python_v14
+- @subpage python_v13
+- @subpage python_v12
+
 +*/
-  

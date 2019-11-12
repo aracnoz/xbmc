@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Utf8Utils.h"
@@ -109,7 +97,7 @@ inline size_t CUtf8Utils::SizeOfUtf8Char(const char* const str)
 
   /* U+0080 - U+07FF in UTF-8 */                    /* binary representation and range */
   if (chr >= 0xC2 && chr <= 0xDF                    /* C2=1100 0010 - DF=1101 1111 */
-      // as str is null terminated, 
+      // as str is null terminated,
       && ((strU[1] & 0xC0) == 0x80))  /* C0=1100 0000, 80=1000 0000 - BF=1011 1111 */
     return 2;  // valid UTF-8 2 bytes sequence
 

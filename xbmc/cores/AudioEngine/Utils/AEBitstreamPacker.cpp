@@ -1,30 +1,20 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AEBitstreamPacker.h"
+
 #include "AEPackIEC61937.h"
 #include "AEStreamInfo.h"
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include "utils/log.h"
+
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
 #define BURST_HEADER_SIZE       8
 #define TRUEHD_FRAME_OFFSET     2560
@@ -34,15 +24,8 @@
 
 CAEBitstreamPacker::CAEBitstreamPacker() :
   m_trueHD   (NULL),
-  m_trueHDPos(0),
   m_dtsHD    (NULL),
-  m_dtsHDSize(0),
-  m_eac3     (NULL),
-  m_eac3Size (0),
-  m_eac3FramesCount(0),
-  m_eac3FramesPerBurst(0),
-  m_dataSize (0),
-  m_pauseDuration(0)
+  m_eac3     (NULL)
 {
   Reset();
 }
@@ -64,6 +47,7 @@ void CAEBitstreamPacker::Pack(CAEStreamInfo &info, uint8_t* data, int size)
       break;
 
     case CAEStreamInfo::STREAM_TYPE_DTSHD:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
       PackDTSHD (info, data, size);
       break;
 
@@ -93,11 +77,11 @@ void CAEBitstreamPacker::Pack(CAEStreamInfo &info, uint8_t* data, int size)
   }
 }
 
-void CAEBitstreamPacker::PackPause(CAEStreamInfo &info, unsigned int millis, bool iecBursts)
+bool CAEBitstreamPacker::PackPause(CAEStreamInfo &info, unsigned int millis, bool iecBursts)
 {
   // re-use last buffer
   if (m_pauseDuration == millis)
-    return;
+    return false;
 
   switch (info.m_type)
   {
@@ -109,6 +93,7 @@ void CAEBitstreamPacker::PackPause(CAEStreamInfo &info, unsigned int millis, boo
 
     case CAEStreamInfo::STREAM_TYPE_AC3:
     case CAEStreamInfo::STREAM_TYPE_DTSHD:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
     case CAEStreamInfo::STREAM_TYPE_DTSHD_CORE:
     case CAEStreamInfo::STREAM_TYPE_DTS_512:
     case CAEStreamInfo::STREAM_TYPE_DTS_1024:
@@ -125,9 +110,11 @@ void CAEBitstreamPacker::PackPause(CAEStreamInfo &info, unsigned int millis, boo
   {
     memset(m_packedBuffer, 0, m_dataSize);
   }
+
+  return true;
 }
 
-unsigned int CAEBitstreamPacker::GetSize()
+unsigned int CAEBitstreamPacker::GetSize() const
 {
   return m_dataSize;
 }
@@ -275,6 +262,7 @@ unsigned int CAEBitstreamPacker::GetOutputRate(CAEStreamInfo &info)
       rate = info.m_sampleRate;
       break;
     case CAEStreamInfo::STREAM_TYPE_DTSHD:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
       rate = 192000;
       break;
     default:
@@ -295,11 +283,12 @@ CAEChannelInfo CAEBitstreamPacker::GetOutputChannelMap(CAEStreamInfo &info)
     case CAEStreamInfo::STREAM_TYPE_DTS_1024:
     case CAEStreamInfo::STREAM_TYPE_DTS_2048:
     case CAEStreamInfo::STREAM_TYPE_DTSHD_CORE:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD:
       channels = 2;
       break;
 
     case CAEStreamInfo::STREAM_TYPE_TRUEHD:
-    case CAEStreamInfo::STREAM_TYPE_DTSHD:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
       channels = 8;
       break;
 

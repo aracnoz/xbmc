@@ -1,46 +1,34 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
 #include "Addon.h"
 #include "AddonDatabase.h"
-#include "AddonEvents.h"
 #include "Repository.h"
 #include "threads/CriticalSection.h"
 #include "utils/EventStream.h"
-#include <string>
-#include <vector>
-#include <map>
-#include <deque>
-
-
-class DllLibCPluff;
-extern "C"
-{
-#include "lib/cpluff/libcpluff/cpluff.h"
-}
 
 namespace ADDON
 {
   typedef std::map<TYPE, VECADDONS> MAPADDONS;
   typedef std::map<TYPE, VECADDONS>::iterator IMAPADDONS;
-  typedef std::vector<cp_cfg_element_t*> ELEMENTS;
+  typedef std::map<std::string, AddonInfoPtr> ADDON_INFO_LIST;
+
+  /*!
+   * @brief The value binaryAddonList use a tuple in following construct:
+   * | Number | Type        | Description
+   * |:------:|------------:|:------------------------------------------------
+   * | first  | boolean     | If true addon is enabled, otherwise disabled
+   * | second | CAddonInfo  | Information data of addon
+   */
+  typedef std::pair<bool, AddonInfoPtr> BINARY_ADDON_LIST_ENTRY;
+  typedef std::vector<BINARY_ADDON_LIST_ENTRY> BINARY_ADDON_LIST;
 
   const std::string ADDON_PYTHON_EXT           = "*.py";
 
@@ -53,9 +41,8 @@ namespace ADDON
   class IAddonMgrCallback
   {
     public:
-      virtual ~IAddonMgrCallback() {};
+      virtual ~IAddonMgrCallback() = default;
       virtual bool RequestRestart(AddonPtr addon, bool datachanged)=0;
-      virtual bool RequestRemoval(AddonPtr addon)=0;
   };
 
   /**
@@ -67,17 +54,16 @@ namespace ADDON
   class CAddonMgr
   {
   public:
-    static CAddonMgr &GetInstance();
     bool ReInit() { DeInit(); return Init(); }
     bool Init();
     void DeInit();
 
-    CAddonMgr();
-    CAddonMgr(const CAddonMgr&);
-    CAddonMgr const& operator=(CAddonMgr const&);
+    CAddonMgr() = default;
+    CAddonMgr(const CAddonMgr&) = delete;
     virtual ~CAddonMgr();
 
     CEventStream<AddonEvent>& Events() { return m_events; }
+    CEventStream<AddonEvent>& UnloadEvents() { return m_unloadEvents; }
 
     IAddonMgrCallback* GetCallbackForType(TYPE type);
     bool RegisterAddonMgrCallback(TYPE type, IAddonMgrCallback* cb);
@@ -91,6 +77,8 @@ namespace ADDON
      \return true if an addon matching the id of the given type is available and is enabled (if enabledOnly is true).
      */
     bool GetAddon(const std::string &id, AddonPtr &addon, const TYPE &type = ADDON_UNKNOWN, bool enabledOnly = true);
+
+    bool HasType(const std::string &id, const TYPE &type);
 
     bool HasAddons(const TYPE &type);
 
@@ -117,11 +105,35 @@ namespace ADDON
 
     bool GetInstallableAddons(VECADDONS& addons, const TYPE &type);
 
+    /*!
+     * @brief To get all installed binary addon on Kodi
+     *
+     * This function becomes used from ADDON::CBinaryAddonManager to get his
+     * related addons (whether enabled or disabled).
+     *
+     * @param[out] binaryAddonList The list where from here the binary addons
+     *                             becomes stored.
+     * @return                     If list is not empty becomes true returned
+     */
+    bool GetInstalledBinaryAddons(BINARY_ADDON_LIST& binaryAddonList);
+
+    /*!
+     * @brief To get requested installed binary addon on Kodi
+     *
+     * This function is used by ADDON::CBinaryAddonManager to obtain the add-on
+     * with the given id, regardless the add-on is disabled or enabled.
+     *
+     * @param[in] addonId          Id to get
+     * @param[out] binaryAddon     Addon info returned
+     * @return                     True, if the requested add-on was found, false otherwise
+     */
+    bool GetInstalledBinaryAddon(const std::string& addonId, BINARY_ADDON_LIST_ENTRY& binaryAddon);
+
     /*! Get the installable addon with the highest version. */
     bool FindInstallableById(const std::string& addonId, AddonPtr& addon);
 
     void AddToUpdateableAddons(AddonPtr &pAddon);
-    void RemoveFromUpdateableAddons(AddonPtr &pAddon);    
+    void RemoveFromUpdateableAddons(AddonPtr &pAddon);
     bool ReloadSettings(const std::string &id);
 
     /*! Get addons with available updates */
@@ -130,21 +142,31 @@ namespace ADDON
     /*! Returns true if there is any addon with available updates, otherwise false */
     bool HasAvailableUpdates();
 
-    std::string GetTranslatedString(const cp_cfg_element_t *root, const char *tag);
-    static AddonPtr AddonFromProps(AddonProps& props);
+    static AddonPtr AddonFromProps(const AddonInfoPtr& addonInfo);
 
     /*! \brief Checks for new / updated add-ons
      \return True if everything went ok, false otherwise
      */
     bool FindAddons();
 
-    /*! Unload addon from the system. Returns true if it was unloaded, otherwise false. */
-    bool UnloadAddon(const AddonPtr& addon);
+    /*!
+     * @note: should only be called by AddonInstaller
+     *
+     * Unload addon from the system. Returns true if it was unloaded, otherwise false.
+     */
+    bool UnloadAddon(const std::string& addonId);
 
-    /*! Returns true if the addon was successfully loaded and enabled; otherwise false. */
-    bool ReloadAddon(AddonPtr& addon);
+    /*!
+     * @note: should only be called by AddonInstaller
+     *
+     * Returns true if the addon was successfully loaded and enabled; otherwise false.
+     */
+    bool LoadAddon(const std::string& addonId);
 
-    /*! Hook for clearing internal state after uninstall. */
+    /*! @note: should only be called by AddonInstaller
+     *
+     * Hook for clearing internal state after uninstall.
+     */
     void OnPostUnInstall(const std::string& id);
 
     /*! \brief Disable an addon. Returns true on success, false on failure. */
@@ -166,6 +188,8 @@ namespace ADDON
      */
     bool CanAddonBeDisabled(const std::string& ID);
 
+    bool CanAddonBeEnabled(const std::string& id);
+
     /* \brief Checks whether an addon is installed.
      \param ID id of the addon
     */
@@ -186,40 +210,6 @@ namespace ADDON
 
     void UpdateLastUsed(const std::string& id);
 
-    /* libcpluff */
-    std::string GetExtValue(cp_cfg_element_t *base, const char *path) const;
-
-    /*! \brief Retrieve an element from a given configuration element
-     \param base the base configuration element.
-     \param path the path to the configuration element from the base element.
-     \param element [out] returned element.
-     \return true if the configuration element is present
-     */
-    cp_cfg_element_t *GetExtElement(cp_cfg_element_t *base, const char *path);
-
-    /*! \brief Retrieve a vector of repeated elements from a given configuration element
-     \param base the base configuration element.
-     \param path the path to the configuration element from the base element.
-     \param result [out] returned list of elements.
-     \return true if the configuration element is present and the list of elements is non-empty
-     */
-    bool GetExtElements(cp_cfg_element_t *base, const char *path, ELEMENTS &result);
-
-    /*! \brief Retrieve a list of strings from a given configuration element
-     Assumes the configuration element or attribute contains a whitespace separated list of values (eg xs:list schema).
-     \param base the base configuration element.
-     \param path the path to the configuration element or attribute from the base element.
-     \param result [out] returned list of strings.
-     \return true if the configuration element is present and the list of strings is non-empty
-     */
-    bool GetExtList(cp_cfg_element_t *base, const char *path, std::vector<std::string> &result) const;
-
-    const cp_extension_t *GetExtension(const cp_plugin_info_t *props, const char *extension) const;
-
-    /*! \brief Retrieves the platform-specific library name from the given configuration element
-     */
-    std::string GetPlatformLibraryName(cp_cfg_element_t *base) const;
-
     /*! \brief Load the addon in the given path
      This loads the addon using c-pluff which parses the addon descriptor file.
      \param path folder that contains the addon.
@@ -237,47 +227,37 @@ namespace ADDON
      */
     bool AddonsFromRepoXML(const CRepository::DirInfo& repo, const std::string& xml, VECADDONS& addons);
 
-    /*! \brief Start all services addons.
-        \return True is all addons are started, false otherwise
-    */
-    bool StartServices(const bool beforelogin);
-    /*! \brief Stop all services addons.
-    */
-    void StopServices(const bool onlylogin);
-
     bool ServicesHasStarted() const;
 
     bool IsCompatible(const IAddon& addon);
 
-    static AddonPtr Factory(const cp_plugin_info_t* plugin, TYPE type);
-    static bool Factory(const cp_plugin_info_t* plugin, TYPE type, CAddonBuilder& builder);
-    static void FillCpluffMetadata(const cp_plugin_info_t* plugin, CAddonBuilder& builder);
+    /*! \brief Recursively get dependencies for an add-on
+     */
+    std::vector<DependencyInfo> GetDepsRecursive(const std::string& id);
+
+    bool GetAddonInfos(AddonInfos& addonInfos, TYPE type);
+    const AddonInfoPtr GetAddonInfo(const std::string& id, TYPE type = ADDON_UNKNOWN);
 
   private:
+    CAddonMgr& operator=(CAddonMgr const&) = delete;
 
-    /* libcpluff */
-    cp_context_t *m_cp_context;
-    std::unique_ptr<DllLibCPluff> m_cpluff;
-    VECADDONS    m_updateableAddons;
-
-    /*! \brief Check whether this addon is supported on the current platform
-     \param info the plugin descriptor
-     \return true if the addon is supported, false otherwise.
-     */
-    static bool PlatformSupportsAddon(const cp_plugin_info_t *info);
+    VECADDONS m_updateableAddons;
 
     bool GetAddonsInternal(const TYPE &type, VECADDONS &addons, bool enabledOnly);
     bool EnableSingle(const std::string& id);
 
+    void FindAddons(ADDON_INFO_LIST& addonmap, const std::string& path);
+
     std::set<std::string> m_disabled;
     std::set<std::string> m_updateBlacklist;
     static std::map<TYPE, IAddonMgrCallback*> m_managers;
-    CCriticalSection m_critSection;
+    mutable CCriticalSection m_critSection;
     CAddonDatabase m_database;
     CEventSource<AddonEvent> m_events;
+    CBlockingEventSource<AddonEvent> m_unloadEvents;
     std::set<std::string> m_systemAddons;
     std::set<std::string> m_optionalAddons;
-    bool m_serviceSystemStarted;
+    ADDON_INFO_LIST m_installedAddons;
   };
 
 }; /* namespace ADDON */

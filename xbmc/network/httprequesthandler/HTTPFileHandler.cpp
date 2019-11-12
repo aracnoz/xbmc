@@ -1,25 +1,13 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "HTTPFileHandler.h"
+
 #include "utils/Mime.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
@@ -27,16 +15,12 @@
 CHTTPFileHandler::CHTTPFileHandler()
   : IHTTPRequestHandler(),
     m_url(),
-    m_canHandleRanges(true),
-    m_canBeCached(true),
     m_lastModified()
 { }
 
 CHTTPFileHandler::CHTTPFileHandler(const HTTPRequest &request)
   : IHTTPRequestHandler(request),
     m_url(),
-    m_canHandleRanges(true),
-    m_canBeCached(true),
     m_lastModified()
 { }
 
@@ -109,7 +93,7 @@ void CHTTPFileHandler::SetLastModifiedDate(const struct __stat64 *statBuffer)
   struct tm *time;
 #ifdef HAVE_LOCALTIME_R
   struct tm result = { };
-  time = localtime_r((time_t*)&statBuffer->st_mtime, &result);
+  time = localtime_r((const time_t*)&statBuffer->st_mtime, &result);
 #else
   time = localtime((time_t *)&statBuffer->st_mtime);
 #endif

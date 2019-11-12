@@ -18,26 +18,22 @@
  *
  */
 
+#include "output_d3d.fx"
+
 texture2D  g_Texture[3];
 float4x4   g_ColorMatrix;
 float2     g_StepXY;
 float2     g_viewPort;
-
+float4x4   g_primMat;
+float      g_gammaDstInv;
+float      g_gammaSrc;
 
 SamplerState YUVSampler : IMMUTABLE
 {
   AddressU = CLAMP;
   AddressV = CLAMP;
-  Filter   = MIN_MAG_MIP_LINEAR;
-};
-#ifdef NV12_SNORM_UV
-SamplerState UVSamplerSNORM : IMMUTABLE
-{
-  AddressU = CLAMP;
-  AddressV = CLAMP;
   Filter   = MIN_MAG_MIP_POINT;
 };
-#endif
 
 struct VS_INPUT
 {
@@ -89,7 +85,7 @@ float4 YUV2RGB(VS_OUTPUT In) : SV_TARGET
 #elif defined(XBMC_NV12)
   float4 YUV = float4(g_Texture[0].Sample(YUVSampler, In.TextureY).r
   #if defined(NV12_SNORM_UV)
-                    , unormUV(g_Texture[1].Sample(UVSamplerSNORM, In.TextureUV).rg)
+                    , unormUV(g_Texture[1].Sample(YUVSampler, In.TextureUV).rg)
   #else
                     , g_Texture[1].Sample(YUVSampler, In.TextureUV).rg
   #endif
@@ -123,7 +119,13 @@ float4 YUV2RGB(VS_OUTPUT In) : SV_TARGET
     float4 YUV    = float4(outY, outUV, 1.0);
 #endif
 
-  return mul(YUV, g_ColorMatrix);
+  float4 rgb = mul(YUV, g_ColorMatrix);
+#if defined(XBMC_COL_CONVERSION)
+  rgb.rgb = pow(max(0.0, rgb.rgb), g_gammaSrc);
+  rgb.rgb = max(0.0, mul(rgb, g_primMat).rgb);
+  rgb.rgb = pow(rgb.rgb, g_gammaDstInv);
+#endif
+  return output4(rgb, In.TextureY);
 }
 
 technique11 YUV2RGB_T

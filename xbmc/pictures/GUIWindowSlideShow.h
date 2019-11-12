@@ -1,32 +1,21 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <set>
-#include "guilib/GUIDialog.h"
-#include "threads/Thread.h"
-#include "threads/CriticalSection.h"
-#include "threads/Event.h"
+#pragma once
+
 #include "SlideShowPicture.h"
+#include "guilib/GUIDialog.h"
+#include "threads/Event.h"
+#include "threads/Thread.h"
 #include "utils/SortUtils.h"
+
+#include <memory>
+#include <set>
 
 class CFileItemList;
 class CVariant;
@@ -37,7 +26,7 @@ class CBackgroundPicLoader : public CThread
 {
 public:
   CBackgroundPicLoader();
-  ~CBackgroundPicLoader();
+  ~CBackgroundPicLoader() override;
 
   void Create(CGUIWindowSlideShow *pCallback);
   void LoadPic(int iPic, int iSlideNumber, const std::string &strFileName, const int maxWidth, const int maxHeight);
@@ -46,7 +35,7 @@ public:
   int Pic() const { return m_iPic; }
 
 private:
-  void Process();
+  void Process() override;
   int m_iPic;
   int m_iSlideNumber;
   std::string m_strFileName;
@@ -63,12 +52,13 @@ class CGUIWindowSlideShow : public CGUIDialog
 {
 public:
   CGUIWindowSlideShow(void);
-  virtual ~CGUIWindowSlideShow() {};
+  ~CGUIWindowSlideShow() override = default;
 
   bool OnMessage(CGUIMessage& message) override;
   EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event) override;
   bool OnAction(const CAction &action) override;
   void Render() override;
+  void RenderEx() override;
   void Process(unsigned int currentTime, CDirtyRegionList &regions) override;
   void OnDeinitWindow(int nextWindowID) override;
 
@@ -86,7 +76,7 @@ public:
                     SortAttribute sortAttributes = SortAttributeNone,
                     const std::string &strExtensions="");
   void AddFromPath(const std::string &strPath, bool bRecursive,
-                   SortBy method = SortByLabel, 
+                   SortBy method = SortByLabel,
                    SortOrder order = SortOrderAscending,
                    SortAttribute sortAttributes = SortAttributeNone,
                    const std::string &strExtensions="");
@@ -144,6 +134,7 @@ private:
   bool m_bSlideShow;
   bool m_bPause;
   bool m_bPlayingVideo;
+  int m_iVideoSlide = -1;
   bool m_bErrorMessage;
 
   std::vector<CFileItemPtr> m_slides;
@@ -152,7 +143,7 @@ private:
 
   int m_iCurrentPic;
   // background loader
-  CBackgroundPicLoader* m_pBackgroundLoader;
+  std::unique_ptr<CBackgroundPicLoader> m_pBackgroundLoader;
   int m_iLastFailedNextSlide;
   bool m_bLoadNextPic;
   RESOLUTION m_Resolution;

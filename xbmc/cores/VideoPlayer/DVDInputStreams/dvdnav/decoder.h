@@ -1,26 +1,14 @@
 /*
- * Copyright (C) 2000, 2001 Martin Norbäck, Håkan Hjort
- * 
- * This file is part of libdvdnav, a DVD navigation library. It is modified
- * from a file originally part of the Ogle DVD player.
- * 
- * libdvdnav is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * libdvdnav is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License along
- * with libdvdnav; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  Copyright (C) 2000, 2001 Martin Norbäck, Håkan Hjort
+ *
+ *  This file is part of libdvdnav, a DVD navigation library. It is modified
+ *  from a file originally part of the Ogle DVD player.
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef LIBDVDNAV_DECODER_H
-#define LIBDVDNAV_DECODER_H
+#pragma once
 
 #include "ifo_types.h" /*  vm_cmd_t */
 #include "dvdnav_internal.h"
@@ -95,7 +83,7 @@ typedef struct {
 /* the big VM function, executing the given commands and writing
  * the link where to continue, the return value indicates if a jump
  * has been performed */
-int32_t vmEval_CMD(vm_cmd_t commands[], int32_t num_commands, 
+int32_t vmEval_CMD(vm_cmd_t commands[], int32_t num_commands,
 	       registers_t *registers, link_t *return_values);
 
 /* extracts some bits from the command */
@@ -109,4 +97,3 @@ void vm_print_link(link_t value);
 void vm_print_registers( registers_t *registers );
 #endif
 
-#endif /* LIBDVDNAV_DECODER_H */

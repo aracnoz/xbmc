@@ -1,30 +1,18 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 
 #include "LanguageHook.h"
-#include "CallbackHandler.h"
-#include "XBPython.h"
 
-#include "interfaces/legacy/AddonUtils.h"
+#include "CallbackHandler.h"
 #include "PyContext.h"
+#include "XBPython.h"
+#include "interfaces/legacy/AddonUtils.h"
 
 namespace XBMCAddon
 {
@@ -79,15 +67,15 @@ namespace XBMCAddon
     // Ok ... we're going to get it even if it doesn't exist. If it doesn't exist then
     // we're going to assume we're not in control of the interpreter. This (apparently)
     // can be the case. E.g. Libspotify manages to call into a script using a ctypes
-    // extention but under the control of an Interpreter we know nothing about. In
-    // cases like this we're going to use a global interpreter 
+    // extension but under the control of an Interpreter we know nothing about. In
+    // cases like this we're going to use a global interpreter
     AddonClass::Ref<PythonLanguageHook> PythonLanguageHook::GetIfExists(PyInterpreterState* interp)
     {
       XBMC_TRACE;
       CSingleLock lock(hooksMutex);
       std::map<PyInterpreterState*,AddonClass::Ref<PythonLanguageHook> >::iterator iter = hooks.find(interp);
       if (iter != hooks.end())
-        return AddonClass::Ref<PythonLanguageHook>(iter->second);
+        return iter->second;
 
       // if we got here then we need to use the global one.
       if (g_languageHook.isNull())
@@ -98,10 +86,9 @@ namespace XBMCAddon
 
     bool PythonLanguageHook::IsAddonClassInstanceRegistered(AddonClass* obj)
     {
-      for (std::map<PyInterpreterState*,AddonClass::Ref<PythonLanguageHook> >::iterator iter = hooks.begin();
-           iter != hooks.end(); ++iter)
+      for (const auto& iter : hooks)
       {
-        if ((iter->second)->HasRegisteredAddonClassInstance(obj))
+        if (iter.second->HasRegisteredAddonClassInstance(obj))
           return true;
       }
       return false;
@@ -109,18 +96,18 @@ namespace XBMCAddon
 
     /**
      * PythonCallbackHandler expects to be instantiated PER AddonClass instance
-     *  that is to be used as a callback. This is why this cannot be instantited
+     *  that is to be used as a callback. This is why this cannot be instantiated
      *  once.
      *
      * There is an expectation that this method is called from the Python thread
      *  that instantiated an AddonClass that has the potential for a callback.
      *
-     * See RetardedAsynchCallbackHandler for more details.
+     * See RetardedAsyncCallbackHandler for more details.
      * See PythonCallbackHandler for more details
      * See PythonCallbackHandler::PythonCallbackHandler for more details
      */
     XBMCAddon::CallbackHandler* PythonLanguageHook::GetCallbackHandler()
-    { 
+    {
       XBMC_TRACE;
       return new PythonCallbackHandler();
     }
@@ -131,13 +118,13 @@ namespace XBMCAddon
 
       // Get a reference to the main module
       // and global dictionary
-      PyObject* main_module = PyImport_AddModule((char*)"__main__");
+      PyObject* main_module = PyImport_AddModule("__main__");
       PyObject* global_dict = PyModule_GetDict(main_module);
       // Extract a reference to the function "func_name"
       // from the global dictionary
       PyObject* pyid = PyDict_GetItemString(global_dict, "__xbmcaddonid__");
       if (pyid)
-        return PyString_AsString(pyid);
+        return PyUnicode_AsUTF8(pyid);
       return "";
     }
 
@@ -146,13 +133,13 @@ namespace XBMCAddon
       XBMC_TRACE;
       // Get a reference to the main module
       // and global dictionary
-      PyObject* main_module = PyImport_AddModule((char*)"__main__");
+      PyObject* main_module = PyImport_AddModule("__main__");
       PyObject* global_dict = PyModule_GetDict(main_module);
       // Extract a reference to the function "func_name"
       // from the global dictionary
       PyObject* pyversion = PyDict_GetItemString(global_dict, "__xbmcapiversion__");
       if (pyversion)
-        return PyString_AsString(pyversion);
+        return PyUnicode_AsUTF8(pyversion);
       return "";
     }
 
@@ -162,7 +149,7 @@ namespace XBMCAddon
 
       // Get a reference to the main module
       // and global dictionary
-      PyObject* main_module = PyImport_AddModule((char*)"__main__");
+      PyObject* main_module = PyImport_AddModule("__main__");
       PyObject* global_dict = PyModule_GetDict(main_module);
       // Extract a reference to the function "func_name"
       // from the global dictionary
@@ -179,7 +166,7 @@ namespace XBMCAddon
     void PythonLanguageHook::UnregisterMonitorCallback(XBMCAddon::xbmc::Monitor* monitor) { XBMC_TRACE; g_pythonParser.UnregisterPythonMonitorCallBack(monitor); }
 
     bool PythonLanguageHook::WaitForEvent(CEvent& hEvent, unsigned int milliseconds)
-    { 
+    {
       XBMC_TRACE;
       return g_pythonParser.WaitForEvent(hEvent,milliseconds);
     }

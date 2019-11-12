@@ -1,92 +1,75 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 // Thread.h: interface for the CThread class.
 //
 //////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "Event.h"
+
+#include "threads/platform/ThreadImpl.h"
 
 #include <atomic>
-#include <string>
-#include <stdint.h>
-#include "Event.h"
-#include "threads/ThreadImpl.h"
-#include "threads/ThreadLocal.h"
-#include "commons/ilog.h"
-
+#include <future>
 #ifdef TARGET_DARWIN
 #include <mach/mach.h>
 #endif
+#include <stdint.h>
+#include <string>
+#include <thread>
 
-class IRunnable
-{
-public:
-  virtual void Run()=0;
-  virtual ~IRunnable() {}
-};
-
-// minimum as mandated by XTL
-#define THREAD_MINSTACKSIZE 0x10000
-
-namespace XbmcThreads { class ThreadSettings; }
+class IRunnable;
 
 class CThread
 {
-  static XbmcCommons::ILogger* logger;
-
 protected:
-  CThread(const char* ThreadName);
+  explicit CThread(const char* ThreadName);
 
 public:
   CThread(IRunnable* pRunnable, const char* ThreadName);
   virtual ~CThread();
-  void Create(bool bAutoDelete = false, unsigned stacksize = 0);
+  void Create(bool bAutoDelete = false);
   void Sleep(unsigned int milliseconds);
-  int GetSchedRRPriority(void);
-  bool SetPrioritySched_RR(int iPriority);
   bool IsAutoDelete() const;
   virtual void StopThread(bool bWait = true);
   bool IsRunning() const;
 
+  bool IsCurrentThread() const;
+  bool Join(unsigned int milliseconds);
+
+  inline static const std::thread::id GetCurrentThreadId()
+  {
+    return std::this_thread::get_id();
+  }
+
   // -----------------------------------------------------------------------------------
   // These are platform specific and can be found in ./platform/[platform]/ThreadImpl.cpp
   // -----------------------------------------------------------------------------------
-  bool IsCurrentThread() const;
-  int GetMinPriority(void);
-  int GetMaxPriority(void);
-  int GetNormalPriority(void);
+  static int GetMinPriority(void);
+  static int GetMaxPriority(void);
+  static int GetNormalPriority(void);
+  static std::uintptr_t GetCurrentThreadNativeHandle();
+  static uint64_t GetCurrentThreadNativeId();
+
+  // Get and set the thread's priority
   int GetPriority(void);
   bool SetPriority(const int iPriority);
-  bool WaitForThreadExit(unsigned int milliseconds);
+
   float GetRelativeUsage();  // returns the relative cpu usage of this thread since last call
   int64_t GetAbsoluteUsage();
   // -----------------------------------------------------------------------------------
 
-  static bool IsCurrentThread(const ThreadIdentifier tid);
-  static ThreadIdentifier GetCurrentThreadId();
   static CThread* GetCurrentThread();
-  static inline void SetLogger(XbmcCommons::ILogger* logger_) { CThread::logger = logger_; }
-  static inline XbmcCommons::ILogger* GetLogger() { return CThread::logger; }
 
   virtual void OnException(){} // signal termination handler
+
 protected:
   virtual void OnStartup(){};
   virtual void OnExit(){};
@@ -103,37 +86,37 @@ protected:
    */
   inline WaitResponse AbortableWait(CEvent& event, int timeoutMillis = -1 /* indicates wait forever*/)
   {
-    XbmcThreads::CEventGroup group(&event, &m_StopEvent, NULL);
+    XbmcThreads::CEventGroup group{&event, &m_StopEvent};
     CEvent* result = timeoutMillis < 0 ? group.wait() : group.wait(timeoutMillis);
     return  result == &event ? WAIT_SIGNALED :
       (result == NULL ? WAIT_TIMEDOUT : WAIT_INTERRUPTED);
   }
 
 private:
-  static THREADFUNC staticThread(void *data);
   void Action();
 
   // -----------------------------------------------------------------------------------
   // These are platform specific and can be found in ./platform/[platform]/ThreadImpl.cpp
   // -----------------------------------------------------------------------------------
-  ThreadIdentifier ThreadId() const;
-  void SetThreadInfo();
+  void SetThreadInfo(); // called from the spawned thread
   void TermHandler();
   void SetSignalHandlers();
-  void SpawnThread(unsigned stacksize);
   // -----------------------------------------------------------------------------------
 
-  ThreadIdentifier m_ThreadId;
-  ThreadOpaque m_ThreadOpaque;
-  bool m_bAutoDelete;
+  bool m_bAutoDelete = false;
   CEvent m_StopEvent;
-  CEvent m_TermEvent;
   CEvent m_StartEvent;
   CCriticalSection m_CriticalSection;
   IRunnable* m_pRunnable;
-  uint64_t m_iLastUsage;
-  uint64_t m_iLastTime;
-  float m_fLastUsage;
+
+  uint64_t m_iLastUsage = 0;
+  uint64_t m_iLastTime = 0;
+  float m_fLastUsage = 0.0f;
 
   std::string m_ThreadName;
+  std::thread* m_thread = nullptr;
+  std::future<bool> m_future;
+
+  // Platform specific hangers-on
+  ThreadLwpId m_lwpId = 0;
 };

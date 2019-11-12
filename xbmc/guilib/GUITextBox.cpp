@@ -1,34 +1,28 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUITextBox.h"
+
 #include "GUIInfoManager.h"
-#include "utils/XBMCTinyXML.h"
+#include "GUIMessage.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/guiinfo/GUIInfoLabels.h"
 #include "utils/MathUtils.h"
 #include "utils/StringUtils.h"
-#include "guiinfo/GUIInfoLabels.h"
+#include "utils/XBMCTinyXML.h"
 
 #include <algorithm>
 
+using namespace KODI::GUILIB;
+
 CGUITextBox::CGUITextBox(int parentID, int controlID, float posX, float posY, float width, float height,
-                         const CLabelInfo& labelInfo, int scrollTime)
+                         const CLabelInfo& labelInfo, int scrollTime,
+                         const CLabelInfo* labelInfoMono)
     : CGUIControl(parentID, controlID, posX, posY, width, height)
     , CGUITextLayout(labelInfo.font, true)
     , m_label(labelInfo)
@@ -48,6 +42,8 @@ CGUITextBox::CGUITextBox(int parentID, int controlID, float posX, float posY, fl
   m_autoScrollRepeatAnim = NULL;
   m_minHeight = 0;
   m_renderHeight = height;
+  if (labelInfoMono)
+    SetMonoFont(labelInfoMono->font);
 }
 
 CGUITextBox::CGUITextBox(const CGUITextBox &from)
@@ -170,7 +166,7 @@ void CGUITextBox::Process(unsigned int currentTime, CDirtyRegionList &dirtyregio
     m_autoScrollRepeatAnim->Animate(currentTime, true);
     TransformMatrix matrix;
     m_autoScrollRepeatAnim->RenderAnimation(matrix);
-    m_cachedTextMatrix = g_graphicsContext.AddTransform(matrix);
+    m_cachedTextMatrix = CServiceBroker::GetWinSystem()->GetGfxContext().AddTransform(matrix);
   }
 
   // update our scroll position as necessary
@@ -196,16 +192,16 @@ void CGUITextBox::Process(unsigned int currentTime, CDirtyRegionList &dirtyregio
   CGUIControl::Process(currentTime, dirtyregions);
 
   if (m_autoScrollRepeatAnim)
-    g_graphicsContext.RemoveTransform();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
 }
 
 void CGUITextBox::Render()
 {
   // render the repeat anim as appropriate
   if (m_autoScrollRepeatAnim)
-    g_graphicsContext.SetTransform(m_cachedTextMatrix);
+    CServiceBroker::GetWinSystem()->GetGfxContext().SetTransform(m_cachedTextMatrix);
 
-  if (g_graphicsContext.SetClipRegion(m_posX, m_posY, m_width, m_renderHeight))
+  if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_renderHeight))
   {
     // we offset our draw position to take into account scrolling and whether or not our focused
     // item is offscreen "above" the list.
@@ -255,10 +251,10 @@ void CGUITextBox::Render()
       m_font->End();
     }
 
-    g_graphicsContext.RestoreClipRegion();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
   }
   if (m_autoScrollRepeatAnim)
-    g_graphicsContext.RemoveTransform();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
   CGUIControl::Render();
 }
 
@@ -293,6 +289,12 @@ bool CGUITextBox::OnMessage(CGUIMessage& message)
         return true;
       }
     }
+
+    if (message.GetMessage() == GUI_MSG_SET_TYPE)
+    {
+      UseMonoFont(message.GetParam1() == 1 ? true : false);
+      return true;
+    }
   }
 
   return CGUIControl::OnMessage(message);
@@ -307,7 +309,7 @@ void CGUITextBox::SetMinHeight(float minHeight)
 {
   if (m_minHeight != minHeight)
     SetInvalid();
-  
+
   m_minHeight = minHeight;
 }
 
@@ -330,7 +332,7 @@ void CGUITextBox::SetPageControl(int pageControl)
   m_pageControl = pageControl;
 }
 
-void CGUITextBox::SetInfo(const CGUIInfoLabel &infoLabel)
+void CGUITextBox::SetInfo(const GUIINFO::CGUIInfoLabel &infoLabel)
 {
   m_info = infoLabel;
 }
@@ -362,7 +364,7 @@ void CGUITextBox::SetAutoScrolling(const TiXmlNode *node)
     scroll->Attribute("delay", &m_autoScrollDelay);
     scroll->Attribute("time", &m_autoScrollTime);
     if (scroll->FirstChild())
-      m_autoScrollCondition = g_infoManager.Register(scroll->FirstChild()->ValueStr(), GetParentID());
+      m_autoScrollCondition = CServiceBroker::GetGUI()->GetInfoManager().Register(scroll->FirstChild()->ValueStr(), GetParentID());
     int repeatTime;
     if (scroll->Attribute("repeat", &repeatTime))
       m_autoScrollRepeatAnim = new CAnimation(CAnimation::CreateFader(100, 0, repeatTime, 1000));
@@ -374,7 +376,7 @@ void CGUITextBox::SetAutoScrolling(int delay, int time, int repeatTime, const st
   m_autoScrollDelay = delay;
   m_autoScrollTime = time;
   if (!condition.empty())
-    m_autoScrollCondition = g_infoManager.Register(condition, GetParentID());
+    m_autoScrollCondition = CServiceBroker::GetGUI()->GetInfoManager().Register(condition, GetParentID());
   m_autoScrollRepeatAnim = new CAnimation(CAnimation::CreateFader(100, 0, repeatTime, 1000));
 }
 

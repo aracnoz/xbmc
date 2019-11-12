@@ -1,61 +1,90 @@
 /*
- *      Copyright (C) 2015-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "ControllerFeature.h"
-
+#include <memory>
 #include <string>
 #include <vector>
 
 class TiXmlElement;
 
+namespace KODI
+{
 namespace GAME
 {
+class CController;
+class CControllerFeature;
+class CControllerTopology;
 
 class CControllerLayout
 {
 public:
-  CControllerLayout(void) { Reset(); }
+  CControllerLayout();
+  CControllerLayout(const CControllerLayout &other);
+  ~CControllerLayout();
 
   void Reset(void);
 
-  unsigned int       Label(void) const   { return m_label; }
+  int LabelID(void) const { return m_labelId; }
+  const std::string& Icon(void) const { return m_icon; }
   const std::string& Image(void) const   { return m_strImage; }
-  unsigned int       Width(void) const   { return m_width; }
-  unsigned int       Height(void) const  { return m_height; }
 
-  const std::vector<CControllerFeature>& Features(void) const { return m_features; }
+  /*!
+   * \brief Ensures the layout was deserialized correctly, and optionally logs if not
+   *
+   * \param bLog If true, output the cause of invalidness to the log
+   *
+   * \return True if the layout is valid and can be used in the GUI, false otherwise
+   */
+  bool IsValid(bool bLog) const;
 
-  unsigned int FeatureCount(JOYSTICK::FEATURE_TYPE type = JOYSTICK::FEATURE_TYPE::UNKNOWN,
-                            JOYSTICK::INPUT_TYPE buttonType = JOYSTICK::INPUT_TYPE::UNKNOWN) const;
+  /*!
+   * \brief Get the label of the primary layout used when mapping the controller
+   *
+   * \return The label, or empty if unknown
+   */
+  std::string Label(void) const;
 
-  bool Deserialize(const TiXmlElement* pLayoutElement, const CController* controller);
+  /*!
+   * \brief Get the image path of the primary layout used when mapping the controller
+   *
+   * \return The image path, or empty if unknown
+   */
+  std::string ImagePath(void) const;
+
+  /*!
+   * \brief Get the physical topology of this controller
+   *
+   * The topology of a controller defines its ports and which controllers can
+   * physically be connected to them. Also, the topology defines if the
+   * controller can provide player input, which is false in the case of hubs.
+   *
+   * \return The physical topology of the controller
+   */
+  const CControllerTopology &Topology(void) const { return *m_topology; }
+
+  /*!
+   * \brief Deserialize the specified XML element
+   *
+   * \param pLayoutElement The XML element
+   * \param controller The controller, used to obtain read-only properties
+   * \param features The deserialized features, if any
+   */
+  void Deserialize(const TiXmlElement* pLayoutElement, const CController* controller, std::vector<CControllerFeature> &features);
 
 private:
-  unsigned int m_label;
-  std::string  m_strImage;
-  std::string  m_strOverlay;
-  unsigned int m_width;
-  unsigned int m_height;
-
-  std::vector<CControllerFeature> m_features;
+  const CController *m_controller = nullptr;
+  int m_labelId = -1;
+  std::string m_icon;
+  std::string m_strImage;
+  std::unique_ptr<CControllerTopology> m_topology;
 };
 
+}
 }

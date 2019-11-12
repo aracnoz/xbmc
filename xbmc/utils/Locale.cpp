@@ -1,39 +1,26 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Locale.h"
+
 #include "utils/StringUtils.h"
 
 const CLocale CLocale::Empty;
 
 CLocale::CLocale()
-  : m_valid(false),
-    m_language(),
+  : m_language(),
     m_territory(),
     m_codeset(),
     m_modifier()
 { }
 
 CLocale::CLocale(const std::string& language)
-  : m_valid(false),
-    m_language(),
+  : m_language(),
     m_territory(),
     m_codeset(),
     m_modifier()
@@ -42,8 +29,7 @@ CLocale::CLocale(const std::string& language)
 }
 
 CLocale::CLocale(const std::string& language, const std::string& territory)
-  : m_valid(false),
-    m_language(language),
+  : m_language(language),
     m_territory(territory),
     m_codeset(),
     m_modifier()
@@ -52,8 +38,7 @@ CLocale::CLocale(const std::string& language, const std::string& territory)
 }
 
 CLocale::CLocale(const std::string& language, const std::string& territory, const std::string& codeset)
-  : m_valid(false),
-    m_language(language),
+  : m_language(language),
     m_territory(territory),
     m_codeset(codeset),
     m_modifier()
@@ -62,8 +47,7 @@ CLocale::CLocale(const std::string& language, const std::string& territory, cons
 }
 
 CLocale::CLocale(const std::string& language, const std::string& territory, const std::string& codeset, const std::string& modifier)
-  : m_valid(false),
-    m_language(language),
+  : m_language(language),
     m_territory(territory),
     m_codeset(codeset),
     m_modifier(modifier)
@@ -71,8 +55,7 @@ CLocale::CLocale(const std::string& language, const std::string& territory, cons
   Initialize();
 }
 
-CLocale::~CLocale()
-{ }
+CLocale::~CLocale() = default;
 
 CLocale CLocale::FromString(const std::string& locale)
 {
@@ -186,6 +169,28 @@ std::string CLocale::FindBestMatch(const std::set<std::string>& locales) const
     {
       bestMatchRank = matchRank;
       bestMatch = locale;
+    }
+  }
+
+  return bestMatch;
+}
+
+std::string CLocale::FindBestMatch(const std::unordered_map<std::string, std::string>& locales) const
+{
+  std::string bestMatch = "";
+  int bestMatchRank = -1;
+
+  for (auto const& locale : locales)
+  {
+    // check if there is an exact match
+    if (Equals(locale.first))
+      return locale.first;
+
+    int matchRank = GetMatchRank(locale.first);
+    if (matchRank > bestMatchRank)
+    {
+      bestMatchRank = matchRank;
+      bestMatch = locale.first;
     }
   }
 

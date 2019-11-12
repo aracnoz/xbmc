@@ -1,26 +1,16 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "addons/AddonBuilder.h"
 #include "addons/LanguageResource.h"
-#include "gtest/gtest.h"
+#include "addons/addoninfo/AddonInfoBuilder.h"
+
+#include <gtest/gtest.h>
 
 using namespace ADDON;
 
@@ -28,36 +18,32 @@ using namespace ADDON;
 class TestAddonBuilder : public ::testing::Test
 {
 protected:
-  CAddonBuilder builder;
-
-  void SetUp() override
-  {
-    builder.SetId("foo.bar");
-    builder.SetVersion(AddonVersion("1.2.3"));
-  }
+  TestAddonBuilder() = default;
 };
 
-TEST_F(TestAddonBuilder, ShouldFailWhenIdIsNotSet)
+TEST_F(TestAddonBuilder, ShouldFailWhenEmpty)
 {
-  CAddonBuilder builder;
-  builder.SetId("");
-  EXPECT_EQ(nullptr, builder.Build());
+  EXPECT_EQ(nullptr, CAddonBuilder::Generate(nullptr, ADDON_UNKNOWN));
 }
 
 TEST_F(TestAddonBuilder, ShouldBuildDependencyAddons)
 {
-  ADDONDEPS deps;
-  deps.emplace("a", std::make_pair(AddonVersion("1.0.0"), false));
+  std::vector<DependencyInfo> deps;
+  deps.emplace_back("a", AddonVersion("1.0.0"), AddonVersion("1.0.10"), false);
+
+  CAddonInfoBuilder::CFromDB builder;
+  builder.SetId("aa");
   builder.SetDependencies(deps);
   builder.SetType(ADDON_UNKNOWN);
-  builder.SetExtPoint(nullptr);
-  auto addon = builder.Build();
-  EXPECT_EQ(deps, addon->GetDeps());
+  AddonPtr addon = CAddonBuilder::Generate(builder.get(), ADDON_UNKNOWN);
+  EXPECT_EQ(deps, addon->GetDependencies());
 }
 
-TEST_F(TestAddonBuilder, ShouldReturnDeivedType)
+TEST_F(TestAddonBuilder, ShouldReturnDerivedType)
 {
+  CAddonInfoBuilder::CFromDB builder;
+  builder.SetId("aa");
   builder.SetType(ADDON_RESOURCE_LANGUAGE);
-  auto addon = std::dynamic_pointer_cast<CLanguageResource>(builder.Build());
+  auto addon = std::dynamic_pointer_cast<CLanguageResource>(CAddonBuilder::Generate(builder.get(), ADDON_UNKNOWN));
   EXPECT_NE(nullptr, addon);
 }

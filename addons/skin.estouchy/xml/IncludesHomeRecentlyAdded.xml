@@ -54,7 +54,7 @@
 							<posy>15</posy>
 							<width>180</width>
 							<height>270</height>
-							<texture background="true">$INFO[Listitem.Icon]</texture>
+							<texture background="true">$VAR[PosterThumb]</texture>
 						</control>
 						<control type="label">
 							<posx>10</posx>
@@ -85,7 +85,7 @@
 							<posy>15</posy>
 							<width>180</width>
 							<height>270</height>
-							<texture background="true">$INFO[Listitem.Icon]</texture>
+							<texture background="true">$VAR[PosterThumb]</texture>
 						</control>
 						<control type="label">
 							<posx>10</posx>
@@ -107,7 +107,7 @@
 							<texture border="5">thumb_focus.png</texture>
 						</control>
 					</focusedlayout>
-				<content target="movies" sortby="date" limit="10">videodb://recentlyaddedmovies/</content>
+				<content target="movies" limit="10">videodb://recentlyaddedmovies/</content>
 				</control>
 				<control type="panel" id="2200">
 					<visible>Library.HasContent(TVShows) + Container(9010).HasFocus(2)</visible>
@@ -522,6 +522,14 @@
 							<icon>$INFO[system.addonicon(Skin.String(HomeAddonButton14))]</icon>
 							<thumb></thumb>
 							<visible>!String.IsEmpty(Skin.String(HomeAddonButton14))</visible>
+						</item>
+						<item>
+							<label>$INFO[system.addontitle(Skin.String(HomeAddonButton15))]</label>
+							<label2></label2>
+							<onclick>RunAddon($INFO[Skin.String(HomeAddonButton15)])</onclick>
+							<icon>$INFO[system.addonicon(Skin.String(HomeAddonButton15))]</icon>
+							<thumb></thumb>
+							<visible>!String.IsEmpty(Skin.String(HomeAddonButton15))</visible>
 						</item>
 					</content>
 				</control>

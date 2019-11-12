@@ -1,50 +1,40 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "settings/dialogs/GUIDialogSettingsManualBase.h"
+
+struct StringSettingOption;
 
 class CGUIDialogCMSSettings : public CGUIDialogSettingsManualBase
 {
 public:
   CGUIDialogCMSSettings();
-  virtual ~CGUIDialogCMSSettings();
+  ~CGUIDialogCMSSettings() override;
 
 protected:
   // implementations of ISettingCallback
-  virtual void OnSettingChanged(const CSetting *setting) override;
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
 
   // specialization of CGUIDialogSettingsBase
-  virtual bool AllowResettingSettings() const override { return false; }
-  virtual bool OnBack(int actionID) override;
-  virtual void Save() override;
-  virtual void SetupView() override;
+  bool AllowResettingSettings() const override { return false; }
+  bool OnBack(int actionID) override;
+  void Save() override;
+  void SetupView() override;
 
   // specialization of CGUIDialogSettingsManualBase
-  virtual void InitializeSettings() override;
+  void InitializeSettings() override;
 
 private:
   static void Cms3dLutsFiller(
-    const CSetting *setting,
-    std::vector< std::pair<std::string, std::string> > &list,
+    std::shared_ptr<const CSetting> setting,
+    std::vector<StringSettingOption> &list,
     std::string &current,
     void *data);
 };

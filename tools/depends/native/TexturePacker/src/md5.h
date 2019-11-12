@@ -20,13 +20,12 @@
  * Still in the public domain.
  */
 
-#ifndef MD5_H
-#define MD5_H
+#pragma once
 
-#include <string.h>		/* for memcpy() */
-#include <stdint.h>
+#include <cstdint>
+#include <cstring> /* for memcpy() */
 
-struct MD5Context 
+struct MD5Context
 {
   uint32_t buf[4];
   uint32_t bytes[2];
@@ -37,4 +36,3 @@ void MD5Init(struct MD5Context *ctx);
 void MD5Update(struct MD5Context *ctx, const uint8_t *buf, unsigned len);
 void MD5Final(unsigned char digest[16], struct MD5Context *ctx);
 
-#endif

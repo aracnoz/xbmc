@@ -1,13 +1,11 @@
-set(SOURCES GUIDialogAudioDSPManager.cpp
-            GUIDialogAudioDSPSettings.cpp
-            GUIDialogContentSettings.cpp
+set(SOURCES GUIDialogContentSettings.cpp
+            GUIDialogLibExportSettings.cpp
             GUIDialogSettingsBase.cpp
             GUIDialogSettingsManagerBase.cpp
             GUIDialogSettingsManualBase.cpp)
 
-set(HEADERS GUIDialogAudioDSPManager.h
-            GUIDialogAudioDSPSettings.h
-            GUIDialogContentSettings.h
+set(HEADERS GUIDialogContentSettings.h
+            GUIDialogLibExportSettings.h
             GUIDialogSettingsBase.h
             GUIDialogSettingsManagerBase.h
             GUIDialogSettingsManualBase.h)

@@ -1,28 +1,16 @@
 /*
- *      Copyright (C) 2007-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#include "utils/StringUtils.h"
+#include "input/XBMC_keytable.h"
+
 #include "input/XBMC_keysym.h"
 #include "input/XBMC_vkeys.h"
-#include "input/XBMC_keytable.h"
+#include "utils/StringUtils.h"
 
 // The array of XBMCKEYTABLEs used in XBMC.
 // scancode, sym, unicode, ascii, vkey, keyname
@@ -248,22 +236,19 @@ static const XBMCKEYTABLE XBMCKeyTable[] =
 
 static int XBMCKeyTableSize = sizeof(XBMCKeyTable)/sizeof(XBMCKEYTABLE);
 
-bool KeyTableLookupName(const char* keyname, XBMCKEYTABLE* keytable)
+bool KeyTableLookupName(std::string keyname, XBMCKEYTABLE* keytable)
 {
-  // If the name being searched for is null or "" there will be no match
-  if (!keyname)
-    return false;
-  if (keyname[0] == '\0')
+  // If the name being searched for is empty there will be no match
+  if (keyname.empty())
     return false;
 
   // We need the button name to be in lowercase
-  std::string lkeyname = keyname;
-  StringUtils::ToLower(lkeyname);
+  StringUtils::ToLower(keyname);
 
   // Look up the key name in XBMCKeyTable
   for (int i = 0; i < XBMCKeyTableSize; i++)
   { if (XBMCKeyTable[i].keyname)
-    { if (strcmp(lkeyname.c_str(), XBMCKeyTable[i].keyname) == 0)
+    { if (strcmp(keyname.c_str(), XBMCKeyTable[i].keyname) == 0)
       { *keytable = XBMCKeyTable[i];
         return true;
       }

@@ -1,29 +1,19 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDMessageQueue.h"
-#include "DVDDemuxers/DVDDemuxPacket.h"
-#include "utils/log.h"
+
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "threads/SingleLock.h"
-#include "DVDClock.h"
-#include "math.h"
+#include "utils/log.h"
+
+#include <math.h>
 
 CDVDMessageQueue::CDVDMessageQueue(const std::string &owner) : m_hEvent(true), m_owner(owner)
 {
@@ -94,6 +84,16 @@ void CDVDMessageQueue::End()
   m_bAbortRequest = false;
 }
 
+MsgQueueReturnCode CDVDMessageQueue::Put(CDVDMsg* pMsg, int priority)
+{
+  return Put(pMsg, priority, true);
+}
+
+MsgQueueReturnCode CDVDMessageQueue::PutBack(CDVDMsg* pMsg, int priority)
+{
+  return Put(pMsg, priority, false);
+}
+
 MsgQueueReturnCode CDVDMessageQueue::Put(CDVDMsg* pMsg, int priority, bool front)
 {
   CSingleLock lock(m_section);
@@ -124,6 +124,13 @@ MsgQueueReturnCode CDVDMessageQueue::Put(CDVDMsg* pMsg, int priority, bool front
   }
   else
   {
+    if (m_messages.empty())
+    {
+      m_iDataSize = 0;
+      m_TimeBack = DVD_NOPTS_VALUE;
+      m_TimeFront = DVD_NOPTS_VALUE;
+    }
+
     if (front)
       m_messages.emplace_front(pMsg, priority);
     else
@@ -132,17 +139,14 @@ MsgQueueReturnCode CDVDMessageQueue::Put(CDVDMsg* pMsg, int priority, bool front
 
   if (pMsg->IsType(CDVDMsg::DEMUXER_PACKET) && priority == 0)
   {
-    DemuxPacket* packet = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacket();
+    DemuxPacket* packet = static_cast<CDVDMsgDemuxerPacket*>(pMsg)->GetPacket();
     if (packet)
     {
       m_iDataSize += packet->iSize;
-      if (packet->dts != DVD_NOPTS_VALUE)
-        m_TimeFront = packet->dts;
-      else if (packet->pts != DVD_NOPTS_VALUE)
-        m_TimeFront = packet->pts;
-
-      if (m_TimeBack == DVD_NOPTS_VALUE)
-        m_TimeBack = m_TimeFront;
+      if (front)
+        UpdateTimeFront();
+      else
+        UpdateTimeBack();
     }
   }
 
@@ -179,20 +183,16 @@ MsgQueueReturnCode CDVDMessageQueue::Get(CDVDMsg** pMsg, unsigned int iTimeoutIn
 
       if (item.message->IsType(CDVDMsg::DEMUXER_PACKET) && item.priority == 0)
       {
-        DemuxPacket* packet = ((CDVDMsgDemuxerPacket*)item.message)->GetPacket();
+        DemuxPacket* packet = static_cast<CDVDMsgDemuxerPacket*>(item.message)->GetPacket();
         if (packet)
         {
           m_iDataSize -= packet->iSize;
-          if (packet->dts != DVD_NOPTS_VALUE)
-            m_TimeBack = packet->dts;
-          else if (packet->pts != DVD_NOPTS_VALUE)
-            m_TimeBack = packet->pts;
         }
       }
 
       *pMsg = item.message->Acquire();
       msgs.pop_back();
-
+      UpdateTimeBack();
       ret = MSGQ_OK;
       break;
     }
@@ -218,6 +218,50 @@ MsgQueueReturnCode CDVDMessageQueue::Get(CDVDMsg** pMsg, unsigned int iTimeoutIn
     return MSGQ_ABORT;
 
   return (MsgQueueReturnCode)ret;
+}
+
+void CDVDMessageQueue::UpdateTimeFront()
+{
+  if (!m_messages.empty())
+  {
+    auto &item = m_messages.front();
+    if (item.message->IsType(CDVDMsg::DEMUXER_PACKET))
+    {
+      DemuxPacket* packet = static_cast<CDVDMsgDemuxerPacket*>(item.message)->GetPacket();
+      if (packet)
+      {
+        if (packet->dts != DVD_NOPTS_VALUE)
+          m_TimeFront = packet->dts;
+        else if (packet->pts != DVD_NOPTS_VALUE)
+          m_TimeFront = packet->pts;
+
+        if (m_TimeBack == DVD_NOPTS_VALUE)
+          m_TimeBack = m_TimeFront;
+      }
+    }
+  }
+}
+
+void CDVDMessageQueue::UpdateTimeBack()
+{
+  if (!m_messages.empty())
+  {
+    auto &item = m_messages.back();
+    if (item.message->IsType(CDVDMsg::DEMUXER_PACKET))
+    {
+      DemuxPacket* packet = static_cast<CDVDMsgDemuxerPacket*>(item.message)->GetPacket();
+      if (packet)
+      {
+        if (packet->dts != DVD_NOPTS_VALUE)
+          m_TimeBack = packet->dts;
+        else if (packet->pts != DVD_NOPTS_VALUE)
+          m_TimeBack = packet->pts;
+
+        if (m_TimeFront == DVD_NOPTS_VALUE)
+          m_TimeFront = m_TimeBack;
+      }
+    }
+  }
 }
 
 unsigned CDVDMessageQueue::GetPacketCount(CDVDMsg::Message type)
@@ -271,7 +315,9 @@ int CDVDMessageQueue::GetLevel() const
     return 0;
 
   if (IsDataBased())
+  {
     return std::min(100, 100 * m_iDataSize / m_iMaxDataSize);
+  }
 
   int level = std::min(100.0, ceil(100.0 * m_TimeSize * (m_TimeFront - m_TimeBack) / DVD_TIME_BASE ));
 

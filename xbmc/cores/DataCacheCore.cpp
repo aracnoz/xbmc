@@ -1,35 +1,53 @@
 /*
-*      Copyright (C) 2005-2014 Team XBMC
-*      http://xbmc.org
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
-#include "cores/DataCacheCore.h"
-#include "threads/SingleLock.h"
+#include "DataCacheCore.h"
+
 #include "ServiceBroker.h"
+#include "cores/Cut.h"
+#include "threads/SingleLock.h"
 
-CDataCacheCore::CDataCacheCore()
+CDataCacheCore::CDataCacheCore() :
+  m_playerVideoInfo {},
+  m_playerAudioInfo {},
+  m_contentInfo {},
+  m_renderInfo {},
+  m_stateInfo {}
 {
   m_hasAVInfoChanges = false;
 }
 
-CDataCacheCore& GetInstance()
+CDataCacheCore::~CDataCacheCore() = default;
+
+CDataCacheCore& CDataCacheCore::GetInstance()
 {
   return CServiceBroker::GetDataCacheCore();
+}
+
+void CDataCacheCore::Reset()
+{
+  {
+    CSingleLock lock(m_stateSection);
+
+    m_stateInfo.m_speed = 1.0;
+    m_stateInfo.m_tempo = 1.0;
+    m_stateInfo.m_stateSeeking = false;
+    m_stateInfo.m_renderGuiLayer = false;
+    m_stateInfo.m_renderVideoLayer = false;
+    m_playerStateChanged = false;
+  }
+
+  {
+    CSingleLock lock(m_contentSection);
+
+    m_contentInfo.m_chapters.clear();
+    m_contentInfo.m_cutList.clear();
+  }
 }
 
 bool CDataCacheCore::HasAVInfoChanges()
@@ -45,6 +63,11 @@ void CDataCacheCore::SignalVideoInfoChange()
 }
 
 void CDataCacheCore::SignalAudioInfoChange()
+{
+  m_hasAVInfoChanges = true;
+}
+
+void CDataCacheCore::SignalSubtitleInfoChange()
 {
   m_hasAVInfoChanges = true;
 }
@@ -98,6 +121,20 @@ std::string CDataCacheCore::GetVideoPixelFormat()
   CSingleLock lock(m_videoPlayerSection);
 
   return m_playerVideoInfo.pixFormat;
+}
+
+void CDataCacheCore::SetVideoStereoMode(std::string mode)
+{
+  CSingleLock lock(m_videoPlayerSection);
+
+  m_playerVideoInfo.stereoMode = mode;
+}
+
+std::string CDataCacheCore::GetVideoStereoMode()
+{
+  CSingleLock lock(m_videoPlayerSection);
+
+  return m_playerVideoInfo.stereoMode;
 }
 
 void CDataCacheCore::SetVideoDimensions(int width, int height)
@@ -207,6 +244,30 @@ int CDataCacheCore::GetAudioBitsPerSample()
   return m_playerAudioInfo.bitsPerSample;
 }
 
+void CDataCacheCore::SetCutList(const std::vector<EDL::Cut>& cutList)
+{
+  CSingleLock lock(m_contentSection);
+  m_contentInfo.m_cutList = cutList;
+}
+
+std::vector<EDL::Cut> CDataCacheCore::GetCutList() const
+{
+  CSingleLock lock(m_contentSection);
+  return m_contentInfo.m_cutList;
+}
+
+void CDataCacheCore::SetChapters(const std::vector<std::pair<std::string, int64_t>>& chapters)
+{
+  CSingleLock lock(m_contentSection);
+  m_contentInfo.m_chapters = chapters;
+}
+
+std::vector<std::pair<std::string, int64_t>> CDataCacheCore::GetChapters() const
+{
+  CSingleLock lock(m_contentSection);
+  return m_contentInfo.m_chapters;
+}
+
 void CDataCacheCore::SetRenderClockSync(bool enable)
 {
   CSingleLock lock(m_renderSection);
@@ -227,11 +288,145 @@ void CDataCacheCore::SetStateSeeking(bool active)
   CSingleLock lock(m_stateSection);
 
   m_stateInfo.m_stateSeeking = active;
+  m_playerStateChanged = true;
 }
 
-bool CDataCacheCore::CDataCacheCore::IsSeeking()
+bool CDataCacheCore::IsSeeking()
 {
   CSingleLock lock(m_stateSection);
 
   return m_stateInfo.m_stateSeeking;
+}
+
+void CDataCacheCore::SetSpeed(float tempo, float speed)
+{
+  CSingleLock lock(m_stateSection);
+
+  m_stateInfo.m_tempo = tempo;
+  m_stateInfo.m_speed = speed;
+}
+
+float CDataCacheCore::GetSpeed()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_speed;
+}
+
+float CDataCacheCore::GetTempo()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_tempo;
+}
+
+void CDataCacheCore::SetFrameAdvance(bool fa)
+{
+  CSingleLock lock(m_stateSection);
+
+  m_stateInfo.m_frameAdvance = fa;
+}
+
+bool CDataCacheCore::IsFrameAdvance()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_frameAdvance;
+}
+
+bool CDataCacheCore::IsPlayerStateChanged()
+{
+  CSingleLock lock(m_stateSection);
+
+  bool ret(m_playerStateChanged);
+  m_playerStateChanged = false;
+
+  return ret;
+}
+
+void CDataCacheCore::SetGuiRender(bool gui)
+{
+  CSingleLock lock(m_stateSection);
+
+  m_stateInfo.m_renderGuiLayer = gui;
+  m_playerStateChanged = true;
+}
+
+bool CDataCacheCore::GetGuiRender()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_renderGuiLayer;
+}
+
+void CDataCacheCore::SetVideoRender(bool video)
+{
+  CSingleLock lock(m_stateSection);
+
+  m_stateInfo.m_renderVideoLayer = video;
+  m_playerStateChanged = true;
+}
+
+bool CDataCacheCore::GetVideoRender()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_renderVideoLayer;
+}
+
+void CDataCacheCore::SetPlayTimes(time_t start, int64_t current, int64_t min, int64_t max)
+{
+  CSingleLock lock(m_stateSection);
+  m_timeInfo.m_startTime = start;
+  m_timeInfo.m_time = current;
+  m_timeInfo.m_timeMin = min;
+  m_timeInfo.m_timeMax = max;
+}
+
+void CDataCacheCore::GetPlayTimes(time_t &start, int64_t &current, int64_t &min, int64_t &max)
+{
+  CSingleLock lock(m_stateSection);
+  start = m_timeInfo.m_startTime;
+  current = m_timeInfo.m_time;
+  min = m_timeInfo.m_timeMin;
+  max = m_timeInfo.m_timeMax;
+}
+
+time_t CDataCacheCore::GetStartTime()
+{
+  CSingleLock lock(m_stateSection);
+  return m_timeInfo.m_startTime;
+}
+
+int64_t CDataCacheCore::GetPlayTime()
+{
+  CSingleLock lock(m_stateSection);
+  return m_timeInfo.m_time;
+}
+
+int64_t CDataCacheCore::GetMinTime()
+{
+  CSingleLock lock(m_stateSection);
+  return m_timeInfo.m_timeMin;
+}
+
+int64_t CDataCacheCore::GetMaxTime()
+{
+  CSingleLock lock(m_stateSection);
+  return m_timeInfo.m_timeMax;
+}
+
+float CDataCacheCore::GetPlayPercentage()
+{
+  CSingleLock lock(m_stateSection);
+
+  // Note: To calculate accurate percentage, all time data must be consistent,
+  //       which is the case for data cache core. Calculation can not be done
+  //       outside of data cache core or a possibility to lock the data cache
+  //       core from outside would be needed.
+  int64_t iTotalTime = m_timeInfo.m_timeMax - m_timeInfo.m_timeMin;
+  if (iTotalTime <= 0)
+    return 0;
+
+  return m_timeInfo.m_time * 100 / static_cast<float>(iTotalTime);
 }

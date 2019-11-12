@@ -1,81 +1,21 @@
-#pragma once
-
 /*
- *      Copyright (C) 2010-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <stdint.h>
 
 extern "C" {
-#include "libavutil/avutil.h"
-#include "libavformat/avformat.h"
-#include "libavfilter/avfilter.h"
-#include "libavcodec/avcodec.h"
+#include <libavutil/avutil.h>
+#include <libavformat/avformat.h>
+#include <libavfilter/avfilter.h>
+#include <libavcodec/avcodec.h>
 }
-
-typedef struct {
-  int       writer_le;
-  uint32_t  bit_buf;
-  int       bit_left;
-  uint8_t   *buf, *buf_ptr, *buf_end;
-  int       size_in_bits;
-} bits_writer_t;
-
-typedef struct {
-  uint8_t *buffer, *start;
-  int      offbits, length, oflow;
-} bits_reader_t;
-
-////////////////////////////////////////////////////////////////////////////////////////////
-//! @todo refactor this so as not to need these ffmpeg routines.
-//! These are not exposed in ffmpeg's API so we dupe them here.
-// AVC helper functions for muxers,
-//  * Copyright (c) 2006 Baptiste Coudurier <baptiste.coudurier@smartjog.com>
-// This is part of FFmpeg
-//  * License as published by the Free Software Foundation; either
-//  * version 2.1 of the License, or (at your option) any later version.
-#define BS_RB16(x)                          \
-  ((((const uint8_t*)(x))[0] <<  8) |        \
-   ((const uint8_t*)(x)) [1])
-
-#define BS_RB24(x)                          \
-  ((((const uint8_t*)(x))[0] << 16) |        \
-   (((const uint8_t*)(x))[1] <<  8) |        \
-   ((const uint8_t*)(x))[2])
-
-#define BS_RB32(x)                          \
-  ((((const uint8_t*)(x))[0] << 24) |        \
-   (((const uint8_t*)(x))[1] << 16) |        \
-   (((const uint8_t*)(x))[2] <<  8) |        \
-   ((const uint8_t*)(x))[3])
-
-#define BS_WB32(p, d) { \
-  ((uint8_t*)(p))[3] = (d); \
-  ((uint8_t*)(p))[2] = (d) >> 8; \
-  ((uint8_t*)(p))[1] = (d) >> 16; \
-  ((uint8_t*)(p))[0] = (d) >> 24; }
-
-#define BS_WL32(p, d) { \
-  ((uint8_t*)(p))[0] = (d); \
-  ((uint8_t*)(p))[1] = (d) >> 8; \
-  ((uint8_t*)(p))[2] = (d) >> 16; \
-  ((uint8_t*)(p))[3] = (d) >> 24; }
 
 typedef struct
 {
@@ -89,8 +29,8 @@ typedef struct mpeg2_sequence
 {
   uint32_t  width;
   uint32_t  height;
-  float     rate;
-  uint32_t  rate_info;
+  uint32_t  fps_rate;
+  uint32_t  fps_scale;
   float     ratio;
   uint32_t  ratio_info;
 } mpeg2_sequence;
@@ -135,12 +75,9 @@ public:
   CBitstreamParser();
   ~CBitstreamParser();
 
-  static bool Open();
+  static bool Open(){ return true; };
   static void Close();
-  static bool FindIdrSlice(const uint8_t *buf, int buf_size);
-
-protected:
-  static const uint8_t* find_start_code(const uint8_t *p, const uint8_t *end, uint32_t *state);
+  static bool CanStartDecode(const uint8_t *buf, int buf_size);
 };
 
 class CBitstreamConverter
@@ -157,24 +94,15 @@ public:
   int               GetConvertSize() const;
   uint8_t*          GetExtraData(void) const;
   int               GetExtraSize() const;
+  void              ResetStartDecode(void);
+  bool              CanStartDecode() const;
 
-  static void       bits_reader_set( bits_reader_t *br, uint8_t *buf, int len );
-  static uint32_t   read_bits( bits_reader_t *br, int nbits );
-  static void       skip_bits( bits_reader_t *br, int nbits );
-  static uint32_t   get_bits( bits_reader_t *br, int nbits );
-
-  static void       init_bits_writer(bits_writer_t *s, uint8_t *buffer, int buffer_size, int writer_le);
-  static void       write_bits(bits_writer_t *s, int n, unsigned int value);
-  static void       skip_bits( bits_writer_t *s, int n);
-  static void       flush_bits(bits_writer_t *s);
-
-  static void       parseh264_sps(const uint8_t *sps, const uint32_t sps_size, bool *interlaced, int32_t *max_ref_frames);
   static bool       mpeg2_sequence_header(const uint8_t *data, const uint32_t size, mpeg2_sequence *sequence);
 
 protected:
-  static const int  avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size);
-  static const int  avc_parse_nal_units_buf(const uint8_t *buf_in, uint8_t **buf, int *size);
-  const int         isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len);
+  static int  avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size);
+  static int  avc_parse_nal_units_buf(const uint8_t *buf_in, uint8_t **buf, int *size);
+  int         isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len);
   // bitstream to bytestream (Annex B) conversion support.
   bool              IsIDR(uint8_t unit_type);
   bool              IsSlice(uint8_t unit_type);
@@ -207,5 +135,5 @@ protected:
   bool              m_convert_3byteTo4byteNALSize;
   bool              m_convert_bytestream;
   AVCodecID         m_codec;
+  bool              m_start_decode;
 };
-

@@ -1,31 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "threads/CriticalSection.h"
 #include "guilib/DirtyRegion.h"
+#include "utils/Color.h"
 #include <string>
 #ifdef HAS_DX
 #include "guilib/GUIShaderDX.h"
+#include <wrl/client.h>
 #endif
-typedef uint32_t color_t;
 
 class CBaseTexture;
 
@@ -33,19 +23,19 @@ class CSlideShowPic
 {
 public:
   enum DISPLAY_EFFECT { EFFECT_NONE = 0, EFFECT_FLOAT, EFFECT_ZOOM, EFFECT_RANDOM, EFFECT_PANORAMA, EFFECT_NO_TIMEOUT };
-  enum TRANSISTION_EFFECT { TRANSISTION_NONE = 0, FADEIN_FADEOUT, CROSSFADE, TRANSISTION_ZOOM, TRANSISTION_ROTATE };
+  enum TRANSITION_EFFECT { TRANSITION_NONE = 0, FADEIN_FADEOUT, CROSSFADE, TRANSITION_ZOOM, TRANSITION_ROTATE };
 
-  struct TRANSISTION
+  struct TRANSITION
   {
-    TRANSISTION_EFFECT type;
-    int start;
-    int length;
+    TRANSITION_EFFECT type = TRANSITION_NONE;
+    int start = 0;
+    int length = 0;
   };
 
   CSlideShowPic();
   ~CSlideShowPic();
 
-  void SetTexture(int iSlideNumber, CBaseTexture* pTexture, DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSISTION_EFFECT transEffect = FADEIN_FADEOUT);
+  void SetTexture(int iSlideNumber, CBaseTexture* pTexture, DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSITION_EFFECT transEffect = FADEIN_FADEOUT);
   void UpdateTexture(CBaseTexture* pTexture);
 
   bool IsLoaded() const { return m_bIsLoaded;};
@@ -53,7 +43,7 @@ public:
   void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
   void Render();
   void Close();
-  void Reset(DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSISTION_EFFECT transEffect = FADEIN_FADEOUT);
+  void Reset(DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSITION_EFFECT transEffect = FADEIN_FADEOUT);
   DISPLAY_EFFECT DisplayEffect() const { return m_displayEffect; }
   bool DisplayEffectNeedChange(DISPLAY_EFFECT newDispEffect) const;
   bool IsStarted() const { return m_iCounter > 0; }
@@ -64,9 +54,9 @@ public:
   int GetHeight() const { return (int)m_fHeight;};
 
   void Keep();
-  bool StartTransistion();
-  int GetTransistionTime(int iType) const;
-  void SetTransistionTime(int iType, int iTime);
+  bool StartTransition();
+  int GetTransitionTime(int iType) const;
+  void SetTransitionTime(int iType, int iTime);
 
   int SlideNumber() const { return m_iSlideNumber;};
 
@@ -86,9 +76,9 @@ public:
   bool m_bCanMoveHorizontally;
   bool m_bCanMoveVertically;
 private:
-  void SetTexture_Internal(int iSlideNumber, CBaseTexture* pTexture, DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSISTION_EFFECT transEffect = FADEIN_FADEOUT);
+  void SetTexture_Internal(int iSlideNumber, CBaseTexture* pTexture, DISPLAY_EFFECT dispEffect = EFFECT_RANDOM, TRANSITION_EFFECT transEffect = FADEIN_FADEOUT);
   void UpdateVertices(float cur_x[4], float cur_y[4], const float new_x[4], const float new_y[4], CDirtyRegionList &dirtyregions);
-  void Render(float *x, float *y, CBaseTexture* pTexture, color_t color);
+  void Render(float *x, float *y, CBaseTexture* pTexture, UTILS::Color color);
   CBaseTexture *m_pImage;
 
   int m_iOriginalWidth;
@@ -101,7 +91,7 @@ private:
   std::string m_strFileName;
   float m_fWidth;
   float m_fHeight;
-  color_t m_alpha;
+  UTILS::Color m_alpha = 0;
   // stuff relative to middle position
   float m_fPosX;
   float m_fPosY;
@@ -117,24 +107,24 @@ private:
   float m_bx[4], m_by[4];
   float m_ox[4], m_oy[4];
 
-  // transistion and display effects
-  DISPLAY_EFFECT m_displayEffect;
-  TRANSISTION m_transistionStart;
-  TRANSISTION m_transistionEnd;
-  TRANSISTION m_transistionTemp; // used for rotations + zooms
+  // transition and display effects
+  DISPLAY_EFFECT m_displayEffect = EFFECT_NONE;
+  TRANSITION m_transitionStart;
+  TRANSITION m_transitionEnd;
+  TRANSITION m_transitionTemp; // used for rotations + zooms
   float m_fAngle; // angle (between 0 and 2pi to display the image)
-  float m_fTransistionAngle;
-  float m_fTransistionZoom;
-  int m_iCounter;
+  float m_fTransitionAngle;
+  float m_fTransitionZoom;
+  int m_iCounter = 0;
   int m_iTotalFrames;
   bool m_bPause;
   bool m_bNoEffect;
   bool m_bFullSize;
-  bool m_bTransistionImmediately;
+  bool m_bTransitionImmediately;
 
   CCriticalSection m_textureAccess;
 #ifdef HAS_DX
-  ID3D11Buffer*    m_vb;
-  bool             UpdateVertexBuffer(Vertex *vertecies);
+  Microsoft::WRL::ComPtr<ID3D11Buffer> m_vb;
+  bool UpdateVertexBuffer(Vertex *vertices);
 #endif
 };

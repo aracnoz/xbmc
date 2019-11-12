@@ -1,42 +1,30 @@
 /*
- * This code implements parsing of HTTP requests.
- * This code was written by Steve Hanov in 2009, no copyright is claimed.
- * This code is in the public domain.
- * Code was taken from http://refactormycode.com/codes/778-an-efficient-http-parser
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  This code implements parsing of HTTP requests.
+ *  This code was written by Steve Hanov in 2009, no copyright is claimed.
+ *  This code is in the public domain.
+ *  Code was taken from http://refactormycode.com/codes/778-an-efficient-http-parser
  */
 
-#ifndef HTTPPARSER_H_
-#define HTTPPARSER_H_
-#include <stdlib.h>
-#include <vector>
-#include <string>
-#include <string.h>
+#pragma once
 
-// A class to incrementally parse an HTTP header as it comes in. It 
-// lets you know when it has received all required bytes, as specified 
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <vector>
+
+// A class to incrementally parse an HTTP header as it comes in. It
+// lets you know when it has received all required bytes, as specified
 // by the content-length header (if present). If there is no content-length,
 // it will stop reading after the final "\n\r".
 //
 // Example usage:
-// 
+//
 //    HttpParser parser;
 //    HttpParser::status_t status;
 //
@@ -54,7 +42,6 @@
 class HttpParser
 {
 public:
-    HttpParser();
     ~HttpParser();
 
     enum status_t {
@@ -78,15 +65,15 @@ private:
     bool parseRequestLine();
 
     std::string _data;
-    unsigned _headerStart;
-    unsigned _parsedTo;
-    int _state;
-    unsigned _keyIndex;
-    unsigned _valueIndex;
-    unsigned _contentLength;
-    unsigned _contentStart;
-    unsigned _uriIndex;
-    
+    unsigned _headerStart = 0;
+    unsigned _parsedTo =  0 ;
+    int _state =  0 ;
+    unsigned _keyIndex = 0;
+    unsigned _valueIndex = 0;
+    unsigned _contentLength = 0;
+    unsigned _contentStart = 0;
+    unsigned _uriIndex = 0;
+
     typedef std::vector<unsigned> IntArray;
     IntArray _keys;
 
@@ -106,6 +93,6 @@ private:
         p_error=12 // here an error has occurred and the parse failed.
     };
 
-    status_t _status;
+    status_t _status =  Incomplete ;
 };
-#endif//HTTPPARSER_H_
+

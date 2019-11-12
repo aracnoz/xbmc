@@ -1,59 +1,51 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIControllerList.h"
+
+#include "GUIControllerDefines.h"
+#include "GUIControllerWindow.h"
+#include "GUIFeatureList.h"
+#include "ServiceBroker.h"
+#include "addons/AddonManager.h"
+#include "dialogs/GUIDialogYesNo.h"
+#include "games/GameServices.h"
+#include "games/addons/GameClient.h"
+#include "games/addons/input/GameClientInput.h"
+#include "games/controllers/Controller.h"
+#include "games/controllers/ControllerIDs.h"
+#include "games/controllers/ControllerLayout.h"
+#include "games/controllers/guicontrols/GUIControllerButton.h"
+#include "games/controllers/guicontrols/GUIGameController.h"
+#include "games/controllers/types/ControllerTree.h"
+#include "guilib/GUIButtonControl.h"
+#include "guilib/GUIControlGroupList.h"
+#include "guilib/GUIMessage.h"
+#include "guilib/GUIWindow.h"
+#include "messaging/ApplicationMessenger.h"
+#include "peripherals/Peripherals.h"
+#include "utils/StringUtils.h"
 
 #include <algorithm>
 #include <assert.h>
 #include <iterator>
 
-#include "GUIControllerDefines.h"
-#include "GUIControllerWindow.h"
-#include "GUIFeatureList.h"
-#include "addons/AddonManager.h"
-#include "dialogs/GUIDialogYesNo.h"
-#include "games/controllers/Controller.h"
-#include "games/controllers/guicontrols/GUIControllerButton.h"
-#include "games/controllers/guicontrols/GUIGameController.h"
-#include "games/GameServices.h"
-#include "guilib/GUIButtonControl.h"
-#include "guilib/GUIControlGroupList.h"
-#include "guilib/GUIWindow.h"
-#include "guilib/WindowIDs.h"
-#include "input/joysticks/DefaultJoystick.h" // for DEFAULT_CONTROLLER_ID
-#include "messaging/ApplicationMessenger.h"
-#include "peripherals/Peripherals.h"
-#include "ServiceBroker.h"
-
-#include <algorithm>
-#include <iterator>
-
+using namespace KODI;
 using namespace ADDON;
 using namespace GAME;
 
-CGUIControllerList::CGUIControllerList(CGUIWindow* window, IFeatureList* featureList) :
+CGUIControllerList::CGUIControllerList(CGUIWindow* window, IFeatureList* featureList, GameClientPtr gameClient) :
   m_guiWindow(window),
   m_featureList(featureList),
   m_controllerList(nullptr),
   m_controllerButton(nullptr),
-  m_focusedController(-1) // Initially unfocused
+  m_focusedController(-1), // Initially unfocused
+  m_gameClient(std::move(gameClient))
 {
   assert(m_featureList != nullptr);
 }
@@ -66,8 +58,8 @@ bool CGUIControllerList::Initialize(void)
   if (m_controllerButton)
     m_controllerButton->SetVisible(false);
 
-  CAddonMgr::GetInstance().Events().Subscribe(this, &CGUIControllerList::OnEvent);
-  Refresh();
+  CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CGUIControllerList::OnEvent);
+  Refresh("");
 
   return m_controllerList != nullptr &&
          m_controllerButton != nullptr;
@@ -75,7 +67,7 @@ bool CGUIControllerList::Initialize(void)
 
 void CGUIControllerList::Deinitialize(void)
 {
-  CAddonMgr::GetInstance().Events().Unsubscribe(this);
+  CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
 
   CleanupButtons();
 
@@ -83,8 +75,17 @@ void CGUIControllerList::Deinitialize(void)
   m_controllerButton = nullptr;
 }
 
-bool CGUIControllerList::Refresh(void)
+bool CGUIControllerList::Refresh(const std::string& controllerId)
 {
+  // Focus specified controller after refresh
+  std::string focusController = controllerId;
+
+  if (focusController.empty() && m_focusedController >= 0)
+  {
+    // If controller ID wasn't provided, focus current controller
+    focusController = m_controllers[m_focusedController]->ID();
+  }
+
   if (!RefreshControllers())
     return false;
 
@@ -93,12 +94,16 @@ bool CGUIControllerList::Refresh(void)
   if (m_controllerList)
   {
     unsigned int buttonId = 0;
-    for (ControllerVector::const_iterator it = m_controllers.begin(); it != m_controllers.end(); ++it)
+    for (const auto& controller : m_controllers)
     {
-      const ControllerPtr& controller = *it;
-
-      CGUIButtonControl* pButton = new CGUIControllerButton(*m_controllerButton, controller->Label(), buttonId++);
+      CGUIButtonControl* pButton = new CGUIControllerButton(*m_controllerButton, controller->Layout().Label(), buttonId++);
       m_controllerList->AddControl(pButton);
+
+      if (!focusController.empty() && controller->ID() == focusController)
+      {
+        CGUIMessage msg(GUI_MSG_SETFOCUS, m_guiWindow->GetID(), pButton->GetID());
+        m_guiWindow->OnMessage(msg);
+      }
 
       // Just in case
       if (buttonId >= MAX_CONTROLLER_COUNT)
@@ -122,6 +127,11 @@ void CGUIControllerList::OnFocus(unsigned int controllerIndex)
     CGUIGameController* pController = dynamic_cast<CGUIGameController*>(m_guiWindow->GetControl(CONTROL_GAME_CONTROLLER));
     if (pController)
       pController->ActivateController(controller);
+
+    // Update controller description
+    CGUIMessage msg(GUI_MSG_LABEL_SET, m_guiWindow->GetID(), CONTROL_CONTROLLER_DESCRIPTION);
+    msg.SetLabel(controller->Description());
+    m_guiWindow->OnMessage(msg);
   }
 }
 
@@ -143,17 +153,26 @@ void CGUIControllerList::ResetController(void)
     if (!CGUIDialogYesNo::ShowAndGetInput(35060, 35061))
       return;
 
-    PERIPHERALS::g_peripherals.ResetButtonMaps(strControllerId);
+    CServiceBroker::GetPeripherals().ResetButtonMaps(strControllerId);
   }
 }
 
 void CGUIControllerList::OnEvent(const ADDON::AddonEvent& event)
 {
-  if (typeid(event) == typeid(ADDON::AddonEvents::InstalledChanged))
+  if (typeid(event) == typeid(ADDON::AddonEvents::Enabled) ||  // also called on install,
+      typeid(event) == typeid(ADDON::AddonEvents::Disabled) || // not called on uninstall
+      typeid(event) == typeid(ADDON::AddonEvents::ReInstalled) ||
+      typeid(event) == typeid(ADDON::AddonEvents::UnInstalled))
   {
-    using namespace KODI::MESSAGING;
+    using namespace MESSAGING;
     CGUIMessage msg(GUI_MSG_REFRESH_LIST, m_guiWindow->GetID(), CONTROL_CONTROLLER_LIST);
-    CApplicationMessenger::GetInstance().SendGUIMessage(msg);
+
+    // Focus installed add-on
+    if (typeid(event) == typeid(ADDON::AddonEvents::Enabled) ||
+        typeid(event) == typeid(ADDON::AddonEvents::ReInstalled))
+      msg.SetStringParam(event.id);
+
+    CApplicationMessenger::GetInstance().SendGUIMessage(msg, m_guiWindow->GetID());
   }
 }
 
@@ -162,6 +181,20 @@ bool CGUIControllerList::RefreshControllers(void)
   // Get current controllers
   CGameServices& gameServices = CServiceBroker::GetGameServices();
   ControllerVector newControllers = gameServices.GetControllers();
+
+  // Filter by current game add-on
+  if (m_gameClient)
+  {
+    const CControllerTree &controllers = m_gameClient->Input().GetControllerTree();
+
+    auto ControllerNotAccepted = [&controllers](const ControllerPtr &controller)
+      {
+        return !controllers.IsControllerAccepted(controller->ID());
+      };
+
+    if (!std::all_of(newControllers.begin(), newControllers.end(), ControllerNotAccepted))
+      newControllers.erase(std::remove_if(newControllers.begin(), newControllers.end(), ControllerNotAccepted), newControllers.end());
+  }
 
   // Check for changes
   std::set<std::string> oldControllerIds;
@@ -187,7 +220,7 @@ bool CGUIControllerList::RefreshControllers(void)
         if (i->ID() == DEFAULT_CONTROLLER_ID && j->ID() != DEFAULT_CONTROLLER_ID) return true;
         if (i->ID() != DEFAULT_CONTROLLER_ID && j->ID() == DEFAULT_CONTROLLER_ID) return false;
 
-        return i->Name() < j->Name();
+        return StringUtils::CompareNoCase(i->Layout().Label(), j->Layout().Label()) < 0;
       });
   }
 

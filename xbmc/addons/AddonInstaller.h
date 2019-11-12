@@ -1,33 +1,22 @@
-#pragma once
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
-#include <utility>
-#include <vector>
+#pragma once
 
 #include "addons/Addon.h"
 #include "addons/Repository.h"
 #include "threads/Event.h"
 #include "utils/FileOperationJob.h"
 #include "utils/Stopwatch.h"
+
+#include <string>
+#include <utility>
+#include <vector>
 
 class CAddonDatabase;
 
@@ -38,7 +27,7 @@ public:
 
   bool IsDownloading() const;
   void GetInstallList(ADDON::VECADDONS &addons) const;
-  bool GetProgress(const std::string &addonID, unsigned int &percent) const;
+  bool GetProgress(const std::string& addonID, unsigned int& percent, bool& downloadFinshed) const;
   bool Cancel(const std::string &addonID);
 
   /*! \brief Installs the addon while showing a modal progress dialog
@@ -98,39 +87,36 @@ public:
   void InstallUpdatesAndWait();
   void InstallUpdates();
 
-  void OnJobComplete(unsigned int jobID, bool success, CJob* job);
-  void OnJobProgress(unsigned int jobID, unsigned int progress, unsigned int total, const CJob *job);
+  void OnJobComplete(unsigned int jobID, bool success, CJob* job) override;
+  void OnJobProgress(unsigned int jobID, unsigned int progress, unsigned int total, const CJob *job) override;
 
   class CDownloadJob
   {
   public:
-    CDownloadJob(unsigned int id)
-    {
-      jobID = id;
-      progress = 0;
-    }
+    explicit CDownloadJob(unsigned int id) : jobID(id) { }
+
     unsigned int jobID;
-    unsigned int progress;
+    unsigned int progress = 0;
+    bool downloadFinshed = false;
   };
 
   typedef std::map<std::string, CDownloadJob> JobMap;
 
 private:
-  // private construction, and no assignements; use the provided singleton methods
+  // private construction, and no assignments; use the provided singleton methods
   CAddonInstaller();
-  CAddonInstaller(const CAddonInstaller&);
-  CAddonInstaller const& operator=(CAddonInstaller const&);
-  virtual ~CAddonInstaller();
+  CAddonInstaller(const CAddonInstaller&) = delete;
+  CAddonInstaller const& operator=(CAddonInstaller const&) = delete;
+  ~CAddonInstaller() override;
 
   /*! \brief Install an addon from a repository or zip
    \param addon the AddonPtr describing the addon
    \param repo the repository to install addon from
-   \param hash the hash to verify the install. Defaults to "".
    \param background whether to install in the background or not. Defaults to true.
    \return true on successful install, false on failure.
    */
   bool DoInstall(const ADDON::AddonPtr &addon, const ADDON::RepositoryPtr &repo,
-      const std::string &hash = "", bool background = true, bool modal = false, bool autoUpdate = false);
+      bool background = true, bool modal = false, bool autoUpdate = false);
 
   /*! \brief Check whether dependencies of an addon exist or are installable.
    Iterates through the addon's dependencies, checking they're installed or installable.
@@ -146,7 +132,7 @@ private:
   void PrunePackageCache();
   int64_t EnumeratePackageFolder(std::map<std::string,CFileItemList*>& result);
 
-  CCriticalSection m_critSection;
+  mutable CCriticalSection m_critSection;
   JobMap m_downloadJobs;
   CEvent m_idle;
 };
@@ -154,25 +140,32 @@ private:
 class CAddonInstallJob : public CFileOperationJob
 {
 public:
-  CAddonInstallJob(const ADDON::AddonPtr& addon, const ADDON::AddonPtr& repo,
-      const std::string& hash, bool isAutoUpdate);
+  CAddonInstallJob(const ADDON::AddonPtr& addon, const ADDON::RepositoryPtr& repo, bool isAutoUpdate);
 
-  virtual bool DoWork();
+  bool DoWork() override;
 
-  /*! \brief Find the add-on and itshash for the given add-on ID
-   *  \param addonID ID of the add-on to find
-   *  \param repoID ID of the repo to use
-   *  \param addon Add-on with the given add-on ID
-   *  \param hash Hash of the add-on
-   *  \return True if the add-on and its hash were found, false otherwise.
+  static constexpr const char* TYPE_DOWNLOAD = "DOWNLOAD";
+  static constexpr const char* TYPE_INSTALL = "INSTALL";
+  /*!
+   * \brief Returns the current processing type in the installation job
+   *
+   * \return The current processing type as string, can be \ref TYPE_DOWNLOAD or
+   *         \ref TYPE_INSTALL
    */
-  static bool GetAddonWithHash(const std::string& addonID, ADDON::RepositoryPtr& repo,
-      ADDON::AddonPtr& addon, std::string& hash);
+  const char* GetType() const override { return m_currentType; }
+
+  /*! \brief Find the add-on and its repository for the given add-on ID
+   *  \param addonID ID of the add-on to find
+   *  \param[out] repo the repository to use
+   *  \param[out] addon Add-on with the given add-on ID
+   *  \return True if the add-on and its repository were found, false otherwise.
+   */
+  static bool GetAddon(const std::string& addonID, ADDON::RepositoryPtr& repo, ADDON::AddonPtr& addon);
 
 private:
   void OnPreInstall();
   void OnPostInstall();
-  bool Install(const std::string &installFrom, const ADDON::AddonPtr& repo = ADDON::AddonPtr());
+  bool Install(const std::string &installFrom, const ADDON::RepositoryPtr& repo = ADDON::RepositoryPtr());
   bool DownloadPackage(const std::string &path, const std::string &dest);
 
   bool DoFileOperation(FileAction action, CFileItemList &items, const std::string &file, bool useSameJob = true);
@@ -185,21 +178,22 @@ private:
   void ReportInstallError(const std::string& addonID, const std::string& fileName, const std::string& message = "");
 
   ADDON::AddonPtr m_addon;
-  ADDON::AddonPtr m_repo;
-  std::string m_hash;
+  ADDON::RepositoryPtr m_repo;
   bool m_isUpdate;
   bool m_isAutoUpdate;
+  const char* m_currentType = TYPE_DOWNLOAD;
 };
 
 class CAddonUnInstallJob : public CFileOperationJob
 {
 public:
-  CAddonUnInstallJob(const ADDON::AddonPtr &addon);
+  CAddonUnInstallJob(const ADDON::AddonPtr &addon, bool removeData);
 
-  virtual bool DoWork();
+  bool DoWork() override;
 
 private:
   void ClearFavourites();
 
   ADDON::AddonPtr m_addon;
+  bool m_removeData;
 };

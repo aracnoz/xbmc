@@ -1,28 +1,17 @@
 /*
- *      Copyright (C) 2005-2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 
 #include "DebugRenderer.h"
+
 #include "OverlayRendererGUI.h"
 #include "cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlayText.h"
-#include "guilib/GraphicContext.h"
+#include "windowing/GraphicContext.h"
 
 using namespace OVERLAY;
 
@@ -37,10 +26,10 @@ CDebugRenderer::CDebugRenderer()
 
 CDebugRenderer::~CDebugRenderer()
 {
-  for (int i=0; i<4; i++)
+  for (CDVDOverlayText* overlayText : m_overlay)
   {
-    if (m_overlay[i])
-      m_overlay[i]->Release();
+    if (overlayText)
+      overlayText->Release();
   }
 }
 
@@ -108,7 +97,7 @@ void CDebugRenderer::CRenderer::Render(int idx)
 {
   std::vector<COverlay*> render;
   std::vector<SElement>& list = m_buffers[idx];
-  int posY = 0;
+  float posY = 0.0f;
   for (std::vector<SElement>::iterator it = list.begin(); it != list.end(); ++it)
   {
     COverlay* o = nullptr;
@@ -121,9 +110,9 @@ void CDebugRenderer::CRenderer::Render(int idx)
 
     COverlayText *text = dynamic_cast<COverlayText*>(o);
     if (text)
-      text->PrepareRender("arial.ttf", 1, 16, 0, m_font, m_fontBorder);
+      text->PrepareRender("arial.ttf", 1, 100, 16, 0, m_font, m_fontBorder, UTILS::COLOR::NONE, m_rv);
 
-    RESOLUTION_INFO res = g_graphicsContext.GetResInfo(g_graphicsContext.GetVideoResolution());
+    RESOLUTION_INFO res = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution());
 
     o->m_pos = COverlay::POSITION_ABSOLUTE;
     o->m_align = COverlay::ALIGN_SCREEN;

@@ -1,38 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "filesystem/File.h"
 #include "test/TestUtils.h"
 
-#include <string>
 #include <errno.h>
+#include <string>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 TEST(TestFile, Read)
 {
   const std::string newLine = CXBMCTestUtils::Instance().getNewLineCharacters();
-  const int size = 1616;
-  const int lines = 25;
-  int addPerLine = newLine.length() - 1;
-  int realSize = size + lines * addPerLine;
+  const size_t size = 1616;
+  const size_t lines = 25;
+  size_t addPerLine = newLine.length() - 1;
+  size_t realSize = size + lines * addPerLine;
 
   const std::string firstBuf  = "About" + newLine + "-----" + newLine + "XBMC is ";
   const std::string secondBuf = "an award-winning fre";
@@ -42,26 +30,26 @@ TEST(TestFile, Read)
 
   XFILE::CFile file;
   char buf[23];
-  memset(&buf, 0, sizeof(buf));
+  memset(buf, 0, sizeof(buf));
 
-  int currentPos;
+  size_t currentPos;
   ASSERT_TRUE(file.Open(
     XBMC_REF_FILE_PATH("/xbmc/filesystem/test/reffile.txt")));
   EXPECT_EQ(0, file.GetPosition());
   EXPECT_EQ(realSize, file.GetLength());
-  EXPECT_EQ(firstBuf.length(), file.Read(buf, firstBuf.length()));
+  EXPECT_EQ(firstBuf.length(), static_cast<size_t>(file.Read(buf, firstBuf.length())));
   file.Flush();
   currentPos = firstBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
   EXPECT_EQ(0, memcmp(firstBuf.c_str(), buf, firstBuf.length()));
-  EXPECT_EQ(secondBuf.length(), file.Read(buf, secondBuf.length()));
+  EXPECT_EQ(secondBuf.length(), static_cast<size_t>(file.Read(buf, secondBuf.length())));
   currentPos += secondBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
   EXPECT_EQ(0, memcmp(secondBuf.c_str(), buf, secondBuf.length()));
   currentPos = 100 + addPerLine * 3;
   EXPECT_EQ(currentPos, file.Seek(currentPos));
   EXPECT_EQ(currentPos, file.GetPosition());
-  EXPECT_EQ(thirdBuf.length(), file.Read(buf, thirdBuf.length()));
+  EXPECT_EQ(thirdBuf.length(), static_cast<size_t>(file.Read(buf, thirdBuf.length())));
   file.Flush();
   currentPos += thirdBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
@@ -69,7 +57,7 @@ TEST(TestFile, Read)
   currentPos += 100 + addPerLine * 1;
   EXPECT_EQ(currentPos, file.Seek(100 + addPerLine * 1, SEEK_CUR));
   EXPECT_EQ(currentPos, file.GetPosition());
-  EXPECT_EQ(fourthBuf.length(), file.Read(buf, fourthBuf.length()));
+  EXPECT_EQ(fourthBuf.length(), static_cast<size_t>(file.Read(buf, fourthBuf.length())));
   file.Flush();
   currentPos += fourthBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
@@ -77,7 +65,7 @@ TEST(TestFile, Read)
   currentPos = realSize - fifthBuf.length();
   EXPECT_EQ(currentPos, file.Seek(-(int64_t)fifthBuf.length(), SEEK_END));
   EXPECT_EQ(currentPos, file.GetPosition());
-  EXPECT_EQ(fifthBuf.length(), file.Read(buf, fifthBuf.length()));
+  EXPECT_EQ(fifthBuf.length(), static_cast<size_t>(file.Read(buf, fifthBuf.length())));
   file.Flush();
   currentPos += fifthBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
@@ -87,7 +75,7 @@ TEST(TestFile, Read)
   EXPECT_EQ(currentPos, file.GetPosition());
   currentPos = 0;
   EXPECT_EQ(currentPos, file.Seek(currentPos, SEEK_SET));
-  EXPECT_EQ(firstBuf.length(), file.Read(buf, firstBuf.length()));
+  EXPECT_EQ(firstBuf.length(), static_cast<size_t>(file.Read(buf, firstBuf.length())));
   file.Flush();
   currentPos += firstBuf.length();
   EXPECT_EQ(currentPos, file.GetPosition());
@@ -102,7 +90,7 @@ TEST(TestFile, Write)
   XFILE::CFile *file;
   const char str[] = "TestFile.Write test string\n";
   char buf[30];
-  memset(&buf, 0, sizeof(buf));
+  memset(buf, 0, sizeof(buf));
 
   ASSERT_NE(nullptr, file = XBMC_CREATETEMPFILE(""));
   file->Close();
@@ -116,7 +104,7 @@ TEST(TestFile, Write)
   EXPECT_EQ((int64_t)sizeof(str), file->Seek(0, SEEK_END));
   EXPECT_EQ(0, file->Seek(0, SEEK_SET));
   EXPECT_EQ((int64_t)sizeof(str), file->GetLength());
-  EXPECT_EQ(sizeof(str), file->Read(buf, sizeof(buf)));
+  EXPECT_EQ(sizeof(str), static_cast<size_t>(file->Read(buf, sizeof(buf))));
   file->Flush();
   EXPECT_EQ((int64_t)sizeof(str), file->GetPosition());
   EXPECT_EQ(0, memcmp(str, buf, sizeof(str)));
@@ -143,7 +131,7 @@ TEST(TestFile, Stat)
   ASSERT_NE(nullptr, file = XBMC_CREATETEMPFILE(""));
   EXPECT_EQ(0, file->Stat(&buffer));
   file->Close();
-  EXPECT_NE(0, buffer.st_mode | _S_IFREG);
+  EXPECT_NE(0U, buffer.st_mode | _S_IFREG);
   EXPECT_EQ(-1, XFILE::CFile::Stat("", &buffer));
   EXPECT_EQ(ENOENT, errno);
   EXPECT_TRUE(XBMC_DELETETEMPFILE(file));

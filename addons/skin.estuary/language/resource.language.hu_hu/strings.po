@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -47,6 +47,10 @@ msgstr "Véletlenszerű filmek"
 msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr "Nem látott filmek"
+
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr "Kategória ablakelemek engedélyezése"
 
 msgctxt "#31009"
 msgid "Download icons"
@@ -107,6 +111,10 @@ msgstr "Rendezés"
 msgctxt "#31023"
 msgid "Viewtype"
 msgstr "Nézettípus"
+
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr "Válassz besorolást a médiaelemek megjelenítéséhez"
 
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
@@ -191,10 +199,6 @@ msgstr "Elérhető"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Nyomjon [B]OK[/B]-ot a leállításhoz"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Nyelv váltása"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -402,7 +406,7 @@ msgstr "Időjárás-szolgáltató beállítása"
 
 msgctxt "#31122"
 msgid "Unwatched TV Shows"
-msgstr "Nem látott TV sorozatok"
+msgstr "Nem látott TV-sorozatok"
 
 msgctxt "#31123"
 msgid "Same director"
@@ -441,8 +445,12 @@ msgid "Choose skin fanart pack"
 msgstr "Válassz felszín-illusztráció csomagot"
 
 msgctxt "#31132"
-msgid "min"
-msgstr "perc"
+msgid "Select Program"
+msgstr "Műsor kiválasztása"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Felbontás kiválasztása"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -543,3 +551,27 @@ msgstr "Média ikonok megjelenítése"
 msgctxt "#31161"
 msgid "Numeric pad"
 msgstr "Numerikus billentyűzet"
+
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr "Játssz a saját játékaiddal vagy töltsd le a számos játék kiegészítő egyikét a hivatalos tárolóból."
+
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr "Illusztráció háttér megjelenítése"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Válassza ki a profil azonosítását"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profil neve"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profil avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animált háttér"

@@ -1,33 +1,22 @@
 /*
- *      Copyright (C) 2012-2015 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "Application.h"
-#include "FileItem.h"
 #include "GUIDialogPVRRadioRDSInfo.h"
+
 #include "GUIUserMessages.h"
-#include "guilib/GUIWindowManager.h"
-#include "guilib/GUISpinControl.h"
+#include "ServiceBroker.h"
 #include "guilib/GUIMessage.h"
+#include "guilib/GUISpinControl.h"
 #include "guilib/GUITextBox.h"
 #include "guilib/LocalizeStrings.h"
-#include "messaging/ApplicationMessenger.h"
+#include "pvr/PVRManager.h"
+#include "pvr/PVRPlaybackState.h"
+#include "pvr/channels/PVRChannel.h"
 #include "pvr/channels/PVRRadioRDSInfoTag.h"
 
 using namespace PVR;
@@ -48,19 +37,17 @@ using namespace PVR;
 #define INFO_CINEMA       8
 #define INFO_HOROSCOPE    9
 
-CGUIDialogPVRRadioRDSInfo::CGUIDialogPVRRadioRDSInfo(void)
+CGUIDialogPVRRadioRDSInfo::CGUIDialogPVRRadioRDSInfo()
   : CGUIDialog(WINDOW_DIALOG_PVR_RADIO_RDS_INFO, "DialogPVRRadioRDSInfo.xml")
-  , m_rdsItem(new CFileItem)
-  , m_InfoPresent(false)
-  , m_LabelInfoNewsPresent(false)
-  , m_LabelInfoNewsLocalPresent(false)
-  , m_LabelInfoWeatherPresent(false)
-  , m_LabelInfoLotteryPresent(false)
-  , m_LabelInfoSportPresent(false)
-  , m_LabelInfoStockPresent(false)
-  , m_LabelInfoOtherPresent(false)
-  , m_LabelInfoCinemaPresent(false)
-  , m_LabelInfoHoroscopePresent(false)
+  , m_InfoNews(29916, INFO_NEWS)
+  , m_InfoNewsLocal(29917, INFO_NEWS_LOCAL)
+  , m_InfoSport(29918, INFO_SPORT)
+  , m_InfoWeather(400, INFO_WEATHER)
+  , m_InfoLottery(29919, INFO_LOTTERY)
+  , m_InfoStock(29920, INFO_STOCK)
+  , m_InfoOther(29921, INFO_OTHER)
+  , m_InfoCinema(19602, INFO_CINEMA)
+  , m_InfoHoroscope(29922, INFO_HOROSCOPE)
 {
 }
 
@@ -77,13 +64,22 @@ bool CGUIDialogPVRRadioRDSInfo::OnMessage(CGUIMessage& message)
     }
     else if (iControl == SPIN_CONTROL_INFO)
     {
-      CGUISpinControl *spin = (CGUISpinControl *)GetControl(SPIN_CONTROL_INFO);
-      if (!spin) return true;
+      const std::shared_ptr<CPVRChannel> channel = CServiceBroker::GetPVRManager().PlaybackState()->GetPlayingChannel();
+      if (!channel)
+        return false;
 
-      CGUITextBox *textbox = (CGUITextBox *)GetControl(TEXT_INFO);
-      if (!textbox) return true;
+      const std::shared_ptr<CPVRRadioRDSInfoTag> currentRDS = channel->GetRadioRDSInfoTag();
+      if (!currentRDS)
+        return false;
 
-      PVR::CPVRRadioRDSInfoTagPtr currentRDS = g_application.CurrentFileItem().GetPVRRadioRDSInfoTag();
+      const CGUISpinControl* spin = static_cast<CGUISpinControl*>(GetControl(SPIN_CONTROL_INFO));
+      if (!spin)
+        return false;
+
+      CGUITextBox* textbox = static_cast<CGUITextBox*>(GetControl(TEXT_INFO));
+      if (!textbox)
+        return false;
+
       switch (spin->GetValue())
       {
         case INFO_NEWS:
@@ -120,162 +116,9 @@ bool CGUIDialogPVRRadioRDSInfo::OnMessage(CGUIMessage& message)
   }
   else if (message.GetMessage() == GUI_MSG_NOTIFY_ALL)
   {
-    if (IsActive() && message.GetParam1() == GUI_MSG_UPDATE_RADIOTEXT &&
-        g_application.m_pPlayer->IsPlaying() &&
-        g_application.CurrentFileItem().HasPVRRadioRDSInfoTag())
+    if (message.GetParam1() == GUI_MSG_UPDATE_RADIOTEXT && IsActive())
     {
-      PVR::CPVRRadioRDSInfoTagPtr currentRDS = g_application.CurrentFileItem().GetPVRRadioRDSInfoTag();
-      CGUISpinControl *spin = (CGUISpinControl *)GetControl(SPIN_CONTROL_INFO);
-      CGUITextBox *textbox = (CGUITextBox *)GetControl(TEXT_INFO);
-
-      if (currentRDS->GetInfoNews().size())
-      {
-        if (!m_LabelInfoNewsPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29916), INFO_NEWS);
-          m_LabelInfoNewsPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoNews != currentRDS->GetInfoNews())
-        {
-          spin->SetValue(INFO_NEWS);
-          m_LabelInfoNews = currentRDS->GetInfoNews();
-          textbox->SetInfo(m_LabelInfoNews);
-        }
-      }
-      if (currentRDS->GetInfoNewsLocal().size())
-      {
-        if (!m_LabelInfoNewsLocalPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29917), INFO_NEWS_LOCAL);
-          m_LabelInfoNewsLocalPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoNewsLocal != currentRDS->GetInfoNewsLocal())
-        {
-          spin->SetValue(INFO_NEWS_LOCAL);
-          m_LabelInfoNewsLocal = currentRDS->GetInfoNewsLocal();
-          textbox->SetInfo(m_LabelInfoNewsLocal);
-        }
-      }
-      if (currentRDS->GetInfoSport().size())
-      {
-        if (!m_LabelInfoSportPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29918), INFO_SPORT);
-          m_LabelInfoSportPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoSport != currentRDS->GetInfoSport())
-        {
-          spin->SetValue(INFO_SPORT);
-          m_LabelInfoSport = currentRDS->GetInfoSport();
-          textbox->SetInfo(m_LabelInfoSport);
-        }
-      }
-      if (currentRDS->GetInfoWeather().size())
-      {
-        if (!m_LabelInfoWeatherPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(400), INFO_WEATHER);
-          m_LabelInfoWeatherPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoWeather != currentRDS->GetInfoWeather())
-        {
-          spin->SetValue(INFO_WEATHER);
-          m_LabelInfoWeather = currentRDS->GetInfoWeather();
-          textbox->SetInfo(m_LabelInfoWeather);
-        }
-      }
-      if (currentRDS->GetInfoLottery().size())
-      {
-        if (!m_LabelInfoLotteryPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29919), INFO_LOTTERY);
-          m_LabelInfoLotteryPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoLottery != currentRDS->GetInfoLottery())
-        {
-          spin->SetValue(INFO_LOTTERY);
-          m_LabelInfoLottery = currentRDS->GetInfoLottery();
-          textbox->SetInfo(m_LabelInfoLottery);
-        }
-      }
-      if (currentRDS->GetInfoStock().size())
-      {
-        if (!m_LabelInfoStockPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29920), INFO_STOCK);
-          m_LabelInfoStockPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoStock != currentRDS->GetInfoStock())
-        {
-          spin->SetValue(INFO_STOCK);
-          m_LabelInfoStock = currentRDS->GetInfoStock();
-          textbox->SetInfo(m_LabelInfoStock);
-        }
-      }
-      if (currentRDS->GetInfoOther().size())
-      {
-        if (!m_LabelInfoOtherPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29921), INFO_OTHER);
-          m_LabelInfoOtherPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoOther != currentRDS->GetInfoOther())
-        {
-          spin->SetValue(INFO_OTHER);
-          m_LabelInfoOther = currentRDS->GetInfoOther();
-          textbox->SetInfo(m_LabelInfoOther);
-        }
-      }
-      if (currentRDS->GetInfoCinema().size())
-      {
-        if (!m_LabelInfoCinemaPresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(19602), INFO_CINEMA);
-          m_LabelInfoCinemaPresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoCinema != currentRDS->GetInfoCinema())
-        {
-          spin->SetValue(INFO_CINEMA);
-          m_LabelInfoCinema = currentRDS->GetInfoCinema();
-          textbox->SetInfo(m_LabelInfoCinema);
-        }
-      }
-      if (currentRDS->GetInfoHoroscope().size())
-      {
-        if (!m_LabelInfoHoroscopePresent)
-        {
-          spin->AddLabel(g_localizeStrings.Get(29922), INFO_HOROSCOPE);
-          m_LabelInfoHoroscopePresent = true;
-          m_InfoPresent = true;
-        }
-
-        if (m_LabelInfoHoroscope != currentRDS->GetInfoHoroscope())
-        {
-          spin->SetValue(INFO_HOROSCOPE);
-          m_LabelInfoHoroscope = currentRDS->GetInfoHoroscope();
-          textbox->SetInfo(m_LabelInfoHoroscope);
-        }
-      }
-      if (m_InfoPresent)
-        SET_CONTROL_VISIBLE(CONTROL_INFO_LIST);
-      else
-        SET_CONTROL_HIDDEN(CONTROL_INFO_LIST);
+      UpdateInfoControls();
     }
   }
 
@@ -284,138 +127,90 @@ bool CGUIDialogPVRRadioRDSInfo::OnMessage(CGUIMessage& message)
 
 void CGUIDialogPVRRadioRDSInfo::OnInitWindow()
 {
-  // call init
   CGUIDialog::OnInitWindow();
 
-  m_LabelInfoNewsPresent      = false;
-  m_LabelInfoNewsLocalPresent = false;
-  m_LabelInfoSportPresent     = false;
-  m_LabelInfoWeatherPresent   = false;
-  m_LabelInfoLotteryPresent   = false;
-  m_LabelInfoStockPresent     = false;
-  m_LabelInfoOtherPresent     = false;
-  m_LabelInfoHoroscopePresent = false;
-  m_LabelInfoCinemaPresent    = false;
-  m_InfoPresent               = false;
+  InitInfoControls();
+}
 
-  PVR::CPVRRadioRDSInfoTagPtr currentRDS = g_application.CurrentFileItem().GetPVRRadioRDSInfoTag();
+void CGUIDialogPVRRadioRDSInfo::InitInfoControls()
+{
+  SET_CONTROL_HIDDEN(CONTROL_INFO_LIST);
 
-  CGUISpinControl *spin = (CGUISpinControl *)GetControl(SPIN_CONTROL_INFO);
-  if (!spin) return;
-  spin->Clear();
+  CGUISpinControl* spin = static_cast<CGUISpinControl*>(GetControl(SPIN_CONTROL_INFO));
+  if (spin)
+    spin->Clear();
 
-  CGUITextBox *textbox = (CGUITextBox *)GetControl(TEXT_INFO);
-  if (!textbox) return;
+  CGUITextBox* textbox = static_cast<CGUITextBox*>(GetControl(TEXT_INFO));
 
-  if (currentRDS->GetInfoNews().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29916), INFO_NEWS);
-    textbox->SetInfo(currentRDS->GetInfoNews());
-    spin->SetValue(INFO_NEWS);
-    m_LabelInfoNewsPresent = true;
-    m_InfoPresent = true;
-  }
-  if (currentRDS->GetInfoNewsLocal().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29917), INFO_NEWS_LOCAL);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoNewsLocal());
-      spin->SetValue(INFO_NEWS_LOCAL);
-      m_LabelInfoNewsLocalPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoSport().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29918), INFO_SPORT);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoSport());
-      spin->SetValue(INFO_SPORT);
-      m_LabelInfoSportPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoWeather().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(400), INFO_WEATHER);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoWeather());
-      spin->SetValue(INFO_WEATHER);
-      m_LabelInfoWeatherPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoLottery().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29919), INFO_LOTTERY);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoLottery());
-      spin->SetValue(INFO_LOTTERY);
-      m_LabelInfoLotteryPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoStock().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29920), INFO_STOCK);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoStock());
-      spin->SetValue(INFO_STOCK);
-      m_LabelInfoStockPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoOther().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29921), INFO_OTHER);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoOther());
-      spin->SetValue(INFO_OTHER);
-      m_LabelInfoOtherPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoCinema().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(19602), INFO_CINEMA);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoCinema());
-      spin->SetValue(INFO_CINEMA);
-      m_LabelInfoCinemaPresent = true;
-      m_InfoPresent = true;
-    }
-  }
-  if (currentRDS->GetInfoHoroscope().size())
-  {
-    spin->AddLabel(g_localizeStrings.Get(29922), INFO_HOROSCOPE);
-    if (!m_InfoPresent)
-    {
-      textbox->SetInfo(currentRDS->GetInfoHoroscope());
-      spin->SetValue(INFO_HOROSCOPE);
-      m_LabelInfoHoroscopePresent = true;
-      m_InfoPresent = true;
-    }
-  }
+  m_InfoNews.Init(spin, textbox);
+  m_InfoNewsLocal.Init(spin, textbox);
+  m_InfoSport.Init(spin, textbox);
+  m_InfoWeather.Init(spin, textbox);
+  m_InfoLottery.Init(spin, textbox);
+  m_InfoStock.Init(spin, textbox);
+  m_InfoOther.Init(spin, textbox);
+  m_InfoCinema.Init(spin, textbox);
+  m_InfoHoroscope.Init(spin, textbox);
 
-  if (m_InfoPresent)
+  if (spin && textbox)
+    UpdateInfoControls();
+}
+
+void CGUIDialogPVRRadioRDSInfo::UpdateInfoControls()
+{
+  const std::shared_ptr<CPVRChannel> channel = CServiceBroker::GetPVRManager().PlaybackState()->GetPlayingChannel();
+  if (!channel)
+    return;
+
+  const std::shared_ptr<CPVRRadioRDSInfoTag> currentRDS = channel->GetRadioRDSInfoTag();
+  if (!currentRDS)
+    return;
+
+  bool bInfoPresent = m_InfoNews.Update(currentRDS->GetInfoNews());
+  bInfoPresent |= m_InfoNewsLocal.Update(currentRDS->GetInfoNewsLocal());
+  bInfoPresent |= m_InfoSport.Update(currentRDS->GetInfoSport());
+  bInfoPresent |= m_InfoWeather.Update(currentRDS->GetInfoWeather());
+  bInfoPresent |= m_InfoLottery.Update(currentRDS->GetInfoLottery());
+  bInfoPresent |= m_InfoStock.Update(currentRDS->GetInfoStock());
+  bInfoPresent |= m_InfoOther.Update(currentRDS->GetInfoOther());
+  bInfoPresent |= m_InfoCinema.Update(currentRDS->GetInfoCinema());
+  bInfoPresent |= m_InfoHoroscope.Update(currentRDS->GetInfoHoroscope());
+
+  if (bInfoPresent)
     SET_CONTROL_VISIBLE(CONTROL_INFO_LIST);
-  else
-    SET_CONTROL_HIDDEN(CONTROL_INFO_LIST);
 }
 
-void CGUIDialogPVRRadioRDSInfo::OnDeinitWindow(int nextWindowID)
+CGUIDialogPVRRadioRDSInfo::InfoControl::InfoControl(uint32_t iSpinLabelId, uint32_t iSpinControlId)
+: m_iSpinLabelId(iSpinLabelId),
+  m_iSpinControlId(iSpinControlId)
 {
-  CGUIDialog::OnDeinitWindow(nextWindowID);
 }
 
-CFileItemPtr CGUIDialogPVRRadioRDSInfo::GetCurrentListItem(int offset)
+void CGUIDialogPVRRadioRDSInfo::InfoControl::Init(CGUISpinControl* spin, CGUITextBox* textbox)
 {
-  return m_rdsItem;
+  m_spinControl = spin;
+  m_textbox = textbox;
+  m_bSpinLabelPresent = false;
+  m_textboxValue.clear();
+}
+
+bool CGUIDialogPVRRadioRDSInfo::InfoControl::Update(const std::string& textboxValue)
+{
+  if (m_spinControl && m_textbox && !textboxValue.empty())
+  {
+    if (!m_bSpinLabelPresent)
+    {
+      m_spinControl->AddLabel(g_localizeStrings.Get(m_iSpinLabelId), m_iSpinControlId);
+      m_bSpinLabelPresent = true;
+    }
+
+    if (m_textboxValue != textboxValue)
+    {
+      m_spinControl->SetValue(m_iSpinControlId);
+      m_textboxValue = textboxValue;
+      m_textbox->SetInfo(textboxValue);
+      return true;
+    }
+  }
+  return false;
 }

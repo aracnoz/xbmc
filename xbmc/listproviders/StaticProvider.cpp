@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "StaticProvider.h"
-#include "utils/XMLUtils.h"
+
 #include "utils/TimeUtils.h"
+#include "utils/XMLUtils.h"
 
 CStaticListProvider::CStaticListProvider(const TiXmlElement *element, int parentID)
 : IListProvider(parentID),
@@ -58,9 +47,7 @@ CStaticListProvider::CStaticListProvider(const std::vector<CGUIStaticItemPtr> &i
 {
 }
 
-CStaticListProvider::~CStaticListProvider()
-{
-}
+CStaticListProvider::~CStaticListProvider() = default;
 
 bool CStaticListProvider::Update(bool forceRefresh)
 {
@@ -70,21 +57,21 @@ bool CStaticListProvider::Update(bool forceRefresh)
   else if (CTimeUtils::GetFrameTime() - m_updateTime > 1000)
   {
     m_updateTime = CTimeUtils::GetFrameTime();
-    for (std::vector<CGUIStaticItemPtr>::iterator i = m_items.begin(); i != m_items.end(); ++i)
-      (*i)->UpdateProperties(m_parentID);
+    for (auto& i : m_items)
+      i->UpdateProperties(m_parentID);
   }
-  for (std::vector<CGUIStaticItemPtr>::iterator i = m_items.begin(); i != m_items.end(); ++i)
-    changed |= (*i)->UpdateVisibility(m_parentID);
+  for (auto& i : m_items)
+    changed |= i->UpdateVisibility(m_parentID);
   return changed; //! @todo Also returned changed if properties are changed (if so, need to update scroll to letter).
 }
 
-void CStaticListProvider::Fetch(std::vector<CGUIListItemPtr> &items) const
+void CStaticListProvider::Fetch(std::vector<CGUIListItemPtr> &items)
 {
   items.clear();
-  for (std::vector<CGUIStaticItemPtr>::const_iterator i = m_items.begin(); i != m_items.end(); ++i)
+  for (const auto& i : m_items)
   {
-    if ((*i)->IsVisible())
-      items.push_back(*i);
+    if (i->IsVisible())
+      items.push_back(i);
   }
 }
 
@@ -99,11 +86,11 @@ int CStaticListProvider::GetDefaultItem() const
   if (m_defaultItem >= 0)
   {
     unsigned int offset = 0;
-    for (std::vector<CGUIStaticItemPtr>::const_iterator i = m_items.begin(); i != m_items.end(); ++i)
+    for (const auto& i : m_items)
     {
-      if ((*i)->IsVisible())
+      if (i->IsVisible())
       {
-        if ((*i)->m_iprogramCount == m_defaultItem && (*i)->IsVisible())
+        if (i->m_iprogramCount == m_defaultItem)
           return offset;
         offset++;
       }
@@ -119,6 +106,6 @@ bool CStaticListProvider::AlwaysFocusDefaultItem() const
 
 bool CStaticListProvider::OnClick(const CGUIListItemPtr &item)
 {
-  CGUIStaticItemPtr staticItem = std::static_pointer_cast<CGUIStaticItem>(item);
+  CGUIStaticItem *staticItem = static_cast<CGUIStaticItem*>(item.get());
   return staticItem->GetClickActions().ExecuteActions(0, m_parentID);
 }

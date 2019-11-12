@@ -2,24 +2,37 @@
 <window>
 	<defaultcontrol></defaultcontrol>
 	<backgroundcolor>background</backgroundcolor>
+	<onload condition="System.HasAddon(script.artistslideshow) + !Skin.HasSetting(hide_background_fanart)">RunScript(script.artistslideshow)</onload>
 	<controls>
-		<control type="visualisation">
+		<control type="visualisation" id="2">
 			<include>FullScreenDimensions</include>
 			<visible>Player.HasAudio</visible>
 		</control>
-		<control type="image">
-			<left>0</left>
-			<top>0</top>
-			<width>100%</width>
-			<height>100%</height>
-			<aspectratio>scale</aspectratio>
-			<fadetime>400</fadetime>
-			<animation effect="fade" start="0" end="100" time="400">WindowOpen</animation>
-			<animation effect="fade" start="100" end="0" time="300">WindowClose</animation>
-			<texture background="true" colordiffuse="88FFFFFF">$INFO[Player.Art(fanart)]</texture>
+		<control type="group">
+			<depth>DepthBackground</depth>
+			<include>FullScreenDimensions</include>
+			<visible>!Skin.HasSetting(hide_background_fanart)</visible>
+			<animation effect="zoom" start="105" end="130" center="auto" time="10000" tween="sine" easing="inout" pulse="true" condition="Skin.HasSetting(animate_background_fanart)">Conditional</animation>
+			<animation effect="slide" start="-30,-30" end="30,30" time="6000" tween="sine" easing="inout" pulse="true" condition="Skin.HasSetting(animate_background_fanart)">Conditional</animation>
+			<control type="image">
+				<aspectratio>scale</aspectratio>
+				<fadetime>400</fadetime>
+				<animation effect="fade" start="0" end="100" time="400">WindowOpen</animation>
+				<animation effect="fade" start="100" end="0" time="300">WindowClose</animation>
+				<texture background="true" colordiffuse="88FFFFFF">$INFO[Player.Art(fanart)]</texture>
+			</control>
+			<control type="multiimage">
+				<aspectratio>scale</aspectratio>
+				<timeperimage>10000</timeperimage>
+				<randomize>true</randomize>
+				<fadetime>600</fadetime>
+				<loop>yes</loop>
+				<imagepath background="true">$INFO[Window(Visualisation).Property(ArtistSlideshow)]</imagepath>
+				<visible>System.HasAddon(script.artistslideshow)</visible>
+			</control>
 		</control>
 		<control type="group">
-			<animation effect="fade" start="100" end="30" time="0" condition="!String.IsEmpty(Player.Art(fanart)) | Visualisation.Enabled">Conditional</animation>
+			<animation effect="fade" start="100" end="30" time="0" condition="[!Skin.HasSetting(hide_background_fanart) + [!String.IsEmpty(Player.Art(fanart)) | System.HasAddon(script.artistslideshow)]] | Visualisation.Enabled">Conditional</animation>
 			<include>ColoredBackgroundImages</include>
 		</control>
 		<control type="group">
@@ -30,7 +43,7 @@
 				<left>33</left>
 				<top>200</top>
 				<include>Visible_Left</include>
-				<visible>Player.ShowInfo | Window.IsActive(musicosd)</visible>
+				<visible>[Player.ShowInfo | Window.IsActive(musicosd)] + !MusicPlayer.Content(livetv)</visible>
 				<width>500</width>
 				<height>500</height>
 				<fadetime>400</fadetime>
@@ -41,7 +54,7 @@
 			</control>
 			<control type="group">
 				<top>-30</top>
-				<visible>[Player.ShowInfo | Window.IsActive(musicosd)] + !Window.IsActive(playerprocessinfo)</visible>
+				<visible>[Player.ShowInfo | Window.IsActive(musicosd)] + ![Window.IsActive(playerprocessinfo) | MusicPlayer.Content(livetv)]</visible>
 				<include>Visible_Left</include>
 				<control type="group">
 					<left>30</left>

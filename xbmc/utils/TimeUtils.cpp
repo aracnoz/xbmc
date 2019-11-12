@@ -1,31 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TimeUtils.h"
 #include "XBDateTime.h"
 #include "threads/SystemClock.h"
-#include "guilib/GraphicContext.h"
-
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#endif
+#include "windowing/GraphicContext.h"
 
 #if   defined(TARGET_DARWIN)
 #include <mach/mach_time.h>
@@ -38,7 +22,7 @@
 
 int64_t CurrentHostCounter(void)
 {
-#if   defined(TARGET_DARWIN)
+#if defined(TARGET_DARWIN)
   return( (int64_t)CVGetCurrentHostTime() );
 #elif defined(TARGET_WINDOWS)
   LARGE_INTEGER PerformanceCount;
@@ -46,11 +30,11 @@ int64_t CurrentHostCounter(void)
   return( (int64_t)PerformanceCount.QuadPart );
 #else
   struct timespec now;
-#ifdef CLOCK_MONOTONIC_RAW
+#if defined(CLOCK_MONOTONIC_RAW) && !defined(TARGET_ANDROID)
   clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 #else
   clock_gettime(CLOCK_MONOTONIC, &now);
-#endif // CLOCK_MONOTONIC_RAW
+#endif // CLOCK_MONOTONIC_RAW && !TARGET_ANDROID
   return( ((int64_t)now.tv_sec * 1000000000L) + now.tv_nsec );
 #endif
 }
@@ -76,7 +60,7 @@ void CTimeUtils::UpdateFrameTime(bool flip)
   unsigned int last = frameTime;
   while (frameTime < currentTime)
   {
-    frameTime += (unsigned int)(1000 / g_graphicsContext.GetFPS());
+    frameTime += (unsigned int)(1000 / CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS());
     // observe wrap around
     if (frameTime < last)
       break;
@@ -109,4 +93,9 @@ CDateTime CTimeUtils::GetLocalTime(time_t time)
     result = time; // Use the original time as close enough.
 
   return result;
+}
+
+std::string CTimeUtils::WithoutSeconds(const std::string hhmmss)
+{
+  return hhmmss.substr(0, 5);
 }

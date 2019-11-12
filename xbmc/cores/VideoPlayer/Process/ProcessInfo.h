@@ -1,63 +1,70 @@
 /*
- *      Copyright (C) 2005-2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "cores/IPlayer.h"
-#include "cores/VideoPlayer/VideoRenderers/RenderFormats.h"
+#include "VideoBuffer.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderInfo.h"
+#include "cores/VideoSettings.h"
 #include "threads/CriticalSection.h"
+
+#include <atomic>
 #include <list>
+#include <map>
 #include <string>
+
+class CProcessInfo;
+class CDataCacheCore;
+
+using CreateProcessControl = CProcessInfo* (*)();
 
 class CProcessInfo
 {
 public:
   static CProcessInfo* CreateInstance();
-  virtual ~CProcessInfo();
+  static void RegisterProcessControl(std::string id, CreateProcessControl createFunc);
+  virtual ~CProcessInfo() = default;
+  void SetDataCache(CDataCacheCore *cache);
 
-  // player video info
+  // player video
   void ResetVideoCodecInfo();
-  void SetVideoDecoderName(std::string name, bool isHw);
+  void SetVideoDecoderName(const std::string &name, bool isHw);
   std::string GetVideoDecoderName();
   bool IsVideoHwDecoder();
-  void SetVideoDeintMethod(std::string method);
+  void SetVideoDeintMethod(const std::string &method);
   std::string GetVideoDeintMethod();
-  void SetVideoPixelFormat(std::string pixFormat);
+  void SetVideoPixelFormat(const std::string &pixFormat);
   std::string GetVideoPixelFormat();
+  void SetVideoStereoMode(const std::string &mode);
+  std::string GetVideoStereoMode();
   void SetVideoDimensions(int width, int height);
   void GetVideoDimensions(int &width, int &height);
   void SetVideoFps(float fps);
   float GetVideoFps();
   void SetVideoDAR(float dar);
   float GetVideoDAR();
+  void SetVideoInterlaced(bool interlaced);
+  bool GetVideoInterlaced();
   virtual EINTERLACEMETHOD GetFallbackDeintMethod();
   virtual void SetSwDeinterlacingMethods();
   void UpdateDeinterlacingMethods(std::list<EINTERLACEMETHOD> &methods);
   bool Supports(EINTERLACEMETHOD method);
   void SetDeinterlacingMethodDefault(EINTERLACEMETHOD method);
   EINTERLACEMETHOD GetDeinterlacingMethodDefault();
+  CVideoBufferManager& GetVideoBufferManager();
+  std::vector<AVPixelFormat> GetPixFormats();
+  void SetPixFormats(std::vector<AVPixelFormat> &formats);
 
   // player audio info
   void ResetAudioCodecInfo();
-  void SetAudioDecoderName(std::string name);
+  void SetAudioDecoderName(const std::string &name);
   std::string GetAudioDecoderName();
-  void SetAudioChannels(std::string channels);
+  void SetAudioChannels(const std::string &channels);
   std::string GetAudioChannels();
   void SetAudioSampleRate(int sampleRate);
   int GetAudioSampleRate();
@@ -71,26 +78,60 @@ public:
   void UpdateRenderInfo(CRenderInfo &info);
   void UpdateRenderBuffers(int queued, int discard, int free);
   void GetRenderBuffers(int &queued, int &discard, int &free);
+  virtual std::vector<AVPixelFormat> GetRenderFormats();
 
   // player states
   void SetStateSeeking(bool active);
   bool IsSeeking();
+  void SetStateRealtime(bool state);
+  bool IsRealtimeStream();
+  void SetSpeed(float speed);
+  void SetNewSpeed(float speed);
+  float GetNewSpeed();
+  void SetFrameAdvance(bool fa);
+  bool IsFrameAdvance();
+  void SetTempo(float tempo);
+  void SetNewTempo(float tempo);
+  float GetNewTempo();
+  bool IsTempoAllowed(float tempo);
+  virtual float MinTempoPlatform();
+  virtual float MaxTempoPlatform();
+  void SetLevelVQ(int level);
+  int GetLevelVQ();
+  void SetGuiRender(bool gui);
+  bool GetGuiRender();
+  void SetVideoRender(bool video);
+  bool GetVideoRender();
+
+  void SetPlayTimes(time_t start, int64_t current, int64_t min, int64_t max);
+  int64_t GetMaxTime();
+
+  // settings
+  CVideoSettings GetVideoSettings();
+  void SetVideoSettings(CVideoSettings &settings);
+  CVideoSettingsLocked& UpdateVideoSettings();
 
 protected:
   CProcessInfo();
+  static std::map<std::string, CreateProcessControl> m_processControls;
+  CDataCacheCore *m_dataCache = nullptr;
 
   // player video info
   bool m_videoIsHWDecoder;
   std::string m_videoDecoderName;
   std::string m_videoDeintMethod;
   std::string m_videoPixelFormat;
+  std::string m_videoStereoMode;
   int m_videoWidth;
   int m_videoHeight;
   float m_videoFPS;
   float m_videoDAR;
+  bool m_videoIsInterlaced;
   std::list<EINTERLACEMETHOD> m_deintMethods;
   EINTERLACEMETHOD m_deintMethodDefault;
   CCriticalSection m_videoCodecSection;
+  CVideoBufferManager m_videoBufferManager;
+  std::vector<AVPixelFormat> m_pixFormats;
 
   // player audio info
   std::string m_audioDecoderName;
@@ -110,4 +151,22 @@ protected:
   // player states
   CCriticalSection m_stateSection;
   bool m_stateSeeking;
+  std::atomic_int m_levelVQ;
+  std::atomic_bool m_renderGuiLayer;
+  std::atomic_bool m_renderVideoLayer;
+  float m_tempo;
+  float m_newTempo;
+  float m_speed;
+  float m_newSpeed;
+  bool m_frameAdvance;
+  time_t m_startTime;
+  int64_t m_time;
+  int64_t m_timeMax;
+  int64_t m_timeMin;
+  bool m_realTimeStream;
+
+  // settings
+  CCriticalSection m_settingsSection;
+  CVideoSettings m_videoSettings;
+  std::unique_ptr<CVideoSettingsLocked> m_videoSettingsLocked;
 };

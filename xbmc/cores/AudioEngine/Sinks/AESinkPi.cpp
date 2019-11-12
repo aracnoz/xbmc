@@ -1,41 +1,42 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-
-#if defined(TARGET_RASPBERRY_PI)
-
-#include <stdint.h>
-#include <limits.h>
-#include <cassert>
-
 #include "AESinkPi.h"
+
+#include "ServiceBroker.h"
+#include "cores/AudioEngine/AESinkFactory.h"
 #include "cores/AudioEngine/Utils/AEUtil.h"
-#include "utils/log.h"
 #include "settings/Settings.h"
-#include "linux/RBP.h"
+#include "settings/SettingsComponent.h"
+#include "utils/log.h"
+
+#include "platform/linux/RBP.h"
+
+#include <cassert>
+#include <limits.h>
+#include <stdint.h>
 
 #define CLASSNAME "CAESinkPi"
 
 #define NUM_OMX_BUFFERS 2
 #define AUDIO_PLAYBUFFER (0.1) // 100ms
+
+#ifdef OMX_SKIP64BIT
+static inline OMX_TICKS ToOMXTime(int64_t pts)
+{
+  OMX_TICKS ticks;
+  ticks.nLowPart = pts;
+  ticks.nHighPart = pts >> 32;
+  return ticks;
+}
+#else
+#define ToOMXTime(x) (x)
+#endif
 
 static const unsigned int PassthroughSampleRates[] = { 8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000 };
 
@@ -62,9 +63,9 @@ void CAESinkPi::SetAudioDest()
   if ( m_omx_render.IsInitialized() )
   {
     if (m_output == AESINKPI_ANALOGUE)
-      strncpy((char *)audioDest.sName, "local", strlen("local"));
+      strncpy(reinterpret_cast<char*>(audioDest.sName), "local", strlen("local") + 1);
     else
-      strncpy((char *)audioDest.sName, "hdmi", strlen("hdmi"));
+      strncpy(reinterpret_cast<char*>(audioDest.sName), "hdmi", strlen("hdmi") + 1);
     omx_err = m_omx_render.SetConfig(OMX_IndexConfigBrcmAudioDestination, &audioDest);
     if (omx_err != OMX_ErrorNone)
       CLog::Log(LOGERROR, "%s::%s - m_omx_render.SetConfig omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
@@ -72,9 +73,9 @@ void CAESinkPi::SetAudioDest()
   if ( m_omx_render_slave.IsInitialized() )
   {
     if (m_output != AESINKPI_ANALOGUE)
-      strncpy((char *)audioDest.sName, "local", strlen("local"));
+      strncpy(reinterpret_cast<char*>(audioDest.sName), "local", strlen("local") + 1);
     else
-      strncpy((char *)audioDest.sName, "hdmi", strlen("hdmi"));
+      strncpy(reinterpret_cast<char*>(audioDest.sName), "hdmi", strlen("hdmi") + 1);
     omx_err = m_omx_render_slave.SetConfig(OMX_IndexConfigBrcmAudioDestination, &audioDest);
     if (omx_err != OMX_ErrorNone)
       CLog::Log(LOGERROR, "%s::%s - m_omx_render_slave.SetConfig omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
@@ -180,6 +181,26 @@ static uint32_t GetChannelMap(const CAEChannelInfo &channelLayout, bool passthro
   return channel_map;
 }
 
+void CAESinkPi::Register()
+{
+  AE::AESinkRegEntry reg;
+  reg.sinkName = "PI";
+  reg.createFunc = CAESinkPi::Create;
+  reg.enumerateFunc = CAESinkPi::EnumerateDevicesEx;
+  AE::CAESinkFactory::RegisterSink(reg);
+}
+
+IAESink* CAESinkPi::Create(std::string &device, AEAudioFormat &desiredFormat)
+{
+  IAESink *sink = new CAESinkPi();
+  if (sink->Initialize(desiredFormat, device))
+    return sink;
+
+  delete sink;
+  return nullptr;
+}
+
+
 bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
 {
   // This may be called before Application calls g_RBP.Initialise, so call it here too
@@ -191,12 +212,16 @@ bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
   m_initDevice = device;
   m_initFormat = format;
 
-  if (m_passthrough || CSettings::GetInstance().GetString(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE) == "PI:HDMI")
+  const std::string audioDevice = CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE);
+
+  if (m_passthrough || audioDevice == "PI:HDMI")
     m_output = AESINKPI_HDMI;
-  else if (CSettings::GetInstance().GetString(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE) == "PI:Analogue")
+  else if (audioDevice == "PI:Analogue")
     m_output = AESINKPI_ANALOGUE;
-  else if (CSettings::GetInstance().GetString(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE) == "PI:Both")
+  else if (audioDevice == "PI:Both")
     m_output = AESINKPI_BOTH;
+  else if (audioDevice == "Default")
+    m_output = AESINKPI_HDMI;
   else assert(0);
 
   // analogue only supports stereo
@@ -214,14 +239,18 @@ bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
   format.m_sampleRate    = std::max(8000U, std::min(192000U, format.m_sampleRate));
   format.m_frames        = format.m_sampleRate * AUDIO_PLAYBUFFER / NUM_OMX_BUFFERS;
 
-  SetAudioProps(m_passthrough, GetChannelMap(format.m_channelLayout, m_passthrough));
-
   m_format = format;
   m_sinkbuffer_sec_per_byte = 1.0 / (double)(m_format.m_frameSize * m_format.m_sampleRate);
 
   CLog::Log(LOGDEBUG, "%s:%s Format:%d Channels:%d Samplerate:%d framesize:%d bufsize:%d bytes/s=%.2f dest=%s", CLASSNAME, __func__,
                 m_format.m_dataFormat, channels, m_format.m_sampleRate, m_format.m_frameSize, m_format.m_frameSize * m_format.m_frames, 1.0/m_sinkbuffer_sec_per_byte,
-                CSettings::GetInstance().GetString(CSettings::SETTING_AUDIOOUTPUT_AUDIODEVICE).c_str());
+                audioDevice.c_str());
+
+  // magic value used when omxplayer is playing - want sink to be disabled
+  if (m_passthrough && m_format.m_streamInfo.m_sampleRate == 16000)
+    return true;
+
+  SetAudioProps(m_passthrough, GetChannelMap(m_format.m_channelLayout, m_passthrough));
 
   OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
 
@@ -432,8 +461,10 @@ double CAESinkPi::GetCacheTotal()
 unsigned int CAESinkPi::AddPackets(uint8_t **data, unsigned int frames, unsigned int offset)
 {
   if (!m_Initialized || !m_omx_output || !frames)
+  {
+    Sleep(10);
     return frames;
-
+  }
   OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
   OMX_BUFFERHEADERTYPE *omx_buffer = NULL;
 
@@ -567,9 +598,7 @@ void CAESinkPi::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
   m_info.m_dataFormats.push_back(AE_FMT_FLOATP);
   m_info.m_dataFormats.push_back(AE_FMT_S32NEP);
   m_info.m_dataFormats.push_back(AE_FMT_S16NEP);
-  
+
   m_info.m_wantsIECPassthrough = true;
   list.push_back(m_info);
 }
-
-#endif

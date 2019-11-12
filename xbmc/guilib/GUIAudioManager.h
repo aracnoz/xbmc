@@ -1,34 +1,24 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
-#include <string>
+#pragma once
 
+#include "GUIComponent.h"
 #include "cores/AudioEngine/Interfaces/AESound.h"
 #include "settings/lib/ISettingCallback.h"
 #include "threads/CriticalSection.h"
 
+#include <map>
+#include <string>
+
 // forward definitions
 class CAction;
+class CSettings;
 class TiXmlNode;
 class IAESound;
 
@@ -47,15 +37,15 @@ class CGUIAudioManager : public ISettingCallback
   {
   public:
     int usage;
-    IAESound *sound;      
+    IAESound *sound;
   };
 
 public:
   CGUIAudioManager();
-  ~CGUIAudioManager();
+  ~CGUIAudioManager() override;
 
-  virtual void OnSettingChanged(const CSetting *setting) override;
-  virtual bool OnSettingUpdate(CSetting* &setting, const char *oldSettingId, const TiXmlNode *oldSettingNode) override;
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  bool OnSettingUpdate(std::shared_ptr<CSetting> setting, const char *oldSettingId, const TiXmlNode *oldSettingNode) override;
 
   void Initialize();
   void DeInitialize();
@@ -71,7 +61,11 @@ public:
   void Enable(bool bEnable);
   void SetVolume(float level);
   void Stop();
+
 private:
+  // Construction parameters
+  std::shared_ptr<CSettings> m_settings;
+
   typedef std::map<const std::string, CSoundInfo> soundCache;
   typedef std::map<int, IAESound*              > actionSoundMap;
   typedef std::map<int, CWindowSounds          > windowSoundMap;
@@ -93,4 +87,3 @@ private:
   IAESound* LoadWindowSound(TiXmlNode* pWindowNode, const std::string& strIdentifier);
 };
 
-extern CGUIAudioManager g_audioManager;

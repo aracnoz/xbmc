@@ -1,38 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
 
 #pragma once
 
-#ifdef __GNUC__
-// under gcc, inline will only take place if optimizations are applied (-O). this will force inline even whith optimizations.
-#define XBMC_FORCE_INLINE __attribute__((always_inline))
-#else
-#define XBMC_FORCE_INLINE
-#endif
-
-// include as less is possible to prevent dependencies
 #include "DVDResource.h"
+#include "FileItem.h"
+#include "cores/IPlayer.h"
+
 #include <atomic>
-#include <string>
 #include <string.h>
+#include <string>
 
 struct DemuxPacket;
 
@@ -43,9 +25,7 @@ public:
   {
     NONE = 1000,
 
-
     // messages used in the whole system
-
     GENERAL_RESYNC,                 //
     GENERAL_FLUSH,                  // flush all buffers
     GENERAL_RESET,                  // reset codecs for new data
@@ -56,34 +36,29 @@ public:
     GENERAL_EOF,                    // eof of stream
 
     // player core related messages (cVideoPlayer.cpp)
-
     PLAYER_SET_AUDIOSTREAM,         //
     PLAYER_SET_VIDEOSTREAM,         //
     PLAYER_SET_SUBTITLESTREAM,      //
     PLAYER_SET_SUBTITLESTREAM_VISIBLE, //
     PLAYER_SET_STATE,               // restore the VideoPlayer to a certain state
-    PLAYER_SET_RECORD,              // set record state
+    PLAYER_SET_PROGRAM,
+    PLAYER_SET_UPDATE_STREAM_DETAILS, // player should update file item stream details with its current streams
     PLAYER_SEEK,                    //
     PLAYER_SEEK_CHAPTER,            //
     PLAYER_SETSPEED,                // set the playback speed
-
-    PLAYER_CHANNEL_NEXT,            // switches to next playback channel
-    PLAYER_CHANNEL_PREV,            // switches to previous playback channel
-    PLAYER_CHANNEL_PREVIEW_NEXT,    // switches to next channel preview (does not switch the channel)
-    PLAYER_CHANNEL_PREVIEW_PREV,    // switches to previous channel preview (does not switch the channel)
-    PLAYER_CHANNEL_SELECT_NUMBER,   // switches to the channel with the provided channel number
-    PLAYER_CHANNEL_SELECT,          // switches to the provided channel
+    PLAYER_REQUEST_STATE,
+    PLAYER_OPENFILE,
     PLAYER_STARTED,                 // sent whenever a sub player has finished it's first frame after open
-    PLAYER_AVCHANGE,                // signal a change in audio or video parameters
+    PLAYER_AVCHANGE,                // signal a change in audio, video or subtitle parameters
+    PLAYER_ABORT,
+    PLAYER_REPORT_STATE,
+    PLAYER_FRAME_ADVANCE,
 
     // demuxer related messages
-
     DEMUXER_PACKET,                 // data packet
     DEMUXER_RESET,                  // reset the demuxer
 
-
     // video related messages
-
     VIDEO_SET_ASPECT,               // set aspectratio of video
     VIDEO_DRAIN,                    // wait for decoder to output last frame
 
@@ -92,24 +67,22 @@ public:
     SUBTITLE_ADDFILE
   };
 
-  CDVDMsg(Message msg)
+  explicit CDVDMsg(Message msg)
   {
     m_message = msg;
   }
 
-  virtual ~CDVDMsg()
-  {
-  }
+  ~CDVDMsg() override = default;
 
   /**
    * checks for message type
    */
-  inline bool IsType(Message msg) XBMC_FORCE_INLINE
+  inline bool IsType(Message msg)
   {
     return (m_message == msg);
   }
 
-  inline Message GetMessageType() XBMC_FORCE_INLINE
+  inline Message GetMessageType()
   {
     return m_message;
   }
@@ -139,8 +112,8 @@ class CDVDMsgGeneralSynchronize : public CDVDMsg
 {
 public:
   CDVDMsgGeneralSynchronize(unsigned int timeout, unsigned int sources);
- ~CDVDMsgGeneralSynchronize();
-  virtual long Release();
+ ~CDVDMsgGeneralSynchronize() override;
+  long Release() override;
 
   // waits until all threads waiting, released the object
   // if abort is set somehow
@@ -163,8 +136,8 @@ public:
   T m_value;
 };
 
-typedef CDVDMsgType<bool>   CDVDMsgBool;
-typedef CDVDMsgType<int>    CDVDMsgInt;
+typedef CDVDMsgType<bool> CDVDMsgBool;
+typedef CDVDMsgType<int> CDVDMsgInt;
 typedef CDVDMsgType<double> CDVDMsgDouble;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -176,8 +149,8 @@ typedef CDVDMsgType<double> CDVDMsgDouble;
 class CDVDMsgPlayerSetAudioStream : public CDVDMsg
 {
 public:
-  CDVDMsgPlayerSetAudioStream(int streamId) : CDVDMsg(PLAYER_SET_AUDIOSTREAM) { m_streamId = streamId; }
-  int GetStreamId()                     { return m_streamId; }
+  explicit CDVDMsgPlayerSetAudioStream(int streamId) : CDVDMsg(PLAYER_SET_AUDIOSTREAM) { m_streamId = streamId; }
+  int GetStreamId() { return m_streamId; }
 private:
   int m_streamId;
 };
@@ -185,7 +158,7 @@ private:
 class CDVDMsgPlayerSetVideoStream : public CDVDMsg
 {
 public:
-  CDVDMsgPlayerSetVideoStream(int streamId) : CDVDMsg(PLAYER_SET_VIDEOSTREAM) { m_streamId = streamId; }
+  explicit CDVDMsgPlayerSetVideoStream(int streamId) : CDVDMsg(PLAYER_SET_VIDEOSTREAM) { m_streamId = streamId; }
   int GetStreamId() const { return m_streamId; }
 private:
   int m_streamId;
@@ -194,8 +167,8 @@ private:
 class CDVDMsgPlayerSetSubtitleStream : public CDVDMsg
 {
 public:
-  CDVDMsgPlayerSetSubtitleStream(int streamId) : CDVDMsg(PLAYER_SET_SUBTITLESTREAM) { m_streamId = streamId; }
-  int GetStreamId()                     { return m_streamId; }
+  explicit CDVDMsgPlayerSetSubtitleStream(int streamId) : CDVDMsg(PLAYER_SET_SUBTITLESTREAM) { m_streamId = streamId; }
+  int GetStreamId() { return m_streamId; }
 private:
   int m_streamId;
 };
@@ -203,8 +176,8 @@ private:
 class CDVDMsgPlayerSetState : public CDVDMsg
 {
 public:
-  CDVDMsgPlayerSetState(const std::string& state) : CDVDMsg(PLAYER_SET_STATE), m_state(state) {}
-  std::string GetState()                { return m_state; }
+  explicit CDVDMsgPlayerSetState(const std::string& state) : CDVDMsg(PLAYER_SET_STATE), m_state(state) {}
+  std::string GetState() { return m_state; }
 private:
   std::string m_state;
 };
@@ -214,7 +187,7 @@ class CDVDMsgPlayerSeek : public CDVDMsg
 public:
   struct CMode
   {
-    int time = 0;
+    double time = 0;
     bool relative = false;
     bool backward = false;
     bool accurate = true;
@@ -223,10 +196,10 @@ public:
     bool trickplay = false;
   };
 
-  CDVDMsgPlayerSeek(CDVDMsgPlayerSeek::CMode mode) : CDVDMsg(PLAYER_SEEK),
+  explicit CDVDMsgPlayerSeek(CDVDMsgPlayerSeek::CMode mode) : CDVDMsg(PLAYER_SEEK),
     m_mode(mode)
   {}
-  int GetTime() { return m_mode.time; }
+  double GetTime() { return m_mode.time; }
   bool GetRelative() { return m_mode.relative; }
   bool GetBackward() { return m_mode.backward; }
   bool GetAccurate() { return m_mode.accurate; }
@@ -241,7 +214,7 @@ private:
 class CDVDMsgPlayerSeekChapter : public CDVDMsg
 {
   public:
-    CDVDMsgPlayerSeekChapter(int iChapter)
+    explicit CDVDMsgPlayerSeekChapter(int iChapter)
       : CDVDMsg(PLAYER_SEEK_CHAPTER)
       , m_iChapter(iChapter)
     {}
@@ -251,6 +224,51 @@ class CDVDMsgPlayerSeekChapter : public CDVDMsg
   private:
 
     int m_iChapter;
+};
+
+class CDVDMsgPlayerSetSpeed : public CDVDMsg
+{
+public:
+  struct SpeedParams
+  {
+    int m_speed;
+    bool m_isTempo;
+  };
+
+  explicit CDVDMsgPlayerSetSpeed(SpeedParams params)
+  : CDVDMsg(PLAYER_SETSPEED)
+  , m_params(params)
+  {}
+
+  int GetSpeed() const { return m_params.m_speed; }
+  bool IsTempo() const { return m_params.m_isTempo; }
+
+private:
+
+  SpeedParams m_params;
+
+};
+
+class CDVDMsgOpenFile : public CDVDMsg
+{
+public:
+  struct FileParams
+  {
+    CFileItem m_item;
+    CPlayerOptions m_options;
+  };
+
+  explicit CDVDMsgOpenFile(const FileParams &params)
+  : CDVDMsg(PLAYER_OPENFILE)
+  , m_params(params)
+  {}
+
+  CFileItem& GetItem() { return m_params.m_item; }
+  CPlayerOptions& GetOptions() { return m_params.m_options; }
+
+private:
+
+  FileParams m_params;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -263,12 +281,12 @@ class CDVDMsgDemuxerPacket : public CDVDMsg
 {
 public:
   CDVDMsgDemuxerPacket(DemuxPacket* packet, bool drop = false);
-  virtual ~CDVDMsgDemuxerPacket();
-  DemuxPacket* GetPacket()      { return m_packet; }
+  ~CDVDMsgDemuxerPacket() override;
+  DemuxPacket* GetPacket() { return m_packet; }
   unsigned int GetPacketSize();
-  bool         GetPacketDrop()  { return m_drop; }
+  bool GetPacketDrop() { return m_drop; }
   DemuxPacket* m_packet;
-  bool         m_drop;
+  bool m_drop;
 };
 
 class CDVDMsgDemuxerReset : public CDVDMsg
@@ -295,7 +313,7 @@ public:
 class CDVDMsgSubtitleClutChange : public CDVDMsg
 {
 public:
-  CDVDMsgSubtitleClutChange(uint8_t* data) : CDVDMsg(SUBTITLE_CLUTCHANGE) { memcpy(m_data, data, 16*4); }
+  explicit CDVDMsgSubtitleClutChange(uint8_t* data) : CDVDMsg(SUBTITLE_CLUTCHANGE) { memcpy(m_data, data, 16*4); }
   uint8_t m_data[16][4];
 private:
 };

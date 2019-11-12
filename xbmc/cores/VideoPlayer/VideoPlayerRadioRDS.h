@@ -1,34 +1,29 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2015 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Software; see the file COPYING.  If not, write to
- *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
- *  http://www.gnu.org/copyleft/gpl.html
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <deque>
+#pragma once
 
-#include "IVideoPlayer.h"
 #include "DVDMessageQueue.h"
 #include "FileItem.h"
+#include "IVideoPlayer.h"
 #include "threads/Thread.h"
 #include "utils/Stopwatch.h"
 
+#include <deque>
+#include <memory>
+
 class CDVDStreamInfo;
+
+namespace PVR
+{
+class CPVRChannel;
+class CPVRRadioRDSInfoTag;
+}
 
 /// --- CDVDRadioRDSData ------------------------------------------------------------
 
@@ -43,27 +38,27 @@ class CDVDStreamInfo;
 class CDVDRadioRDSData : public CThread, public IDVDStreamPlayer
 {
 public:
-  CDVDRadioRDSData(CProcessInfo &processInfo);
-  virtual ~CDVDRadioRDSData();
+  explicit CDVDRadioRDSData(CProcessInfo &processInfo);
+  ~CDVDRadioRDSData() override;
 
   bool CheckStream(CDVDStreamInfo &hints);
-  bool OpenStream(CDVDStreamInfo &hints);
-  void CloseStream(bool bWaitForBuffers);
+  bool OpenStream(CDVDStreamInfo hints) override;
+  void CloseStream(bool bWaitForBuffers) override;
   void Flush();
 
   // waits until all available data has been rendered
   void WaitForBuffers() { m_messageQueue.WaitUntilEmpty(); }
-  bool AcceptsData() const { return !m_messageQueue.IsFull(); }
-  void SendMessage(CDVDMsg* pMsg, int priority = 0) { if(m_messageQueue.IsInited()) m_messageQueue.Put(pMsg, priority); }
-  void FlushMessages() { m_messageQueue.Flush(); }
-  bool IsInited() const { return true; }
-  bool IsStalled() const { return true; }
+  bool AcceptsData() const override { return !m_messageQueue.IsFull(); }
+  void SendMessage(CDVDMsg* pMsg, int priority = 0) override { if(m_messageQueue.IsInited()) m_messageQueue.Put(pMsg, priority); }
+  void FlushMessages() override { m_messageQueue.Flush(); }
+  bool IsInited() const override { return true; }
+  bool IsStalled() const override { return true; }
 
   std::string GetRadioText(unsigned int line);
 
 protected:
-  virtual void OnExit();
-  virtual void Process();
+  void OnExit() override;
+  void Process() override;
 
 private:
   void ResetRDSCache();
@@ -92,8 +87,8 @@ private:
   void SendTMCSignal(unsigned int flags, uint8_t *data);
   void SetRadioStyle(std::string genre);
 
-  PVR::CPVRRadioRDSInfoTagPtr m_currentInfoTag;
-  PVR::CPVRChannelPtr         m_currentChannel;
+  std::shared_ptr<PVR::CPVRRadioRDSInfoTag> m_currentInfoTag;
+  std::shared_ptr<PVR::CPVRChannel> m_currentChannel;
   bool                        m_currentFileUpdate;
   int                         m_speed;
   CCriticalSection            m_critSection;

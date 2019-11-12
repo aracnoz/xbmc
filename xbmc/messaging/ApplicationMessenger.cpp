@@ -1,36 +1,36 @@
 /*
- *      Copyright (C) 2005-2015 Team XBMC
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ApplicationMessenger.h"
 
+#include "guilib/GUIMessage.h"
+#include "messaging/IMessageTarget.h"
+#include "threads/SingleLock.h"
+#include "windowing/GraphicContext.h"
+
 #include <memory>
 #include <utility>
-
-#include "Application.h"
-#include "guilib/GraphicContext.h"
-#include "threads/SingleLock.h"
 
 namespace KODI
 {
 namespace MESSAGING
 {
+
+class CDelayedMessage : public CThread
+{
+  public:
+    CDelayedMessage(ThreadMessage& msg, unsigned int delay);
+    void Process() override;
+
+  private:
+    unsigned int   m_delay;
+    ThreadMessage  m_msg;
+};
 
 CDelayedMessage::CDelayedMessage(ThreadMessage& msg, unsigned int delay) : CThread("DelayedMessage")
 {
@@ -54,9 +54,7 @@ CApplicationMessenger& CApplicationMessenger::GetInstance()
   return appMessenger;
 }
 
-CApplicationMessenger::CApplicationMessenger()
-{
-}
+CApplicationMessenger::CApplicationMessenger() = default;
 
 CApplicationMessenger::~CApplicationMessenger()
 {
@@ -96,12 +94,12 @@ int CApplicationMessenger::SendMsg(ThreadMessage&& message, bool wait)
   std::shared_ptr<int> result;
 
   if (wait)
-  { 
+  {
     //Initialize result here as it's not needed for posted messages
     message.result = std::make_shared<int>(-1);
     // check that we're not being called from our application thread, else we'll be waiting
     // forever!
-    if (!g_application.IsCurrentThread())
+    if (m_guiThreadId != CThread::GetCurrentThreadId())
     {
       message.waitEvent.reset(new CEvent(true));
       waitEvent = message.waitEvent;
@@ -117,11 +115,11 @@ int CApplicationMessenger::SendMsg(ThreadMessage&& message, bool wait)
   }
 
 
-  if (g_application.m_bStop)
+  if (m_bStop)
     return -1;
 
   ThreadMessage* msg = new ThreadMessage(std::move(message));
-  
+
   CSingleLock lock (m_critSection);
 
   if (msg->dwMessage == TMSG_GUI_MESSAGE)
@@ -130,16 +128,23 @@ int CApplicationMessenger::SendMsg(ThreadMessage&& message, bool wait)
     m_vecMessages.push(msg);
   lock.Leave();  // this releases the lock on the vec of messages and
                  //   allows the ProcessMessage to execute and therefore
-                 //   delete the message itself. Therefore any accesss
-                 //   of the message itself after this point consittutes
+                 //   delete the message itself. Therefore any access
+                 //   of the message itself after this point constitutes
                  //   a race condition (yarc - "yet another race condition")
                  //
   if (waitEvent) // ... it just so happens we have a spare reference to the
                  //  waitEvent ... just for such contingencies :)
-  { 
+  {
     // ensure the thread doesn't hold the graphics lock
-    CSingleExit exit(g_graphicsContext);
-    waitEvent->Wait();
+    CWinSystemBase* winSystem = CServiceBroker::GetWinSystem();
+    //! @todo This won't really help as winSystem can die every single
+    // moment on shutdown. A shared ptr would be a more valid solution
+    // depending on the design dependencies.
+    if (winSystem)
+    {
+      CSingleExit exit(winSystem->GetGfxContext());
+      waitEvent->Wait();
+    }
     return *result;
   }
 
@@ -169,6 +174,11 @@ int CApplicationMessenger::SendMsg(uint32_t messageId, int param1, int param2, v
 void CApplicationMessenger::PostMsg(uint32_t messageId)
 {
   SendMsg(ThreadMessage{ messageId }, false);
+}
+
+void CApplicationMessenger::PostMsg(uint32_t messageId, int64_t param3)
+{
+  SendMsg(ThreadMessage{ messageId, param3 }, false);
 }
 
 void CApplicationMessenger::PostMsg(uint32_t messageId, int param1, int param2, void* payload)
@@ -203,7 +213,7 @@ void CApplicationMessenger::ProcessMessages()
     lock.Leave(); // <- see the large comment in SendMessage ^
 
     ProcessMessage(pMsg);
-    
+
     if (waitEvent)
       waitEvent->Set();
     delete pMsg;

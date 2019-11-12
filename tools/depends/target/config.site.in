@@ -5,9 +5,9 @@ host_alias=@use_host@
 fi
 
 LD="@LD@"
-CC="@CC@"
-CXX="@CXX@"
-CPP="@CPP@"
+CC="@CCACHE@ @CC@"
+CXX="@CCACHE@ @CXX@"
+CPP="@CCACHE@ @CPP@"
 AR="@AR@"
 AS="@AS@"
 NM="@NM@"
@@ -15,9 +15,9 @@ STRIP="@STRIP@"
 RANLIB="@RANLIB@"
 OBJDUMP="@OBJDUMP@"
 
-if test "@platform_os@" = "ios" ; then
-  export AS="@prefix@/@tool_dir@/bin/gas-preprocessor.pl @CC@ -arch @use_cpu@"
-  export CCAS="--tag CC @prefix@/@tool_dir@/bin/gas-preprocessor.pl @CC@ -arch @use_cpu@"
+if test "@platform_os@" = "darwin_embedded" ; then
+  export AS="@prefix@/@tool_dir@/bin/gas-preprocessor.pl @CCACHE@ @CC@ -arch @use_cpu@"
+  export CCAS="--tag CC @prefix@/@tool_dir@/bin/gas-preprocessor.pl @CCACHE@ @CC@ -arch @use_cpu@"
 fi
 
 CFLAGS="@platform_cflags@ @platform_includes@ -isystem @prefix@/@deps_dir@/include $CFLAGS"
@@ -29,13 +29,12 @@ export PKG_CONFIG=@prefix@/@tool_dir@/bin/pkg-config
 export PKG_CONFIG_LIBDIR=@prefix@/@deps_dir@/lib/pkgconfig
 export YASM=@prefix@/@tool_dir@/bin/yasm
 export NASM=@prefix@/@tool_dir@/bin/yasm
-export MYSQL_CONFIG=@prefix@/@deps_dir@/bin/mysql_config
 LIBGCRYPT_CONFIG=@prefix@/@deps_dir@/bin/libgcrypt-config
 
 PATH=@prefix@/@tool_dir@/bin:@use_toolchain@/usr/bin:@use_toolchain@/bin:$PATH
 LD_LIBRARY_PATH=@prefix@/@tool_dir@/lib:$LD_LIBRARY_PATH
 
-PYTHON_VERSION=2.7
+PYTHON_VERSION=3.7
 PYTHON_LDFLAGS="-L@prefix@/@deps_dir@/lib -L@prefix@/@deps_dir@/lib64 -lpython${PYTHON_VERSION} -lc -ldl -lm -lexpat -lffi -lintl -lutil -lssl -lcrypto"
 PYTHON_CPPFLAGS=-I@prefix@/@deps_dir@/include/python${PYTHON_VERSION}
 PYTHON_SITE_PKG=@prefix@/@deps_dir@/lib/python${PYTHON_VERSION}/site-packages
@@ -83,7 +82,7 @@ ac_cv_file__proc_sys_kernel_core_pattern=no
 samba_cv_SYSCONF_SC_NPROCESSORS_ONLN=no
 libreplace_cv_HAVE_GETADDRINFO=no
 
-if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "ios"; then
+if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "darwin_embedded"; then
   # disable python support
   export PYTHON_VER=0.0
   if test "@use_cpu@" != "arm64"; then
@@ -103,8 +102,6 @@ if test "${PACKAGE_NAME}" = "Samba" -a "@platform_os@" = "osx"; then
   # various configure overrides
   ac_cv_header_libunwind_h=no
   ac_cv_header_execinfo_h=no
-  # fixes crash on 10.6 if xbmc is built using 10.7 SDK with 10.6 min
-  ac_cv_func_vdprintf=no
   samba_cv_HAVE_IFACE_GETIFADDRS=yes
 fi
 
@@ -145,31 +142,27 @@ if test "@platform_os@" = "osx" ; then
   # in 10.12 but will get wrongly detected if building on 10.11
   ac_cv_search_clock_gettime=no
   ac_cv_func_clock_gettime=no
+  ac_cv_func_futimens=no
   ac_cv_func_getentropy=no
+  ac_cv_func_utimensat=no
 fi
 
 
-if test "@platform_os@" = "ios"; then
-  # tweaks for libffi (ios must use llvm-gcc-4.2)
+if test "@platform_os@" = "darwin_embedded"; then
+  # Xcode 8 + 10.11, clock_gettime and getentropy is present
+  # in 10.12 but will get wrongly detected if building on 10.11
+  ac_cv_search_clock_gettime=no
+  ac_cv_func_clock_gettime=no
+  ac_cv_func_clock_settime=no
+  ac_cv_func_futimens=no
+  ac_cv_func_getentropy=no
+  ac_cv_func_utimensat=no
+
+  # tweaks for libffi
   if test "${PACKAGE_NAME}" = "libffi" ; then
-      case "@use_xcode@" in
-        3.*.* | 4.* | 4.*.*)
-          export CC="@use_toolchain@/usr/bin/llvm-gcc-4.2"
-          export CPP="@use_toolchain@/usr/bin/llvm-gcc-4.2 -E"
-          ;;
-        *)
-          export CC="@use_toolchain@/usr/bin/clang"
-          export CPP="@use_toolchain@/usr/bin/clang -E"
-          ;;
-        esac
- 
     if test "@use_cpu@" = "arm64"; then
-      host=aarch64-apple-darwin
       host_alias=aarch64-apple-darwin
-    fi 
- 
-    unset AS
-    unset CCAS
+    fi
   fi
 
   # tweaks for flac
@@ -178,6 +171,11 @@ if test "@platform_os@" = "ios"; then
     export CFLAGS=`echo ${CFLAGS} | sed 's/-O3/-Os/'`
     export CPPFLAGS=`echo ${CPPFLAGS} | sed 's/-O3/-Os/'`
   fi
+fi
+
+# Python3 build for appletvos
+if test "@target_platform@" = "appletvos"; then
+  ac_cv_func_sigaltstack=no
 fi
 
 #Fix for older, broken android toolchains

@@ -1,0 +1,2 @@
+project/BuildDependencies/${ARCH}/bin/libbluray*.jar .
+project/BuildDependencies/${ARCH}/bin/*.dll .

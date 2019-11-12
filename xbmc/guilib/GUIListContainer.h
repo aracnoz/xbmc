@@ -1,31 +1,22 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIListContainer.h
 \brief
 */
 
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
-
 #include "GUIBaseContainer.h"
+
+class CLabelInfo;
+class CTextureInfo;
 
 /*!
  \ingroup controls
@@ -41,23 +32,23 @@ public:
                          const CTextureInfo& textureButton, const CTextureInfo& textureButtonFocus,
                          float textureHeight, float itemWidth, float itemHeight, float spaceBetweenItems);
 //#endif
-  virtual ~CGUIListContainer(void);
-  virtual CGUIListContainer *Clone() const { return new CGUIListContainer(*this); };
+  ~CGUIListContainer(void) override;
+  CGUIListContainer *Clone() const override { return new CGUIListContainer(*this); };
 
-  virtual bool OnAction(const CAction &action);
-  virtual bool OnMessage(CGUIMessage& message);
+  bool OnAction(const CAction &action) override;
+  bool OnMessage(CGUIMessage& message) override;
 
-  virtual bool HasNextPage() const;
-  virtual bool HasPreviousPage() const;
+  bool HasNextPage() const override;
+  bool HasPreviousPage() const override;
 
 protected:
-  virtual void Scroll(int amount);
-  void SetCursor(int cursor);
-  virtual bool MoveDown(bool wrapAround);
-  virtual bool MoveUp(bool wrapAround);
-  virtual void ValidateOffset();
-  virtual void SelectItem(int item);
-  virtual bool SelectItemFromPoint(const CPoint &point);
-  virtual int GetCursorFromPoint(const CPoint &point, CPoint *itemPoint = NULL) const;
+  void Scroll(int amount) override;
+  void SetCursor(int cursor) override;
+  bool MoveDown(bool wrapAround) override;
+  bool MoveUp(bool wrapAround) override;
+  void ValidateOffset() override;
+  void SelectItem(int item) override;
+  bool SelectItemFromPoint(const CPoint &point) override;
+  int GetCursorFromPoint(const CPoint &point, CPoint *itemPoint = NULL) const override;
 };
 

@@ -1,63 +1,32 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-
-#include "system.h"
-
-#if HAS_GLES == 2
-
-#include "guilib/GraphicContext.h"
+#include "guilib/DirtyRegion.h"
+#include "windowing/GraphicContext.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
 #include "RenderSystemGLES.h"
-#include "guilib/MatrixGLES.h"
-#include "windowing/WindowingFactory.h"
-#include "utils/log.h"
+#include "rendering/MatrixGL.h"
 #include "utils/GLUtils.h"
+#include "utils/log.h"
 #include "utils/TimeUtils.h"
 #include "utils/SystemInfo.h"
 #include "utils/MathUtils.h"
 #ifdef TARGET_POSIX
-#include "XTimeUtils.h"
+#include "platform/posix/XTimeUtils.h"
 #endif
 
-static const char* ShaderNames[SM_ESHADERCOUNT] =
-    {"guishader_frag_default.glsl",
-     "guishader_frag_texture.glsl",
-     "guishader_frag_multi.glsl",
-     "guishader_frag_fonts.glsl",
-     "guishader_frag_texture_noblend.glsl",
-     "guishader_frag_multi_blendcolor.glsl",
-     "guishader_frag_rgba.glsl",
-     "guishader_frag_rgba_oes.glsl",
-     "guishader_frag_rgba_blendcolor.glsl",
-     "guishader_frag_rgba_bob.glsl",
-     "guishader_frag_rgba_bob_oes.glsl"
-    };
+#if defined(TARGET_LINUX)
+#include "utils/EGLUtils.h"
+#endif
 
 CRenderSystemGLES::CRenderSystemGLES()
  : CRenderSystemBase()
-{
-  m_enumRenderingSystem = RENDERING_SYSTEM_OPENGLES;
-}
-
-CRenderSystemGLES::~CRenderSystemGLES()
 {
 }
 
@@ -68,10 +37,7 @@ bool CRenderSystemGLES::InitRenderSystem()
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 
   m_maxTextureSize = maxTextureSize;
-  m_bVSync = false;
-  m_iVSyncMode = 0;
-  m_bVsyncInit = false;
-  m_renderCaps = 0;
+
   // Get the GLES version number
   m_RenderVersionMajor = 0;
   m_RenderVersionMinor = 0;
@@ -84,7 +50,7 @@ bool CRenderSystemGLES::InitRenderSystem()
       sscanf(ver, "%*s %*s %d.%d", &m_RenderVersionMajor, &m_RenderVersionMinor);
     m_RenderVersion = ver;
   }
-  
+
   // Get our driver vendor and renderer
   const char *tmpVendor = (const char*) glGetString(GL_VENDOR);
   m_RenderVendor.clear();
@@ -106,49 +72,51 @@ bool CRenderSystemGLES::InitRenderSystem()
 
   m_RenderExtensions += " ";
 
+//! @todo remove TARGET_RASPBERRY_PI when Raspberry Pi updates their GL headers
+#if defined(GL_KHR_debug) && defined(TARGET_LINUX) && !defined(TARGET_RASPBERRY_PI)
+  if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_openGlDebugging)
+  {
+    if (IsExtSupported("GL_KHR_debug"))
+    {
+      auto glDebugMessageCallback = CEGLUtils::GetRequiredProcAddress<PFNGLDEBUGMESSAGECALLBACKKHRPROC>("glDebugMessageCallbackKHR");
+      auto glDebugMessageControl = CEGLUtils::GetRequiredProcAddress<PFNGLDEBUGMESSAGECONTROLKHRPROC>("glDebugMessageControlKHR");
+
+      glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_KHR);
+      glDebugMessageCallback(KODI::UTILS::GL::GlErrorCallback, nullptr);
+
+      // ignore shader compilation information
+      glDebugMessageControl(GL_DEBUG_SOURCE_SHADER_COMPILER_KHR, GL_DEBUG_TYPE_OTHER_KHR, GL_DONT_CARE, 0, nullptr, GL_FALSE);
+
+      CLog::Log(LOGDEBUG, "OpenGL(ES): debugging enabled");
+    }
+    else
+    {
+      CLog::Log(LOGDEBUG, "OpenGL(ES): debugging requested but the required extension isn't available (GL_KHR_debug)");
+    }
+  }
+#endif
+
   LogGraphicsInfo();
-  
-  if (IsExtSupported("GL_TEXTURE_NPOT"))
-  {
-    m_renderCaps |= RENDER_CAPS_NPOT;
-  }
-
-  if (IsExtSupported("GL_EXT_texture_format_BGRA8888"))
-  {
-    m_renderCaps |= RENDER_CAPS_BGRA;
-  }
-
-  if (IsExtSupported("GL_IMG_texture_format_BGRA8888"))
-  {
-    m_renderCaps |= RENDER_CAPS_BGRA;
-  }
-
-  if (IsExtSupported("GL_APPLE_texture_format_BGRA8888"))
-  {
-    m_renderCaps |= RENDER_CAPS_BGRA_APPLE;
-  }
-
-
 
   m_bRenderCreated = true;
-  
-  InitialiseGUIShader();
+
+  InitialiseShaders();
 
   return true;
 }
 
-bool CRenderSystemGLES::ResetRenderSystem(int width, int height, bool fullScreen, float refreshRate)
+bool CRenderSystemGLES::ResetRenderSystem(int width, int height)
 {
   m_width = width;
   m_height = height;
-  
+
   glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
   CalculateMaxTexturesize();
 
   CRect rect( 0, 0, width, height );
   SetViewPort( rect );
 
-  glEnable(GL_SCISSOR_TEST); 
+  glEnable(GL_SCISSOR_TEST);
 
   glMatrixProject.Clear();
   glMatrixProject->LoadIdentity();
@@ -165,39 +133,23 @@ bool CRenderSystemGLES::ResetRenderSystem(int width, int height, bool fullScreen
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE);
   glEnable(GL_BLEND);          // Turn Blending On
-  glDisable(GL_DEPTH_TEST);  
-    
+  glDisable(GL_DEPTH_TEST);
+
   return true;
 }
 
 bool CRenderSystemGLES::DestroyRenderSystem()
 {
-  CLog::Log(LOGDEBUG, "GUI Shader - Destroying Shader : %p", m_pGUIshader);
-
-  if (m_pGUIshader)
-  {
-    for (int i = 0; i < SM_ESHADERCOUNT; i++)
-    {
-      if (m_pGUIshader[i])
-      {
-        m_pGUIshader[i]->Free();
-        delete m_pGUIshader[i];
-        m_pGUIshader[i] = NULL;
-      }
-    }
-    delete[] m_pGUIshader;
-    m_pGUIshader = NULL;
-  }
-
   ResetScissors();
   CDirtyRegionList dirtyRegions;
-  CDirtyRegion dirtyWindow(g_graphicsContext.GetViewWindow());
+  CDirtyRegion dirtyWindow(CServiceBroker::GetWinSystem()->GetGfxContext().GetViewWindow());
   dirtyRegions.push_back(dirtyWindow);
 
   ClearBuffers(0);
   glFinish();
   PresentRenderImpl(true);
 
+  ReleaseShaders();
   m_bRenderCreated = false;
 
   return true;
@@ -207,6 +159,16 @@ bool CRenderSystemGLES::BeginRender()
 {
   if (!m_bRenderCreated)
     return false;
+
+  bool useLimited = CServiceBroker::GetWinSystem()->UseLimitedColor();
+
+  if (m_limitedColorRange != useLimited)
+  {
+    ReleaseShaders();
+    InitialiseShaders();
+  }
+
+  m_limitedColorRange = useLimited;
 
   return true;
 }
@@ -219,7 +181,7 @@ bool CRenderSystemGLES::EndRender()
   return true;
 }
 
-bool CRenderSystemGLES::ClearBuffers(color_t color)
+bool CRenderSystemGLES::ClearBuffers(UTILS::Color color)
 {
   if (!m_bRenderCreated)
     return false;
@@ -237,22 +199,12 @@ bool CRenderSystemGLES::ClearBuffers(color_t color)
   return true;
 }
 
-bool CRenderSystemGLES::IsExtSupported(const char* extension)
+bool CRenderSystemGLES::IsExtSupported(const char* extension) const
 {
   if (strcmp( extension, "GL_EXT_framebuffer_object" ) == 0)
   {
     // GLES has FBO as a core element, not an extension!
     return true;
-  }
-  else if (strcmp( extension, "GL_TEXTURE_NPOT" ) == 0)
-  {
-    // GLES supports non-power-of-two textures as standard.
-	return true;
-	/* Note: The wrap mode can only be GL_CLAMP_TO_EDGE and the minification filter can only be
-	 * GL_NEAREST or GL_LINEAR (in other words, not mipmapped). The extension GL_OES_texture_npot
-	 * relaxes these restrictions and allows wrap modes of GL_REPEAT and GL_MIRRORED_REPEAT and
-	 * also	allows npot textures to be mipmapped with the full set of minification filters
-	 */
   }
   else
   {
@@ -261,9 +213,7 @@ bool CRenderSystemGLES::IsExtSupported(const char* extension)
     name += extension;
     name += " ";
 
-    bool supported = m_RenderExtensions.find(name) != std::string::npos;
-    CLog::Log(LOGDEBUG, "GLES: Extension Support Test - %s %s", extension, supported ? "YES" : "NO");
-    return supported;
+    return m_RenderExtensions.find(name) != std::string::npos;
   }
 }
 
@@ -283,31 +233,20 @@ void CRenderSystemGLES::PresentRender(bool rendered, bool videoLayer)
 
 void CRenderSystemGLES::SetVSync(bool enable)
 {
-  if (m_bVSync==enable && m_bVsyncInit == true)
+  if (m_bVsyncInit)
     return;
 
   if (!m_bRenderCreated)
     return;
-  
+
   if (enable)
     CLog::Log(LOGINFO, "GLES: Enabling VSYNC");
   else
     CLog::Log(LOGINFO, "GLES: Disabling VSYNC");
 
-  m_iVSyncMode   = 0;
-  m_iVSyncErrors = 0;
-  m_bVSync       = enable;
-  m_bVsyncInit   = true;
+  m_bVsyncInit = true;
 
   SetVSyncImpl(enable);
-  
-  if (!enable)
-    return;
-
-  if (!m_iVSyncMode)
-    CLog::Log(LOGERROR, "GLES: Vertical Blank Syncing unsupported");
-  else
-    CLog::Log(LOGINFO, "GLES: Selected vsync mode %d", m_iVSyncMode);
 }
 
 void CRenderSystemGLES::CaptureStateBlock()
@@ -335,17 +274,17 @@ void CRenderSystemGLES::ApplyStateBlock()
   glMatrixTexture.PopLoad();
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_BLEND);
-  glEnable(GL_SCISSOR_TEST);  
+  glEnable(GL_SCISSOR_TEST);
   glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void CRenderSystemGLES::SetCameraPosition(const CPoint &camera, int screenWidth, int screenHeight, float stereoFactor)
-{ 
+{
   if (!m_bRenderCreated)
     return;
-  
+
   CPoint offset = camera - CPoint(screenWidth*0.5f, screenHeight*0.5f);
-  
+
   float w = (float)m_viewPort[2]*0.5f;
   float h = (float)m_viewPort[3]*0.5f;
 
@@ -370,80 +309,6 @@ void CRenderSystemGLES::Project(float &x, float &y, float &z)
   }
 }
 
-bool CRenderSystemGLES::TestRender()
-{
-  static float theta = 0.0;
-
-  //RESOLUTION_INFO resInfo = CDisplaySettings::GetInstance().GetCurrentResolutionInfo();
-  //glViewport(0, 0, resInfo.iWidth, resInfo.iHeight);
-
-  glMatrixModview.Push();
-  glMatrixModview->Rotatef( theta, 0.0f, 0.0f, 1.0f );
-
-  EnableGUIShader(SM_DEFAULT);
-
-  GLfloat col[4] = {1.0f, 0.0f, 0.0f, 1.0f};
-  GLfloat ver[3][2];
-  GLint   posLoc = GUIShaderGetPos();
-  GLint   colLoc = GUIShaderGetCol();
-
-  glVertexAttribPointer(posLoc,  2, GL_FLOAT, 0, 0, ver);
-  glVertexAttribPointer(colLoc,  4, GL_FLOAT, 0, 0, col);
-
-  glEnableVertexAttribArray(posLoc);
-  glEnableVertexAttribArray(colLoc);
-
-  // Setup vertex position values
-  ver[0][0] =  0.0f;
-  ver[0][1] =  1.0f;
-  ver[1][0] =  0.87f;
-  ver[1][1] = -0.5f;
-  ver[2][0] = -0.87f;
-  ver[2][1] = -0.5f;
-
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-
-  glDisableVertexAttribArray(posLoc);
-  glDisableVertexAttribArray(colLoc);
-
-  DisableGUIShader();
-
-  glMatrixModview.Pop();
-
-  theta += 1.0f;
-
-  return true;
-}
-
-void CRenderSystemGLES::ApplyHardwareTransform(const TransformMatrix &finalMatrix)
-{ 
-  if (!m_bRenderCreated)
-    return;
-
-  glMatrixModview.Push();
-  GLfloat matrix[4][4];
-
-  for(int i = 0; i < 3; i++)
-    for(int j = 0; j < 4; j++)
-      matrix[j][i] = finalMatrix.m[i][j];
-
-  matrix[0][3] = 0.0f;
-  matrix[1][3] = 0.0f;
-  matrix[2][3] = 0.0f;
-  matrix[3][3] = 1.0f;
-
-  glMatrixModview->MultMatrixf(&matrix[0][0]);
-  glMatrixModview.Load();
-}
-
-void CRenderSystemGLES::RestoreHardwareTransform()
-{
-  if (!m_bRenderCreated)
-    return;
-
-  glMatrixModview.PopLoad();
-}
-
 void CRenderSystemGLES::CalculateMaxTexturesize()
 {
   // GLES cannot do PROXY textures to determine maximum size,
@@ -461,8 +326,7 @@ void CRenderSystemGLES::GetViewPort(CRect& viewPort)
   viewPort.y2 = viewPort.y1 + m_viewPort[3];
 }
 
-// FIXME make me const so that I can accept temporary objects
-void CRenderSystemGLES::SetViewPort(CRect& viewPort)
+void CRenderSystemGLES::SetViewPort(const CRect& viewPort)
 {
   if (!m_bRenderCreated)
     return;
@@ -477,20 +341,20 @@ void CRenderSystemGLES::SetViewPort(CRect& viewPort)
 
 bool CRenderSystemGLES::ScissorsCanEffectClipping()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->HardwareClipIsPossible();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->HardwareClipIsPossible();
 
   return false;
 }
 
 CRect CRenderSystemGLES::ClipRectToScissorRect(const CRect &rect)
 {
-  if (!m_pGUIshader[m_method])
+  if (!m_pShader[m_method])
     return CRect();
-  float xFactor = m_pGUIshader[m_method]->GetClipXFactor();
-  float xOffset = m_pGUIshader[m_method]->GetClipXOffset();
-  float yFactor = m_pGUIshader[m_method]->GetClipYFactor();
-  float yOffset = m_pGUIshader[m_method]->GetClipYOffset();
+  float xFactor = m_pShader[m_method]->GetClipXFactor();
+  float xOffset = m_pShader[m_method]->GetClipXOffset();
+  float yFactor = m_pShader[m_method]->GetClipYFactor();
+  float yOffset = m_pShader[m_method]->GetClipYOffset();
   return CRect(rect.x1 * xFactor + xOffset,
                rect.y1 * yFactor + yOffset,
                rect.x2 * xFactor + xOffset,
@@ -513,164 +377,266 @@ void CRenderSystemGLES::ResetScissors()
   SetScissors(CRect(0, 0, (float)m_width, (float)m_height));
 }
 
-void CRenderSystemGLES::InitialiseGUIShader()
+void CRenderSystemGLES::InitialiseShaders()
 {
-  if (!m_pGUIshader)
+  std::string defines;
+  m_limitedColorRange = CServiceBroker::GetWinSystem()->UseLimitedColor();
+  if (m_limitedColorRange)
   {
-    m_pGUIshader = new CGUIShader*[SM_ESHADERCOUNT];
-    for (int i = 0; i < SM_ESHADERCOUNT; i++)
+    defines += "#define KODI_LIMITED_RANGE 1\n";
+  }
+
+  m_pShader[SM_DEFAULT].reset(new CGLESShader("gles_shader.vert", "gles_shader_default.frag", defines));
+  if (!m_pShader[SM_DEFAULT]->CompileAndLink())
+  {
+    m_pShader[SM_DEFAULT]->Free();
+    m_pShader[SM_DEFAULT].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_default.frag - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE].reset(new CGLESShader("gles_shader_texture.frag", defines));
+  if (!m_pShader[SM_TEXTURE]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE]->Free();
+    m_pShader[SM_TEXTURE].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_texture.frag - compile and link failed");
+  }
+
+  m_pShader[SM_MULTI].reset(new CGLESShader("gles_shader_multi.frag", defines));
+  if (!m_pShader[SM_MULTI]->CompileAndLink())
+  {
+    m_pShader[SM_MULTI]->Free();
+    m_pShader[SM_MULTI].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_multi.frag - compile and link failed");
+  }
+
+  m_pShader[SM_FONTS].reset(new CGLESShader("gles_shader_fonts.frag", defines));
+  if (!m_pShader[SM_FONTS]->CompileAndLink())
+  {
+    m_pShader[SM_FONTS]->Free();
+    m_pShader[SM_FONTS].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_fonts.frag - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_NOBLEND].reset(new CGLESShader("gles_shader_texture_noblend.frag", defines));
+  if (!m_pShader[SM_TEXTURE_NOBLEND]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_NOBLEND]->Free();
+    m_pShader[SM_TEXTURE_NOBLEND].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_texture_noblend.frag - compile and link failed");
+  }
+
+  m_pShader[SM_MULTI_BLENDCOLOR].reset(new CGLESShader("gles_shader_multi_blendcolor.frag", defines));
+  if (!m_pShader[SM_MULTI_BLENDCOLOR]->CompileAndLink())
+  {
+    m_pShader[SM_MULTI_BLENDCOLOR]->Free();
+    m_pShader[SM_MULTI_BLENDCOLOR].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_multi_blendcolor.frag - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_RGBA].reset(new CGLESShader("gles_shader_rgba.frag", defines));
+  if (!m_pShader[SM_TEXTURE_RGBA]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_RGBA]->Free();
+    m_pShader[SM_TEXTURE_RGBA].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_rgba.frag - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR].reset(new CGLESShader("gles_shader_rgba_blendcolor.frag", defines));
+  if (!m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR]->Free();
+    m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_rgba_blendcolor.frag - compile and link failed");
+  }
+
+  m_pShader[SM_TEXTURE_RGBA_BOB].reset(new CGLESShader("gles_shader_rgba_bob.frag", defines));
+  if (!m_pShader[SM_TEXTURE_RGBA_BOB]->CompileAndLink())
+  {
+    m_pShader[SM_TEXTURE_RGBA_BOB]->Free();
+    m_pShader[SM_TEXTURE_RGBA_BOB].reset();
+    CLog::Log(LOGERROR, "GUI Shader gles_shader_rgba_bob.frag - compile and link failed");
+  }
+
+  if (IsExtSupported("GL_OES_EGL_image_external"))
+  {
+    m_pShader[SM_TEXTURE_RGBA_OES].reset(new CGLESShader("gles_shader_rgba_oes.frag", defines));
+    if (!m_pShader[SM_TEXTURE_RGBA_OES]->CompileAndLink())
     {
-      if (i == SM_TEXTURE_RGBA_OES || i == SM_TEXTURE_RGBA_BOB_OES)
-      {
-        if (!g_Windowing.IsExtSupported("GL_OES_EGL_image_external"))
-        {
-          m_pGUIshader[i] = NULL;
-          continue;
-        }
-      }
+      m_pShader[SM_TEXTURE_RGBA_OES]->Free();
+      m_pShader[SM_TEXTURE_RGBA_OES].reset();
+      CLog::Log(LOGERROR, "GUI Shader gles_shader_rgba_oes.frag - compile and link failed");
+    }
 
-      m_pGUIshader[i] = new CGUIShader( ShaderNames[i] );
 
-      if (!m_pGUIshader[i]->CompileAndLink())
-      {
-        m_pGUIshader[i]->Free();
-        delete m_pGUIshader[i];
-        m_pGUIshader[i] = NULL;
-        CLog::Log(LOGERROR, "GUI Shader [%s] - Initialise failed", ShaderNames[i]);
-      }
-      else
-      {
-        CLog::Log(LOGDEBUG, "GUI Shader [%s]- Initialise successful : %p", ShaderNames[i], m_pGUIshader[i]);
-      }
+    m_pShader[SM_TEXTURE_RGBA_BOB_OES].reset(new CGLESShader("gles_shader_rgba_bob_oes.frag", defines));
+    if (!m_pShader[SM_TEXTURE_RGBA_BOB_OES]->CompileAndLink())
+    {
+      m_pShader[SM_TEXTURE_RGBA_BOB_OES]->Free();
+      m_pShader[SM_TEXTURE_RGBA_BOB_OES].reset();
+      CLog::Log(LOGERROR, "GUI Shader gles_shader_rgba_bob_oes.frag - compile and link failed");
     }
   }
-  else
-  {
-    CLog::Log(LOGDEBUG, "GUI Shader - Tried to Initialise again. Was this intentional?");
-  }
+}
+
+void CRenderSystemGLES::ReleaseShaders()
+{
+  if (m_pShader[SM_DEFAULT])
+    m_pShader[SM_DEFAULT]->Free();
+  m_pShader[SM_DEFAULT].reset();
+
+  if (m_pShader[SM_TEXTURE])
+    m_pShader[SM_TEXTURE]->Free();
+  m_pShader[SM_TEXTURE].reset();
+
+  if (m_pShader[SM_MULTI])
+    m_pShader[SM_MULTI]->Free();
+  m_pShader[SM_MULTI].reset();
+
+  if (m_pShader[SM_FONTS])
+    m_pShader[SM_FONTS]->Free();
+  m_pShader[SM_FONTS].reset();
+
+  if (m_pShader[SM_TEXTURE_NOBLEND])
+    m_pShader[SM_TEXTURE_NOBLEND]->Free();
+  m_pShader[SM_TEXTURE_NOBLEND].reset();
+
+  if (m_pShader[SM_MULTI_BLENDCOLOR])
+    m_pShader[SM_MULTI_BLENDCOLOR]->Free();
+  m_pShader[SM_MULTI_BLENDCOLOR].reset();
+
+  if (m_pShader[SM_TEXTURE_RGBA])
+    m_pShader[SM_TEXTURE_RGBA]->Free();
+  m_pShader[SM_TEXTURE_RGBA].reset();
+
+  if (m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR])
+    m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR]->Free();
+  m_pShader[SM_TEXTURE_RGBA_BLENDCOLOR].reset();
+
+  if (m_pShader[SM_TEXTURE_RGBA_BOB])
+    m_pShader[SM_TEXTURE_RGBA_BOB]->Free();
+  m_pShader[SM_TEXTURE_RGBA_BOB].reset();
+
+  if (m_pShader[SM_TEXTURE_RGBA_OES])
+    m_pShader[SM_TEXTURE_RGBA_OES]->Free();
+  m_pShader[SM_TEXTURE_RGBA_OES].reset();
+
+  if (m_pShader[SM_TEXTURE_RGBA_BOB_OES])
+    m_pShader[SM_TEXTURE_RGBA_BOB_OES]->Free();
+  m_pShader[SM_TEXTURE_RGBA_BOB_OES].reset();
 }
 
 void CRenderSystemGLES::EnableGUIShader(ESHADERMETHOD method)
 {
   m_method = method;
-  if (m_pGUIshader[m_method])
+  if (m_pShader[m_method])
   {
-    m_pGUIshader[m_method]->Enable();
+    m_pShader[m_method]->Enable();
   }
   else
   {
-    CLog::Log(LOGERROR, "Invalid GUI Shader selected - [%s]", ShaderNames[(int)method]);
+    CLog::Log(LOGERROR, "Invalid GUI Shader selected - %d", method);
   }
 }
 
 void CRenderSystemGLES::DisableGUIShader()
 {
-  if (m_pGUIshader[m_method])
+  if (m_pShader[m_method])
   {
-    m_pGUIshader[m_method]->Disable();
+    m_pShader[m_method]->Disable();
   }
   m_method = SM_DEFAULT;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetPos()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetPosLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetPosLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetCol()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetColLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetColLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetCoord0()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetCord0Loc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetCord0Loc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetCoord1()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetCord1Loc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetCord1Loc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetUniCol()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetUniColLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetUniColLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetCoord0Matrix()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetCoord0MatrixLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetCoord0MatrixLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetField()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetFieldLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetFieldLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetStep()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetStepLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetStepLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetContrast()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetContrastLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetContrastLoc();
 
   return -1;
 }
 
 GLint CRenderSystemGLES::GUIShaderGetBrightness()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetBrightnessLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetBrightnessLoc();
 
   return -1;
 }
 
 bool CRenderSystemGLES::SupportsStereo(RENDER_STEREO_MODE mode) const
 {
-  switch(mode)
-  {
-    case RENDER_STEREO_MODE_INTERLACED:
-      if (g_sysinfo.HasHW3DInterlaced())
-        return true;
-
-    default:
-      return CRenderSystemBase::SupportsStereo(mode);
-  }
+  return CRenderSystemBase::SupportsStereo(mode);
 }
 
 GLint CRenderSystemGLES::GUIShaderGetModel()
 {
-  if (m_pGUIshader[m_method])
-    return m_pGUIshader[m_method]->GetModelLoc();
+  if (m_pShader[m_method])
+    return m_pShader[m_method]->GetModelLoc();
 
   return -1;
 }
-
-#endif

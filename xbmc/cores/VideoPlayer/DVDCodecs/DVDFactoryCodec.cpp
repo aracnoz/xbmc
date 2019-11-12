@@ -1,238 +1,284 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#include "utils/log.h"
-
 #include "DVDFactoryCodec.h"
-#include "Video/DVDVideoCodec.h"
-#include "Audio/DVDAudioCodec.h"
-#include "Overlay/DVDOverlayCodec.h"
-#include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
 
-#include "Video/DVDVideoCodecFFmpeg.h"
-#include "Video/DVDVideoCodecOpenMax.h"
-#if defined(HAS_IMXVPU)
-#include "Video/DVDVideoCodecIMX.h"
-#endif
-#include "Video/MMALCodec.h"
-#if defined(HAS_LIBAMCODEC)
-#include "utils/AMLUtils.h"
-#include "Video/DVDVideoCodecAmlogic.h"
-#endif
-#if defined(TARGET_ANDROID)
-#include "Video/DVDVideoCodecAndroidMediaCodec.h"
-#include "platform/android/activity/AndroidFeatures.h"
-#endif
+#include "Audio/DVDAudioCodec.h"
 #include "Audio/DVDAudioCodecFFmpeg.h"
 #include "Audio/DVDAudioCodecPassthrough.h"
-#include "Overlay/DVDOverlayCodecSSA.h"
-#include "Overlay/DVDOverlayCodecText.h"
-#include "Overlay/DVDOverlayCodecTX3G.h"
-#include "Overlay/DVDOverlayCodecFFmpeg.h"
-
-
 #include "DVDStreamInfo.h"
-#include "settings/AdvancedSettings.h"
-#include "settings/Settings.h"
-#include "settings/VideoSettings.h"
+#include "Overlay/DVDOverlayCodec.h"
+#include "Overlay/DVDOverlayCodecFFmpeg.h"
+#include "Overlay/DVDOverlayCodecSSA.h"
+#include "Overlay/DVDOverlayCodecTX3G.h"
+#include "Overlay/DVDOverlayCodecText.h"
+#include "Video/AddonVideoCodec.h"
+#include "Video/DVDVideoCodec.h"
+#include "Video/DVDVideoCodecFFmpeg.h"
+#include "addons/AddonProvider.h"
+#include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
+#include "threads/SingleLock.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
 
-CDVDVideoCodec* CDVDFactoryCodec::OpenCodec(CDVDVideoCodec* pCodec, CDVDStreamInfo &hints, CDVDCodecOptions &options )
+
+//------------------------------------------------------------------------------
+// Video
+//------------------------------------------------------------------------------
+
+std::map<std::string, CreateHWVideoCodec> CDVDFactoryCodec::m_hwVideoCodecs;
+std::map<std::string, CreateHWAudioCodec> CDVDFactoryCodec::m_hwAudioCodecs;
+
+std::map<std::string, CreateHWAccel> CDVDFactoryCodec::m_hwAccels;
+
+CCriticalSection videoCodecSection, audioCodecSection;
+
+CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProcessInfo &processInfo)
 {
-  try
-  {
-    CLog::Log(LOGDEBUG, "FactoryCodec - Video: %s - Opening", pCodec->GetName());
-    if( pCodec->Open( hints, options ) )
-    {
-      CLog::Log(LOGDEBUG, "FactoryCodec - Video: %s - Opened", pCodec->GetName());
-      return pCodec;
-    }
+  CSingleLock lock(videoCodecSection);
 
-    CLog::Log(LOGDEBUG, "FactoryCodec - Video: %s - Failed", pCodec->GetName());
-    delete pCodec;
-  }
-  catch(...)
-  {
-    CLog::Log(LOGERROR, "FactoryCodec - Video: Failed with exception");
-  }
-  return nullptr;
-}
-
-CDVDAudioCodec* CDVDFactoryCodec::OpenCodec(CDVDAudioCodec* pCodec, CDVDStreamInfo &hints, CDVDCodecOptions &options )
-{
-  try
-  {
-    CLog::Log(LOGDEBUG, "FactoryCodec - Audio: %s - Opening", pCodec->GetName());
-    if( pCodec->Open( hints, options ) )
-    {
-      CLog::Log(LOGDEBUG, "FactoryCodec - Audio: %s - Opened", pCodec->GetName());
-      return pCodec;
-    }
-
-    CLog::Log(LOGDEBUG, "FactoryCodec - Audio: %s - Failed", pCodec->GetName());
-    delete pCodec;
-  }
-  catch(...)
-  {
-    CLog::Log(LOGERROR, "FactoryCodec - Audio: Failed with exception");
-  }
-  return nullptr;
-}
-
-CDVDOverlayCodec* CDVDFactoryCodec::OpenCodec(CDVDOverlayCodec* pCodec, CDVDStreamInfo &hints, CDVDCodecOptions &options )
-{
-  try
-  {
-    CLog::Log(LOGDEBUG, "FactoryCodec - Overlay: %s - Opening", pCodec->GetName());
-    if( pCodec->Open( hints, options ) )
-    {
-      CLog::Log(LOGDEBUG, "FactoryCodec - Overlay: %s - Opened", pCodec->GetName());
-      return pCodec;
-    }
-
-    CLog::Log(LOGDEBUG, "FactoryCodec - Overlay: %s - Failed", pCodec->GetName());
-    delete pCodec;
-  }
-  catch(...)
-  {
-    CLog::Log(LOGERROR, "FactoryCodec - Audio: Failed with exception");
-  }
-  return nullptr;
-}
-
-
-CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProcessInfo &processInfo, const CRenderInfo &info)
-{
-  CDVDVideoCodec* pCodec = nullptr;
+  std::unique_ptr<CDVDVideoCodec> pCodec;
   CDVDCodecOptions options;
 
-  if (info.formats.empty())
-    options.m_formats.push_back(RENDER_FMT_YUV420P);
-  else
-    options.m_formats = info.formats;
+  // addon handler for this stream ?
 
-  options.m_opaque_pointer = info.opaque_pointer;
-
-  if (!hint.software)
+  if (hint.externalInterfaces)
   {
-#if defined(HAS_LIBAMCODEC)
-    // Amlogic can be present on multiple platforms (Linux, Android)
-    // try this first. if it does not open, we still try other hw decoders
-    pCodec = OpenCodec(new CDVDVideoCodecAmlogic(processInfo), hint, options);
-    if (pCodec)
-      return pCodec;
-#endif
-
-#if defined(HAS_IMXVPU)
-    pCodec = OpenCodec(new CDVDVideoCodecIMX(processInfo), hint, options);
-#elif defined(TARGET_ANDROID)
-    pCodec = OpenCodec(new CDVDVideoCodecAndroidMediaCodec(processInfo), hint, options);
-#elif defined(HAVE_LIBOPENMAX)
-    pCodec = OpenCodec(new CDVDVideoCodecOpenMax(processInfo), hint, options);
-#elif defined(HAS_MMAL)
-    pCodec = OpenCodec(new CMMALVideo(processInfo), hint, options);
-#endif
-    if (pCodec)
-      return pCodec;
+    ADDON::BinaryAddonBasePtr addonInfo;
+    kodi::addon::IAddonInstance* parentInstance;
+    hint.externalInterfaces->getAddonInstance(ADDON::IAddonProvider::INSTANCE_VIDEOCODEC, addonInfo, parentInstance);
+    if (addonInfo && parentInstance)
+    {
+      pCodec.reset(new CAddonVideoCodec(processInfo, addonInfo, parentInstance));
+      if (pCodec && pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
+    }
+    return nullptr;
   }
 
-  // try to decide if we want to try halfres decoding
-#if !defined(TARGET_POSIX) && !defined(TARGET_WINDOWS)
-  float pixelrate = (float)hint.width*hint.height*hint.fpsrate/hint.fpsscale;
-  if (pixelrate > 1400.0f*720.0f*30.0f)
+  // platform specifig video decoders
+  if (!(hint.codecOptions & CODEC_FORCE_SOFTWARE))
   {
-    CLog::Log(LOGINFO, "CDVDFactoryCodec - High video resolution detected %dx%d, trying half resolution decoding ", hint.width, hint.height);
-    options.m_keys.push_back(CDVDCodecOption("lowres","1"));
+    for (auto &codec : m_hwVideoCodecs)
+    {
+      pCodec.reset(CreateVideoCodecHW(codec.first, processInfo));
+      if (pCodec && pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
+    }
+    if (!(hint.codecOptions & CODEC_ALLOW_FALLBACK))
+      return nullptr;
   }
-#endif
 
-  std::string value = StringUtils::Format("%d", info.max_buffer_size);
-  options.m_keys.push_back(CDVDCodecOption("surfaces", value));
-  pCodec = OpenCodec(new CDVDVideoCodecFFmpeg(processInfo), hint, options);
-  if (pCodec)
-    return pCodec;
+  pCodec.reset(new CDVDVideoCodecFFmpeg(processInfo));
+  if (pCodec->Open(hint, options))
+  {
+    return pCodec.release();
+  }
 
-  return nullptr;;
+  return nullptr;
 }
 
-CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodec(CDVDStreamInfo &hint, CProcessInfo &processInfo, bool allowpassthrough, bool allowdtshddecode)
+CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodecHW(std::string id, CProcessInfo &processInfo)
 {
-  CDVDAudioCodec* pCodec = NULL;
+  CSingleLock lock(videoCodecSection);
+
+  auto it = m_hwVideoCodecs.find(id);
+  if (it != m_hwVideoCodecs.end())
+  {
+    return it->second(processInfo);
+  }
+
+  return nullptr;
+}
+
+IHardwareDecoder* CDVDFactoryCodec::CreateVideoCodecHWAccel(std::string id, CDVDStreamInfo &hint, CProcessInfo &processInfo, AVPixelFormat fmt)
+{
+  CSingleLock lock(videoCodecSection);
+
+  auto it = m_hwAccels.find(id);
+  if (it != m_hwAccels.end())
+  {
+    return it->second(hint, processInfo, fmt);
+  }
+
+  return nullptr;
+}
+
+
+void CDVDFactoryCodec::RegisterHWVideoCodec(std::string id, CreateHWVideoCodec createFunc)
+{
+  CSingleLock lock(videoCodecSection);
+
+  m_hwVideoCodecs[id] = createFunc;
+}
+
+void CDVDFactoryCodec::ClearHWVideoCodecs()
+{
+  CSingleLock lock(videoCodecSection);
+
+  m_hwVideoCodecs.clear();
+}
+
+std::vector<std::string> CDVDFactoryCodec::GetHWAccels()
+{
+  CSingleLock lock(videoCodecSection);
+
+  std::vector<std::string> ret;
+  for (auto &hwaccel : m_hwAccels)
+  {
+    ret.push_back(hwaccel.first);
+  }
+  return ret;
+}
+
+void CDVDFactoryCodec::RegisterHWAccel(std::string id, CreateHWAccel createFunc)
+{
+  CSingleLock lock(videoCodecSection);
+
+  m_hwAccels[id] = createFunc;
+}
+
+void CDVDFactoryCodec::ClearHWAccels()
+{
+  CSingleLock lock(videoCodecSection);
+
+  m_hwAccels.clear();
+}
+
+//------------------------------------------------------------------------------
+// Audio
+//------------------------------------------------------------------------------
+
+CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodec(CDVDStreamInfo &hint, CProcessInfo &processInfo,
+                                                   bool allowpassthrough, bool allowdtshddecode,
+                                                   CAEStreamInfo::DataType ptStreamType)
+{
+  std::unique_ptr<CDVDAudioCodec> pCodec;
   CDVDCodecOptions options;
+
+  if (allowpassthrough && ptStreamType != CAEStreamInfo::STREAM_TYPE_NULL)
+    options.m_keys.emplace_back("ptstreamtype", StringUtils::SizeToString(ptStreamType));
 
   if (!allowdtshddecode)
-    options.m_keys.push_back(CDVDCodecOption("allowdtshddecode", "0"));
+    options.m_keys.emplace_back("allowdtshddecode", "0");
 
-  // we don't use passthrough if "sync playback to display" is enabled
-  if (allowpassthrough)
+  // platform specifig audio decoders
+  for (auto &codec : m_hwAudioCodecs)
   {
-    pCodec = OpenCodec(new CDVDAudioCodecPassthrough(processInfo), hint, options);
-    if (pCodec)
-      return pCodec;
+    pCodec.reset(CreateAudioCodecHW(codec.first, processInfo));
+    if (pCodec && pCodec->Open(hint, options))
+    {
+      return pCodec.release();
+    }
   }
 
-  pCodec = OpenCodec(new CDVDAudioCodecFFmpeg(processInfo), hint, options);
-  if (pCodec)
-    return pCodec;
+  // we don't use passthrough if "sync playback to display" is enabled
+  if (allowpassthrough && ptStreamType != CAEStreamInfo::STREAM_TYPE_NULL)
+  {
+    pCodec.reset(new CDVDAudioCodecPassthrough(processInfo, ptStreamType));
+    if (pCodec->Open(hint, options))
+    {
+      return pCodec.release();
+    }
+  }
+
+  pCodec.reset(new CDVDAudioCodecFFmpeg(processInfo));
+  if (pCodec->Open(hint, options))
+  {
+    return pCodec.release();
+  }
 
   return nullptr;
 }
+
+void CDVDFactoryCodec::RegisterHWAudioCodec(std::string id, CreateHWAudioCodec createFunc)
+{
+  CSingleLock lock(audioCodecSection);
+
+  m_hwAudioCodecs[id] = createFunc;
+}
+
+void CDVDFactoryCodec::ClearHWAudioCodecs()
+{
+  CSingleLock lock(audioCodecSection);
+
+  m_hwAudioCodecs.clear();
+}
+
+CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodecHW(std::string id, CProcessInfo &processInfo)
+{
+  CSingleLock lock(audioCodecSection);
+
+  auto it = m_hwAudioCodecs.find(id);
+  if (it != m_hwAudioCodecs.end())
+  {
+    return it->second(processInfo);
+  }
+
+  return nullptr;
+}
+
+//------------------------------------------------------------------------------
+// Overlay
+//------------------------------------------------------------------------------
 
 CDVDOverlayCodec* CDVDFactoryCodec::CreateOverlayCodec( CDVDStreamInfo &hint )
 {
-  CDVDOverlayCodec* pCodec = NULL;
+  std::unique_ptr<CDVDOverlayCodec> pCodec;
   CDVDCodecOptions options;
 
   switch (hint.codec)
   {
     case AV_CODEC_ID_TEXT:
     case AV_CODEC_ID_SUBRIP:
-      pCodec = OpenCodec(new CDVDOverlayCodecText(), hint, options);
-      if (pCodec)
-        return pCodec;
+      pCodec.reset(new CDVDOverlayCodecText());
+      if (pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
       break;
 
     case AV_CODEC_ID_SSA:
     case AV_CODEC_ID_ASS:
-      pCodec = OpenCodec(new CDVDOverlayCodecSSA(), hint, options);
-      if (pCodec)
-        return pCodec;
+      pCodec.reset(new CDVDOverlayCodecSSA());
+      if (pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
 
-      pCodec = OpenCodec(new CDVDOverlayCodecText(), hint, options);
-      if (pCodec)
-        return pCodec;
+      pCodec.reset(new CDVDOverlayCodecText());
+      if (pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
       break;
 
     case AV_CODEC_ID_MOV_TEXT:
-      pCodec = OpenCodec(new CDVDOverlayCodecTX3G(), hint, options);
-      if (pCodec)
-        return pCodec;
+      pCodec.reset(new CDVDOverlayCodecTX3G());
+      if (pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
       break;
 
     default:
-      pCodec = OpenCodec(new CDVDOverlayCodecFFmpeg(), hint, options);
-      if (pCodec)
-        return pCodec;
+      pCodec.reset(new CDVDOverlayCodecFFmpeg());
+      if (pCodec->Open(hint, options))
+      {
+        return pCodec.release();
+      }
       break;
   }
 
   return nullptr;
 }
+

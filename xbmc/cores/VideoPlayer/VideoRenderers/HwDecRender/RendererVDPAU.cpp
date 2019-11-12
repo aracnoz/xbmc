@@ -1,38 +1,40 @@
 /*
- *      Copyright (C) 2007-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "RendererVDPAU.h"
 
-#ifdef HAVE_LIBVDPAU
-
+#include "../RenderFactory.h"
+#include "ServiceBroker.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VDPAU.h"
-#include "settings/Settings.h"
 #include "settings/AdvancedSettings.h"
-#include "utils/log.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/GLUtils.h"
-#include "windowing/WindowingFactory.h"
+#include "utils/log.h"
 
-CRendererVDPAU::CRendererVDPAU()
+using namespace VDPAU;
+
+CBaseRenderer* CRendererVDPAU::Create(CVideoBuffer *buffer)
 {
+  CVdpauRenderPicture *vb = dynamic_cast<CVdpauRenderPicture*>(buffer);
+  if (vb)
+    return new CRendererVDPAU();
 
+  return nullptr;
 }
+
+bool CRendererVDPAU::Register()
+{
+  VIDEOPLAYER::CRendererFactory::RegisterRenderer("vdpau", CRendererVDPAU::Create);
+  return true;
+}
+
+CRendererVDPAU::CRendererVDPAU() = default;
 
 CRendererVDPAU::~CRendererVDPAU()
 {
@@ -40,33 +42,74 @@ CRendererVDPAU::~CRendererVDPAU()
   {
     DeleteTexture(i);
   }
+  m_interopState.Finish();
 }
 
-void CRendererVDPAU::AddVideoPictureHW(DVDVideoPicture &picture, int index)
+bool CRendererVDPAU::Configure(const VideoPicture &picture, float fps, unsigned int orientation)
 {
-  VDPAU::CVdpauRenderPicture *vdpau = picture.vdpau;
-  YUVBUFFER &buf = m_buffers[index];
-  VDPAU::CVdpauRenderPicture *pic = vdpau->Acquire();
-  if (buf.hwDec)
-    ((VDPAU::CVdpauRenderPicture*)buf.hwDec)->Release();
-  buf.hwDec = pic;
+  CVdpauRenderPicture *pic = dynamic_cast<CVdpauRenderPicture*>(picture.videoBuffer);
+  if (pic->procPic.isYuv)
+    m_isYuv = true;
+  else
+    m_isYuv = false;
+
+  if (!m_interopState.Init(pic->device, pic->procFunc, pic->ident))
+    return false;
+
+  for (auto &tex : m_vdpauTextures)
+  {
+    tex.Init(m_interopState.GetInterop());
+  }
+  for (auto &fence : m_fences)
+  {
+    fence = GL_NONE;
+  }
+
+  return CLinuxRendererGL::Configure(picture, fps, orientation);
+}
+
+bool CRendererVDPAU::ConfigChanged(const VideoPicture &picture)
+{
+  CVdpauRenderPicture *pic = dynamic_cast<CVdpauRenderPicture*>(picture.videoBuffer);
+  if (pic->procPic.isYuv && !m_isYuv)
+    return true;
+
+  if (m_interopState.NeedInit(pic->device, pic->procFunc, pic->ident))
+    return true;
+
+  return false;
+}
+
+bool CRendererVDPAU::NeedBuffer(int idx)
+{
+  if (glIsSync(m_fences[idx]))
+  {
+    GLint state;
+    GLsizei length;
+    glGetSynciv(m_fences[idx], GL_SYNC_STATUS, 1, &length, &state);
+    if (state == GL_SIGNALED)
+    {
+      glDeleteSync(m_fences[idx]);
+      m_fences[idx] = GL_NONE;
+    }
+    else
+    {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void CRendererVDPAU::ReleaseBuffer(int idx)
 {
-  YUVBUFFER &buf = m_buffers[idx];
-  if (buf.hwDec)
-    ((VDPAU::CVdpauRenderPicture*)buf.hwDec)->Release();
-  buf.hwDec = NULL;
-}
-
-CRenderInfo CRendererVDPAU::GetRenderInfo()
-{
-  CRenderInfo info;
-  info.formats = m_formats;
-  info.max_buffer_size = NUM_BUFFERS;
-  info.optimal_buffer_size = 5;
-  return info;
+  if (glIsSync(m_fences[idx]))
+  {
+    glDeleteSync(m_fences[idx]);
+    m_fences[idx] = GL_NONE;
+  }
+  m_vdpauTextures[idx].Unmap();
+  CLinuxRendererGL::ReleaseBuffer(idx);
 }
 
 bool CRendererVDPAU::Supports(ERENDERFEATURE feature)
@@ -74,16 +117,15 @@ bool CRendererVDPAU::Supports(ERENDERFEATURE feature)
   if(feature == RENDERFEATURE_BRIGHTNESS ||
      feature == RENDERFEATURE_CONTRAST)
   {
-    if ((m_renderMethod & RENDER_VDPAU) && !CSettings::GetInstance().GetBool(CSettings::SETTING_VIDEOSCREEN_LIMITEDRANGE))
+    if (!m_isYuv && !CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOSCREEN_LIMITEDRANGE))
       return true;
 
-    return (m_renderMethod & RENDER_GLSL)
-        || (m_renderMethod & RENDER_ARB);
+    return (m_renderMethod & RENDER_GLSL);
   }
   else if (feature == RENDERFEATURE_NOISE ||
            feature == RENDERFEATURE_SHARPNESS)
   {
-    if (m_format == RENDER_FMT_VDPAU)
+    if (!m_isYuv)
       return true;
   }
   else if (feature == RENDERFEATURE_STRETCH         ||
@@ -100,17 +142,14 @@ bool CRendererVDPAU::Supports(ERENDERFEATURE feature)
 
 bool CRendererVDPAU::Supports(ESCALINGMETHOD method)
 {
-  if (m_format == RENDER_FMT_VDPAU_420)
+  if (m_isYuv)
     return CLinuxRendererGL::Supports(method);
 
-  //nearest neighbor doesn't work on YUY2 and UYVY
-  if (method == VS_SCALINGMETHOD_NEAREST &&
-      m_format != RENDER_FMT_YUYV422 &&
-      m_format != RENDER_FMT_UYVY422)
+  if (method == VS_SCALINGMETHOD_NEAREST)
     return true;
 
-  if(method == VS_SCALINGMETHOD_LINEAR
-  || method == VS_SCALINGMETHOD_AUTO)
+  if (method == VS_SCALINGMETHOD_LINEAR ||
+      method == VS_SCALINGMETHOD_AUTO)
     return true;
 
   if(method == VS_SCALINGMETHOD_CUBIC
@@ -123,7 +162,7 @@ bool CRendererVDPAU::Supports(ESCALINGMETHOD method)
     // if scaling is below level, avoid hq scaling
     float scaleX = fabs(((float)m_sourceWidth - m_destRect.Width())/m_sourceWidth)*100;
     float scaleY = fabs(((float)m_sourceHeight - m_destRect.Height())/m_sourceHeight)*100;
-    int minScale = CSettings::GetInstance().GetInt("videoplayer.hqscalers");
+    int minScale = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt("videoplayer.hqscalers");
     if (scaleX < minScale && scaleY < minScale)
       return false;
 
@@ -132,18 +171,28 @@ bool CRendererVDPAU::Supports(ESCALINGMETHOD method)
         && method != VS_SCALINGMETHOD_LANCZOS3)
       return true;
     else
-      return g_advancedSettings.m_videoEnableHighQualityHwScalers;
+      return CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoEnableHighQualityHwScalers;
   }
 
   return false;
 }
 
+EShaderFormat CRendererVDPAU::GetShaderFormat()
+{
+  EShaderFormat ret = SHADER_NONE;
+
+  if (m_isYuv)
+    ret = SHADER_NV12;
+
+  return ret;
+}
+
 bool CRendererVDPAU::LoadShadersHook()
 {
-  if (m_format == RENDER_FMT_VDPAU)
+  if (!m_isYuv)
   {
     CLog::Log(LOGNOTICE, "GL: Using VDPAU render method");
-    m_renderMethod = RENDER_VDPAU;
+    m_renderMethod = RENDER_CUSTOM;
     m_fullRange = false;
     return true;
   }
@@ -154,7 +203,7 @@ bool CRendererVDPAU::RenderHook(int idx)
 {
   UpdateVideoFilter();
 
-  if (m_format == RENDER_FMT_VDPAU_420)
+  if (m_isYuv)
   {
     switch(m_renderQuality)
     {
@@ -184,19 +233,24 @@ bool CRendererVDPAU::RenderHook(int idx)
     RenderRGB(idx, m_currentField);
   }
 
-  YUVBUFFER &buf = m_buffers[idx];
-  if (buf.hwDec)
-  {
-    ((VDPAU::CVdpauRenderPicture*)buf.hwDec)->Sync();
-  }
   return true;
+}
+
+void CRendererVDPAU::AfterRenderHook(int idx)
+{
+  if (glIsSync(m_fences[idx]))
+  {
+    glDeleteSync(m_fences[idx]);
+    m_fences[idx] = None;
+  }
+  m_fences[idx] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 }
 
 bool CRendererVDPAU::CreateTexture(int index)
 {
-  if (m_format == RENDER_FMT_VDPAU)
+  if (!m_isYuv)
     return CreateVDPAUTexture(index);
-  else if (m_format == RENDER_FMT_VDPAU_420)
+  else if (m_isYuv)
     return CreateVDPAUTexture420(index);
   else
     return false;
@@ -204,17 +258,19 @@ bool CRendererVDPAU::CreateTexture(int index)
 
 void CRendererVDPAU::DeleteTexture(int index)
 {
-  if (m_format == RENDER_FMT_VDPAU)
+  ReleaseBuffer(index);
+
+  if (!m_isYuv)
     DeleteVDPAUTexture(index);
-  else if (m_format == RENDER_FMT_VDPAU_420)
+  else if (m_isYuv)
     DeleteVDPAUTexture420(index);
 }
 
 bool CRendererVDPAU::UploadTexture(int index)
 {
-  if (m_format == RENDER_FMT_VDPAU)
+  if (!m_isYuv)
     return UploadVDPAUTexture(index);
-  else if (m_format == RENDER_FMT_VDPAU_420)
+  else if (m_isYuv)
     return UploadVDPAUTexture420(index);
   else
     return false;
@@ -222,18 +278,18 @@ bool CRendererVDPAU::UploadTexture(int index)
 
 bool CRendererVDPAU::CreateVDPAUTexture(int index)
 {
-  YV12Image &im     = m_buffers[index].image;
-  YUVFIELDS &fields = m_buffers[index].fields;
-  YUVPLANE  &plane  = fields[FIELD_FULL][0];
+  CPictureBuffer &buf = m_buffers[index];
+  YuvImage &im = buf.image;
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
   DeleteVDPAUTexture(index);
 
-  memset(&im    , 0, sizeof(im));
-  memset(&fields, 0, sizeof(fields));
+  memset(&im, 0, sizeof(im));
+  plane = {};
   im.height = m_sourceHeight;
-  im.width  = m_sourceWidth;
+  im.width = m_sourceWidth;
 
-  plane.texwidth  = im.width;
+  plane.texwidth = im.width;
   plane.texheight = im.height;
 
   plane.pixpertex_x = 1;
@@ -245,45 +301,43 @@ bool CRendererVDPAU::CreateVDPAUTexture(int index)
 
 void CRendererVDPAU::DeleteVDPAUTexture(int index)
 {
-  YUVPLANE &plane = m_buffers[index].fields[FIELD_FULL][0];
-
-  if (m_buffers[index].hwDec)
-    ((VDPAU::CVdpauRenderPicture*)m_buffers[index].hwDec)->Release();
-  m_buffers[index].hwDec = NULL;
+  CPictureBuffer &buf = m_buffers[index];
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
   plane.id = 0;
 }
 
 bool CRendererVDPAU::UploadVDPAUTexture(int index)
 {
-  VDPAU::CVdpauRenderPicture *vdpau = (VDPAU::CVdpauRenderPicture*)m_buffers[index].hwDec;
+  CPictureBuffer &buf = m_buffers[index];
+  VDPAU::CVdpauRenderPicture *pic = dynamic_cast<VDPAU::CVdpauRenderPicture*>(buf.videoBuffer);
 
-  YUVFIELDS &fields = m_buffers[index].fields;
-  YUVPLANE &plane = fields[FIELD_FULL][0];
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
-  if (!vdpau || !vdpau->valid)
+  if (!pic)
   {
     return false;
   }
 
-  plane.id = vdpau->texture[0];
+  if (!m_vdpauTextures[index].Map(pic))
+    return false;
 
   // in stereoscopic mode sourceRect may only
   // be a part of the source video surface
   plane.rect = m_sourceRect;
 
   // clip rect
-  if (vdpau->crop.x1 > plane.rect.x1)
-    plane.rect.x1 = vdpau->crop.x1;
-  if (vdpau->crop.x2 < plane.rect.x2)
-    plane.rect.x2 = vdpau->crop.x2;
-  if (vdpau->crop.y1 > plane.rect.y1)
-    plane.rect.y1 = vdpau->crop.y1;
-  if (vdpau->crop.y2 < plane.rect.y2)
-    plane.rect.y2 = vdpau->crop.y2;
+  if (pic->crop.x1 > plane.rect.x1)
+    plane.rect.x1 = pic->crop.x1;
+  if (pic->crop.x2 < plane.rect.x2)
+    plane.rect.x2 = pic->crop.x2;
+  if (pic->crop.y1 > plane.rect.y1)
+    plane.rect.y1 = pic->crop.y1;
+  if (pic->crop.y2 < plane.rect.y2)
+    plane.rect.y2 = pic->crop.y2;
 
-  plane.texheight = vdpau->texHeight;
-  plane.texwidth  = vdpau->texWidth;
+  plane.texheight = m_vdpauTextures[index].m_texHeight;
+  plane.texwidth  = m_vdpauTextures[index].m_texWidth;
 
   if (m_textureTarget == GL_TEXTURE_2D)
   {
@@ -293,72 +347,74 @@ bool CRendererVDPAU::UploadVDPAUTexture(int index)
     plane.rect.x2 /= plane.texwidth;
   }
 
+  // set texture
+  plane.id = m_vdpauTextures[index].m_texture;
+
   return true;
 }
 
 bool CRendererVDPAU::CreateVDPAUTexture420(int index)
 {
-  YV12Image &im     = m_buffers[index].image;
-  YUVFIELDS &fields = m_buffers[index].fields;
-  YUVPLANE &plane = fields[0][0];
-  GLuint    *pbo    = m_buffers[index].pbo;
+  CPictureBuffer &buf = m_buffers[index];
+  YuvImage &im = buf.image;
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
+  GLuint *pbo = buf.pbo;
 
   DeleteVDPAUTexture420(index);
 
-  memset(&im    , 0, sizeof(im));
-  memset(&fields, 0, sizeof(fields));
+  memset(&im, 0, sizeof(im));
+  memset(&planes, 0, sizeof(CYuvPlane[YuvImage::MAX_PLANES]));
 
   im.cshift_x = 1;
   im.cshift_y = 1;
 
-  im.plane[0] = NULL;
-  im.plane[1] = NULL;
-  im.plane[2] = NULL;
+  im.plane[0] = nullptr;
+  im.plane[1] = nullptr;
+  im.plane[2] = nullptr;
 
   for(int p=0; p<3; p++)
   {
     pbo[p] = None;
   }
 
-  plane.id = 1;
+  planes[0].id = 1;
 
   return true;
 }
 
 void CRendererVDPAU::DeleteVDPAUTexture420(int index)
 {
-  YUVFIELDS &fields = m_buffers[index].fields;
+  CPictureBuffer &buf = m_buffers[index];
 
-  if (m_buffers[index].hwDec)
-    ((VDPAU::CVdpauRenderPicture*)m_buffers[index].hwDec)->Release();
-  m_buffers[index].hwDec = NULL;
-
-  fields[0][0].id = 0;
-  fields[1][0].id = 0;
-  fields[1][1].id = 0;
-  fields[2][0].id = 0;
-  fields[2][1].id = 0;
+  buf.fields[0][0].id = 0;
+  buf.fields[1][0].id = 0;
+  buf.fields[1][1].id = 0;
+  buf.fields[2][0].id = 0;
+  buf.fields[2][1].id = 0;
 }
 
 bool CRendererVDPAU::UploadVDPAUTexture420(int index)
 {
-  VDPAU::CVdpauRenderPicture *vdpau = (VDPAU::CVdpauRenderPicture*)m_buffers[index].hwDec;
-  YV12Image &im = m_buffers[index].image;
+  CPictureBuffer &buf = m_buffers[index];
+  YuvImage &im = buf.image;
 
-  YUVFIELDS &fields = m_buffers[index].fields;
+  VDPAU::CVdpauRenderPicture *pic = dynamic_cast<VDPAU::CVdpauRenderPicture*>(buf.videoBuffer);
 
-  if (!vdpau || !vdpau->valid)
+  if (!pic)
   {
     return false;
   }
 
-  im.height = vdpau->texHeight;
-  im.width  = vdpau->texWidth;
+  if (!m_vdpauTextures[index].Map(pic))
+    return false;
+
+  im.height = m_vdpauTextures[index].m_texHeight;
+  im.width = m_vdpauTextures[index].m_texWidth;
 
   // YUV
   for (int f = FIELD_TOP; f<=FIELD_BOT ; f++)
   {
-    YUVPLANES &planes = fields[f];
+    CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[f];
 
     planes[0].texwidth  = im.width;
     planes[0].texheight = im.height >> 1;
@@ -381,19 +437,18 @@ bool CRendererVDPAU::UploadVDPAUTexture420(int index)
 //  m_sourceRect.y2 -= vdpau->crop.y2;
 
   // set textures
-  fields[1][0].id = vdpau->texture[0];
-  fields[1][1].id = vdpau->texture[2];
-  fields[1][2].id = vdpau->texture[2];
-  fields[2][0].id = vdpau->texture[1];
-  fields[2][1].id = vdpau->texture[3];
-  fields[2][2].id = vdpau->texture[3];
+  buf.fields[1][0].id = m_vdpauTextures[index].m_textureTopY;
+  buf.fields[1][1].id = m_vdpauTextures[index].m_textureTopUV;
+  buf.fields[1][2].id = m_vdpauTextures[index].m_textureTopUV;
+  buf.fields[2][0].id = m_vdpauTextures[index].m_textureBotY;
+  buf.fields[2][1].id = m_vdpauTextures[index].m_textureBotUV;
+  buf.fields[2][2].id = m_vdpauTextures[index].m_textureBotUV;
 
-  glEnable(m_textureTarget);
   for (int f = FIELD_TOP; f <= FIELD_BOT; f++)
   {
     for (int p=0; p<2; p++)
     {
-      glBindTexture(m_textureTarget,fields[f][p].id);
+      glBindTexture(m_textureTarget, buf.fields[f][p].id);
       glTexParameteri(m_textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(m_textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -404,8 +459,5 @@ bool CRendererVDPAU::UploadVDPAUTexture420(int index)
     }
   }
   CalculateTextureSourceRects(index, 3);
-  glDisable(m_textureTarget);
   return true;
 }
-
-#endif

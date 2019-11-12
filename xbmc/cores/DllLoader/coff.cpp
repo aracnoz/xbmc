@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <stdlib.h>
@@ -184,7 +172,7 @@ int CoffLoader::LoadCoffHModule(FILE *fp)
 
   if (fseek(fp, 0x3c, SEEK_SET) != 0)
     return 0;
-  
+
   int Offset = 0;
   if (!fread(&Offset, sizeof(int), 1, fp) || (Offset <= 0))
     return 0;
@@ -211,6 +199,8 @@ int CoffLoader::LoadCoffHModule(FILE *fp)
   // alloc aligned memory
 #ifdef TARGET_POSIX
   hModule = malloc(tempWindowsHeader.SizeOfImage);
+#elif defined TARGET_WINDOWS_STORE
+  hModule = VirtualAllocFromApp(GetCurrentProcess(), tempWindowsHeader.SizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 #else
   hModule = VirtualAllocEx(GetCurrentProcess(), (PVOID)tempWindowsHeader.ImageBase, tempWindowsHeader.SizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
   if (hModule == NULL)
@@ -313,7 +303,7 @@ int CoffLoader::LoadStringTable(FILE *fp)
 {
   int StringTableSize;
   char *tmp = NULL;
-  
+
   int Offset = ftell(fp);
   if (Offset < 0)
     return 0;
@@ -374,7 +364,7 @@ int CoffLoader::LoadSections(FILE *fp)
 
   for (int SctnCnt = 0; SctnCnt < NumOfSections; SctnCnt++)
   {
-    SectionHeader_t *ScnHdr = (SectionHeader_t *)(SectionHeader + SctnCnt);
+    SectionHeader_t *ScnHdr = SectionHeader + SctnCnt;
     SectionData[SctnCnt] = ((char*)hModule + ScnHdr->VirtualAddress);
 
     if (fseek(fp, ScnHdr->PtrToRawData, SEEK_SET) != 0)
@@ -487,7 +477,7 @@ char *CoffLoader::GetStringTblOff(int Offset)
 
 char *CoffLoader::GetSymbolName(SymbolTable_t *sym)
 {
-  __int64 index = sym->Name.Offset;
+  long long index = sym->Name.Offset;
   int low = (int)(index & 0xFFFFFFFF);
   int high = (int)((index >> 32) & 0xFFFFFFFF);
 
@@ -960,7 +950,7 @@ void CoffLoader::PerformFixups(void)
 
   EntryAddress = (unsigned long)RVA2Data(EntryAddress);
 
-  if( (PVOID)WindowsHeader->ImageBase == hModule )
+  if( reinterpret_cast<void*>(WindowsHeader->ImageBase) == hModule )
     return;
 
   if ( !Directory )

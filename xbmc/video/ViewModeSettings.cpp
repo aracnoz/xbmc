@@ -1,28 +1,16 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ViewModeSettings.h"
 
-#include "cores/IPlayer.h"
+#include "cores/VideoSettings.h"
 #include "guilib/LocalizeStrings.h"
-#include "settings/VideoSettings.h"
+#include "settings/lib/SettingDefinitions.h"
 
 struct ViewModeProperties
 {
@@ -100,12 +88,12 @@ int CViewModeSettings::GetViewModeStringIndex(int viewMode)
 
 /** Fills the list with all visible view modes
  */
-void CViewModeSettings::ViewModesFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data)
+void CViewModeSettings::ViewModesFiller(std::shared_ptr<const CSetting> setting, std::vector<IntegerSettingOption> &list, int &current, void *data)
 {
   // Add all appropriate view modes to the list control
   for (const auto &item : viewModes)
   {
     if (!item.hideFromList)
-      list.push_back(make_pair(g_localizeStrings.Get(item.stringIndex), item.viewMode));
+      list.emplace_back(g_localizeStrings.Get(item.stringIndex), item.viewMode);
   }
 }

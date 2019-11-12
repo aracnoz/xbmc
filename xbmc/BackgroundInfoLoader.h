@@ -1,39 +1,28 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "threads/Thread.h"
+#pragma once
+
 #include "IProgressCallback.h"
 #include "threads/CriticalSection.h"
+#include "threads/IRunnable.h"
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 class CFileItem; typedef std::shared_ptr<CFileItem> CFileItemPtr;
 class CFileItemList;
+class CThread;
 
 class IBackgroundLoaderObserver
 {
 public:
-  virtual ~IBackgroundLoaderObserver() {}
+  virtual ~IBackgroundLoaderObserver() = default;
   virtual void OnItemLoaded(CFileItem* pItem) = 0;
 };
 
@@ -41,11 +30,11 @@ class CBackgroundInfoLoader : public IRunnable
 {
 public:
   CBackgroundInfoLoader();
-  virtual ~CBackgroundInfoLoader();
+  ~CBackgroundInfoLoader() override;
 
   void Load(CFileItemList& items);
   bool IsLoading();
-  virtual void Run();
+  void Run() override;
   void SetObserver(IBackgroundLoaderObserver* pObserver);
   void SetProgressCallback(IProgressCallback* pCallback);
   virtual bool LoadItem(CFileItem* pItem) { return false; };

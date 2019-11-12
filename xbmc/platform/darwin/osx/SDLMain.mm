@@ -1,33 +1,27 @@
-/*   SDLMain.m - main entry point for our Cocoa-ized SDL app
-       Initial Version: Darrell Walisser <dwaliss1@purdue.edu>
-       Non-NIB-Code & other changes: Max Horn <max@quendi.de>
-
-    Feel free to customize this file to suit your needs
-*/
 /*
-  SDLMain.m and SDLMain.h carry neither a copyright or license. They are in the
-  public domain.
-*/
-#if !defined(__arm__) && !defined(__aarch64__)
+ *  SDLMain.mm - main entry point for our Cocoa-ized SDL app
+ *  Initial Version: Darrell Walisser <dwaliss1@purdue.edu>
+ *  Non-NIB-Code & other changes: Max Horn <max@quendi.de>
+ *
+ *  SPDX-License-Identifier: Unlicense
+ *  See LICENSES/README.md for more information.
+ */
 
-#import "SDL/SDL.h"
 #import "SDLMain.h"
+
+#import "messaging/ApplicationMessenger.h"
+
+#import "platform/darwin/osx/CocoaInterface.h"
+#import "platform/darwin/osx/HotKeyController.h"
+#import "platform/darwin/osx/storage/OSXStorageProvider.h"
+
+#import <SDL/SDL.h>
 #import <sys/param.h> /* for MAXPATHLEN */
 #import <unistd.h>
 
-#import "platform/darwin/osx/CocoaInterface.h"
-//hack around problem with xbmc's typedef int BOOL
-// and obj-c's typedef unsigned char BOOL
-#define BOOL XBMC_BOOL 
 #import "PlatformDefs.h"
-#import "messaging/ApplicationMessenger.h"
-#import "storage/osx/DarwinStorageProvider.h"
-#undef BOOL
 
-#import "platform/darwin/osx/HotKeyController.h"
-#import "platform/darwin/DarwinUtils.h"
-
-// For some reaon, Apple removed setAppleMenu from the headers in 10.4,
+// For some reason, Apple removed setAppleMenu from the headers in 10.4,
 // but the method still is there and works. To avoid warnings, we declare
 // it ourselves here.
 @interface NSApplication(SDL_Missing_Methods)
@@ -53,7 +47,6 @@ extern OSErr	CPSSetFrontProcess(CPSProcessSerNum *psn);
 
 static int    gArgc;
 static char  **gArgv;
-static BOOL   gFinderLaunch;
 static BOOL   gCalledAppMainline = FALSE;
 
 static NSString *getApplicationName(void)
@@ -109,10 +102,6 @@ static void setupApplicationMenu(void)
 
   // Tell the application object that this is now the application menu
   [NSApp setAppleMenu:appleMenu];
-
-  // Finally give up our references to the objects
-  [appleMenu release];
-  [menuItem release];
 }
 
 // Create a window menu
@@ -127,24 +116,20 @@ static void setupWindowMenu(void)
   // "Full/Windowed Toggle" item
   menuItem = [[NSMenuItem alloc] initWithTitle:@"Full/Windowed Toggle" action:@selector(fullScreenToggle:) keyEquivalent:@"f"];
   [windowMenu addItem:menuItem];
-  [menuItem release];
 
   // "Full/Windowed Toggle" item
   menuItem = [[NSMenuItem alloc] initWithTitle:@"Float on Top" action:@selector(floatOnTopToggle:) keyEquivalent:@"t"];
   [windowMenu addItem:menuItem];
-  [menuItem release];
 
   // "Minimize" item
   menuItem = [[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(performMiniaturize:) keyEquivalent:@"m"];
   [windowMenu addItem:menuItem];
-  [menuItem release];
-  
+
   // "Title Bar" item
   menuItem = [[NSMenuItem alloc] initWithTitle:@"Title Bar" action:@selector(titlebarToggle:) keyEquivalent:@""];
   [windowMenu addItem:menuItem];
   [menuItem setState: true];
-  [menuItem release];
-  
+
   // Put menu into the menubar
   windowMenuItem = [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
   [windowMenuItem setSubmenu:windowMenu];
@@ -152,10 +137,6 @@ static void setupWindowMenu(void)
 
   // Tell the application object that this is now the window menu
   [NSApp setWindowsMenu:windowMenu];
-
-  // Finally give up our references to the objects
-  [windowMenu release];
-  [windowMenuItem release];
 }
 
 @interface XBMCApplication : NSApplication
@@ -214,7 +195,7 @@ static void setupWindowMenu(void)
   BOOL isSet = [window styleMask] & NSTitledWindowMask;
   [window setMovableByWindowBackground: !isSet];
   [sender setState: isSet];
-  
+
 }
 
 
@@ -224,20 +205,17 @@ static void setupWindowMenu(void)
 @implementation XBMCDelegate
 
 // Set the working directory to the .app's parent directory
-- (void) setupWorkingDirectory:(BOOL)shouldChdir
+- (void) setupWorkingDirectory
 {
-  if (shouldChdir)
+  char parentdir[MAXPATHLEN];
+  CFURLRef url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+  CFURLRef url2 = CFURLCreateCopyDeletingLastPathComponent(0, url);
+  if (CFURLGetFileSystemRepresentation(url2, true, (UInt8 *)parentdir, MAXPATHLEN))
   {
-    char parentdir[MAXPATHLEN];
-    CFURLRef url = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFURLRef url2 = CFURLCreateCopyDeletingLastPathComponent(0, url);
-    if (CFURLGetFileSystemRepresentation(url2, true, (UInt8 *)parentdir, MAXPATHLEN))
-    {
-      assert( chdir (parentdir) == 0 );   /* chdir to the binary app's parent */
-		}
-		CFRelease(url);
-		CFRelease(url2);
+    assert( chdir (parentdir) == 0 );   /* chdir to the binary app's parent */
   }
+  CFRelease(url);
+  CFRelease(url2);
 }
 
 - (void) applicationWillTerminate: (NSNotification *) note
@@ -280,11 +258,12 @@ static void setupWindowMenu(void)
 // To use Cocoa on secondary POSIX threads, your application must first detach
 // at least one NSThread object, which can immediately exit. Some info says this
 // is not required anymore, who knows ?
-- (void) kickstartMultiThreaded:(id)arg;
+- (void) kickstartMultiThreaded:(id)arg
 {
-  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-  // empty
-  [pool release];
+  @autoreleasepool
+  {
+    // empty
+  }
 }
 
 // Called after the internal event loop has started running.
@@ -295,7 +274,7 @@ static void setupWindowMenu(void)
     [NSThread detachNewThreadSelector:@selector(kickstartMultiThreaded:) toTarget:self withObject:nil];
 
   // Set the working directory to the .app's parent directory
-  [self setupWorkingDirectory:gFinderLaunch];
+  [self setupWorkingDirectory];
 
   [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
     selector:@selector(deviceDidMountNotification:)
@@ -309,7 +288,7 @@ static void setupWindowMenu(void)
 
   NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 
-  // create media key handler singlton
+  // create media key handler singleton
   [[HotKeyController sharedController] enableTap];
   // add media key notifications
   [center addObserver:self
@@ -387,10 +366,6 @@ static void setupWindowMenu(void)
   char *arg;
   char **newargv;
 
-  // MacOS is passing command line args.
-  if (!gFinderLaunch)
-    return FALSE;
-
   // app has started, ignore this document.
   if (gCalledAppMainline)
     return FALSE;
@@ -416,22 +391,34 @@ static void setupWindowMenu(void)
   return TRUE;
 }
 
-- (void) deviceDidMountNotification:(NSNotification *) note 
+- (void) deviceDidMountNotification:(NSNotification *) note
 {
   // calling into c++ code, need to use autorelease pools
-  NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+  @autoreleasepool
+  {
+    NSString* volumeLabel = [note.userInfo objectForKey:@"NSWorkspaceVolumeLocalizedNameKey"];
+    const char* label = [volumeLabel UTF8String];
 
-  CDarwinStorageProvider::SetEvent();
-  [pool release];
+    NSString* volumePath = [note.userInfo objectForKey:@"NSDevicePath"];
+    const char* path = [volumePath UTF8String];
+
+    COSXStorageProvider::VolumeMountNotification(label, path);
+  }
 }
 
-- (void) deviceDidUnMountNotification:(NSNotification *) note 
+- (void) deviceDidUnMountNotification:(NSNotification *) note
 {
   // calling into c++ code, need to use autorelease pools
-  NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+  @autoreleasepool
+  {
+    NSString* volumeLabel = [note.userInfo objectForKey:@"NSWorkspaceVolumeLocalizedNameKey"];
+    const char* label = [volumeLabel UTF8String];
 
-  CDarwinStorageProvider::SetEvent();
-  [pool release];
+    NSString* volumePath = [note.userInfo objectForKey:@"NSDevicePath"];
+    const char* path = [volumePath UTF8String];
+
+    COSXStorageProvider::VolumeUnmountNotification(label, path);
+  }
 }
 
 static void keyPress(SDLKey key)
@@ -507,78 +494,70 @@ static void keyPress(SDLKey key)
 /* Main entry point to executable - should *not* be SDL_main! */
 int main(int argc, char *argv[])
 {
-  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-  XBMCDelegate *xbmc_delegate;
-
-  // Block SIGPIPE
-  // SIGPIPE repeatably kills us, turn it off
+  @autoreleasepool
   {
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGPIPE);
-    sigprocmask(SIG_BLOCK, &set, NULL);
-  }
+    XBMCDelegate* xbmc_delegate;
 
-  /* Copy the arguments into a global variable */
-  /* This is passed if we are launched by double-clicking */
-  if ( argc >= 2 && strncmp (argv[1], "-psn", 4) == 0 ) {
-    gArgv = (char **) SDL_malloc(sizeof (char *) * 2);
-    gArgv[0] = argv[0];
-    gArgv[1] = NULL;
-    gArgc = 1;
-    gFinderLaunch = YES;
-  } else {
-    gArgc = argc;
-    gArgv = (char **) SDL_malloc(sizeof (char *) * (argc+1));
-    for (int i = 0; i <= argc; i++)
+    // Block SIGPIPE
+    // SIGPIPE repeatably kills us, turn it off
+    {
+      sigset_t set;
+      sigemptyset(&set);
+      sigaddset(&set, SIGPIPE);
+      sigprocmask(SIG_BLOCK, &set, NULL);
+    }
+
+    /* Copy the arguments into a global variable */
+    /* This is passed if we are launched by double-clicking */
+    if (argc >= 2 && strncmp(argv[1], "-psn", 4) == 0)
+    {
+      gArgv = (char**)SDL_malloc(sizeof(char*) * 2);
+      gArgv[0] = argv[0];
+      gArgv[1] = NULL;
+      gArgc = 1;
+    }
+    else
+    {
+      gArgc = argc;
+      gArgv = (char**)SDL_malloc(sizeof(char*) * (argc + 1));
+      for (int i = 0; i <= argc; i++)
         gArgv[i] = argv[i];
-    gFinderLaunch = NO;
-  }
+    }
 
-  // fix open with document/movie - autostart
-  // on mavericks we are not called with "-psn" anymore
-  // as the whole ProcessSerialNumber approach is deprecated
-  // in that case assume finder launch - else
-  // we wouldn't handle documents/movies someone dragged on the app icon
-  if (CDarwinUtils::IsMavericks())
-    gFinderLaunch = TRUE;
-
-  // Ensure the application object is initialised
-  [XBMCApplication sharedApplication];
+    // Ensure the application object is initialised
+    [XBMCApplication sharedApplication];
 
 #ifdef SDL_USE_CPS
-  {
-    CPSProcessSerNum PSN;
-    /* Tell the dock about us */
-    if (!CPSGetCurrentProcess(&PSN))
-      if (!CPSEnableForegroundOperation(&PSN,0x03,0x3C,0x2C,0x1103))
-        if (!CPSSetFrontProcess(&PSN))
-          [XBMCApplication sharedApplication];
+    {
+      CPSProcessSerNum PSN;
+      /* Tell the dock about us */
+      if (!CPSGetCurrentProcess(&PSN))
+        if (!CPSEnableForegroundOperation(&PSN, 0x03, 0x3C, 0x2C, 0x1103))
+          if (!CPSSetFrontProcess(&PSN))
+            [XBMCApplication sharedApplication];
+    }
+#endif
+
+    // Set up the menubars
+    [NSApp setMainMenu:[[NSMenu alloc] init]];
+    setupApplicationMenu();
+    setupWindowMenu();
+
+    // Create XBMCDelegate and make it the app delegate
+    xbmc_delegate = [[XBMCDelegate alloc] init];
+    [[NSApplication sharedApplication] setDelegate:xbmc_delegate];
+
+    // Start the main event loop
+    [NSApp run];
+
+    // call SDL_main which calls our real main in xbmc.cpp
+    // see http://lists.libsdl.org/pipermail/sdl-libsdl.org/2008-September/066542.html
+    int status;
+    status = SDL_main(gArgc, gArgv);
+    SDL_Quit();
+
+    [xbmc_delegate applicationWillTerminate:NULL];
+
+    return status;
   }
-#endif
-
-  // Set up the menubars
-  [NSApp setMainMenu:[[NSMenu alloc] init]];
-  setupApplicationMenu();
-  setupWindowMenu();
-
-  // Create XBMCDelegate and make it the app delegate
-  xbmc_delegate = [[XBMCDelegate alloc] init];
-  [[NSApplication sharedApplication] setDelegate:xbmc_delegate];
-
-  // Start the main event loop
-  [NSApp run];
-
-  // call SDL_main which calls our real main in xbmc.cpp
-  // see http://lists.libsdl.org/pipermail/sdl-libsdl.org/2008-September/066542.html
-  int status;
-  status = SDL_main(gArgc, gArgv);
-  SDL_Quit();
-
-  [xbmc_delegate applicationWillTerminate:NULL];
-  [xbmc_delegate release];
-  [pool release];
-
-  return status;
 }
-#endif

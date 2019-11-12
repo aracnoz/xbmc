@@ -20,5 +20,45 @@ skinning Kodi as well as the "Skinning Kodi" article, and try modifying a window
 or two by adding a button, or altering the textures or layout.
 
 - \subpage skin_controls - Controls are the substance of your skin.
+- \subpage window_ids - List of available window names, definitions, IDs and the matching XML-file
 
 */
+
+/*!
+@page skinning_v19 Skinning engine v19
+*/
+/*!
+@page skinning_v18 Skinning engine v18
+*/
+/*!
+@page skinning_v17 Skinning engine v17
+*/
+/*!
+@page skinning_v16 Skinning engine v16
+*/
+/*!
+@page skinning_v15 Skinning engine v15
+*/
+/*!
+@page skinning_v14 Skinning engine v14
+*/
+/*!
+@page skinning_v13 Skinning engine v13
+*/
+/*!
+@page skinning_v12 Skinning engine v12
+*/
+
+/*!
+@page skinning_revisions Skinning engine changes
+@brief Overview of changes on Skinning engine for Kodi
+
+- @subpage skinning_v19
+- @subpage skinning_v18
+- @subpage skinning_v17
+- @subpage skinning_v16
+- @subpage skinning_v15
+- @subpage skinning_v14
+- @subpage skinning_v13
+- @subpage skinning_v12
++*/

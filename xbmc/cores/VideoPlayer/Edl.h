@@ -1,49 +1,29 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <vector>
+
+namespace EDL
+{
+  struct Cut;
+}
+
+class CFileItem;
 
 class CEdl
 {
 public:
   CEdl();
 
-  typedef enum
-  {
-    CUT = 0,
-    MUTE = 1,
-    // SCENE = 2,
-    COMM_BREAK = 3
-  } Action;
-
-  struct Cut
-  {
-    int start; // ms
-    int end;   // ms
-    Action action;
-  };
-
-  bool ReadEditDecisionLists(const std::string& strMovie, const float fFramesPerSecond, const int iHeight);
+  bool ReadEditDecisionLists(const CFileItem& fileItem, const float fFramesPerSecond);
   void Clear();
 
   bool HasCut() const;
@@ -51,11 +31,15 @@ public:
   std::string GetInfo() const;
   int GetTotalCutTime() const;
   int RemoveCutTime(int iSeek) const;
-  int RestoreCutTime(int iClock) const;
+  double RestoreCutTime(double dClock) const;
 
-  bool InCut(int iSeek, Cut *pCut = NULL);
-  bool GetNearestCut(bool bPlus, const int iSeek, Cut *pCut) const;
-  int GetLastQueryTime() const;
+  const std::vector<EDL::Cut>& GetCutList() const { return m_vecCuts; }
+
+  bool InCut(int iSeek, EDL::Cut* pCut = nullptr);
+  bool GetNearestCut(bool bPlus, const int iSeek, EDL::Cut* pCut) const;
+
+  int GetLastCutTime() const;
+  void SetLastCutTime(const int iCutTime);
 
   bool GetNextSceneMarker(bool bPlus, const int iClock, int *iSceneMarker);
 
@@ -63,17 +47,17 @@ public:
 
 private:
   int m_iTotalCutTime; // ms
-  std::vector<Cut> m_vecCuts;
+  std::vector<EDL::Cut> m_vecCuts;
   std::vector<int> m_vecSceneMarkers;
-  int m_lastQueryTime;
+  int m_lastCutTime;
 
   bool ReadEdl(const std::string& strMovie, const float fFramesPerSecond);
   bool ReadComskip(const std::string& strMovie, const float fFramesPerSecond);
   bool ReadVideoReDo(const std::string& strMovie);
   bool ReadBeyondTV(const std::string& strMovie);
-  bool ReadPvr(const std::string& strMovie);
+  bool ReadPvr(const CFileItem& fileItem);
 
-  bool AddCut(Cut& NewCut);
+  bool AddCut(const EDL::Cut& newCut);
   bool AddSceneMarker(const int sceneMarker);
 
   void MergeShortCommBreaks();

@@ -1,42 +1,28 @@
+/*
+ *  Copyright (C) 2003-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIFont.h
 \brief
 */
 
-#ifndef CGUILIB_GUIFONT_H
-#define CGUILIB_GUIFONT_H
-#pragma once
-
-/*
- *      Copyright (C) 2003-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "utils/Color.h"
 
 #include <assert.h>
 #include <math.h>
-#include <string>
 #include <stdint.h>
+#include <string>
 #include <vector>
 
 typedef uint32_t character_t;
-typedef uint32_t color_t;
 typedef std::vector<character_t> vecText;
-typedef std::vector<color_t> vecColors;
 
 class CGUIFontTTFBase;
 
@@ -89,6 +75,7 @@ public:
     m_textWidth = 0;
     m_totalWidth = 0;
     m_widthValid = false;
+    m_loopCount = 0;
   }
   float GetPixelsPerFrame();
 
@@ -101,6 +88,8 @@ public:
   mutable float m_textWidth;
   mutable float m_totalWidth;
   mutable bool m_widthValid;
+
+  unsigned int m_loopCount;
 
   static const int defaultSpeed = 60;
 private:
@@ -115,24 +104,24 @@ private:
 class CGUIFont
 {
 public:
-  CGUIFont(const std::string& strFontName, uint32_t style, color_t textColor,
-	   color_t shadowColor, float lineSpacing, float origHeight, CGUIFontTTFBase *font);
+  CGUIFont(const std::string& strFontName, uint32_t style, UTILS::Color textColor,
+	   UTILS::Color shadowColor, float lineSpacing, float origHeight, CGUIFontTTFBase *font);
   virtual ~CGUIFont();
 
   std::string& GetFontName();
 
-  void DrawText( float x, float y, color_t color, color_t shadowColor,
+  void DrawText( float x, float y, UTILS::Color color, UTILS::Color shadowColor,
                  const vecText &text, uint32_t alignment, float maxPixelWidth)
   {
-    vecColors colors;
+    std::vector<UTILS::Color> colors;
     colors.push_back(color);
     DrawText(x, y, colors, shadowColor, text, alignment, maxPixelWidth);
   };
 
-  void DrawText( float x, float y, const vecColors &colors, color_t shadowColor,
+  void DrawText( float x, float y, const std::vector<UTILS::Color> &colors, UTILS::Color shadowColor,
                  const vecText &text, uint32_t alignment, float maxPixelWidth);
 
-  void DrawScrollingText( float x, float y, const vecColors &colors, color_t shadowColor,
+  void DrawScrollingText( float x, float y, const std::vector<UTILS::Color> &colors, UTILS::Color shadowColor,
                  const vecText &text, uint32_t alignment, float maxPixelWidth, const CScrollInfo &scrollInfo);
 
   bool UpdateScrollInfo(const vecText &text, CScrollInfo &scrollInfo);
@@ -163,8 +152,8 @@ public:
 protected:
   std::string m_strFontName;
   uint32_t m_style;
-  color_t m_shadowColor;
-  color_t m_textColor;
+  UTILS::Color m_shadowColor;
+  UTILS::Color m_textColor;
   float m_lineSpacing;
   float m_origHeight;
   CGUIFontTTFBase *m_font; // the font object has the size information
@@ -173,4 +162,3 @@ private:
   bool ClippedRegionIsEmpty(float x, float y, float width, uint32_t alignment) const;
 };
 
-#endif

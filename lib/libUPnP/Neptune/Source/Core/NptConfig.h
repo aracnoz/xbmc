@@ -60,6 +60,11 @@
 #define NPT_CONFIG_HAVE_GETENV
 #define NPT_CONFIG_HAVE_SETENV
 #define NPT_CONFIG_HAVE_UNSETENV
+#if defined(TARGET_WINDOWS_STORE)
+#undef NPT_CONFIG_HAVE_GETENV
+#undef NPT_CONFIG_HAVE_SETENV
+#undef NPT_CONFIG_HAVE_UNSETENV
+#endif
 #define NPT_CONFIG_HAVE_READDIR_R
 #endif /* NPT_CONFIG_HAS_STD_C */
 
@@ -68,6 +73,7 @@
 #define NPT_CONFIG_HAVE_GMTIME_R
 #define NPT_CONFIG_HAVE_LOCALTIME
 #define NPT_CONFIG_HAVE_LOCALTIME_R
+#define NPT_CONFIG_HAVE_TM_GMTOFF
 #endif
 
 #if defined(NPT_CONFIG_HAVE_STRING_H)
@@ -101,7 +107,7 @@
 #define NPT_CONFIG_HAVE_NEW_H
 
 /*----------------------------------------------------------------------
-|   sockets
+|   defaults
 +---------------------------------------------------------------------*/
 #define NPT_CONFIG_HAVE_SOCKADDR_SA_LEN
 
@@ -133,7 +139,12 @@
 /* linux */
 #if defined(__linux__)
 #define NPT_CONFIG_HAVE_GETADDRINFO
+//#define NPT_CONFIG_HAVE_GETIFADDRS // Linux has getifaddrs, but it doesn't return the MAC addrs
+                                     // in a convenient way, so we don't use it
 #undef NPT_CONFIG_HAVE_SOCKADDR_SA_LEN
+#define NPT_CONFIG_HAVE_ARPA_INET_H
+#define NPT_CONFIG_HAVE_INET_NTOP
+#define NPT_CONFIG_HAVE_INET_PTON
 #endif
 
 /* symbian */
@@ -146,13 +157,22 @@
 #if defined(ANDROID)
 #define NPT_CONFIG_HAVE_GETADDRINFO
 #undef NPT_CONFIG_HAVE_SOCKADDR_SA_LEN
+#define NPT_CONFIG_HAVE_ARPA_INET_H
+#define NPT_CONFIG_HAVE_INET_NTOP
+#define NPT_CONFIG_HAVE_INET_PTON
 #endif
 
 /* OSX and iOS */
 #if defined(__APPLE__)
 #define NPT_CONFIG_HAVE_GETADDRINFO
+#define NPT_CONFIG_HAVE_GETIFADDRS
 #define NPT_CONFIG_HAVE_AUTORELEASE_POOL
-#define NPT_CONFIG_HAVE_SYSTEM_LOG_CONFIG
+#define NPT_CONFIG_HAVE_SOCKADDR_IN_SIN_LEN
+#define NPT_CONFIG_HAVE_ARPA_INET_H
+#define NPT_CONFIG_HAVE_INET_NTOP
+#define NPT_CONFIG_HAVE_INET_PTON
+#define NPT_CONFIG_HAVE_NET_IF_DL_H
+#define NPT_CONFIG_HAVE_SOCKADDR_DL
 #endif
 
 /*----------------------------------------------------------------------
@@ -225,12 +245,20 @@ typedef long NPT_PointerLong;
 #define NPT_strncpy(d,s,c)       strncpy_s(d,c+1,s,c)
 #define NPT_strcpy(d,s)          strcpy_s(d,strlen(s)+1,s)
 #undef NPT_CONFIG_HAVE_GETENV
+#ifdef TARGET_WINDOWS_STORE
+#undef NPT_CONFIG_HAVE_GETENV
+#undef NPT_CONFIG_HAVE_DUPENV_S
+#undef NPT_CONFIG_HAVE_SETENV
+#undef NPT_CONFIG_HAVE_UNSETENV
+#undef NPT_CONFIG_HAVE_PUTENV_S
+#else
 #define NPT_CONFIG_HAVE_DUPENV_S
 #define dupenv_s _dupenv_s
 #undef NPT_CONFIG_HAVE_SETENV
 #undef NPT_CONFIG_HAVE_UNSETENV
 #define NPT_CONFIG_HAVE_PUTENV_S
 #define putenv_s _putenv_s
+#endif
 #else
 #undef NPT_CONFIG_HAVE_GMTIME_R
 #undef NPT_CONFIG_HAVE_LOCALTIME_R
@@ -263,14 +291,14 @@ typedef long NPT_PointerLong;
 #if !defined(NPT_CONFIG_NO_RTTI)
 #define NPT_CONFIG_NO_RTTI
 #endif
+//#define NPT_ftell ftello64
+//#define NPT_fseek fseeko64
 #endif
 
 /* OSX and iOS */
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
-#define NPT_CONFIG_HAVE_NET_IF_DL_H
-#define NPT_CONFIG_HAVE_SOCKADDR_DL
 #if !defined(TARGET_OS_IPHONE) || !TARGET_OS_IPHONE
 #define NPT_CONFIG_HAVE_NET_IF_TYPES_H
 #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_6)

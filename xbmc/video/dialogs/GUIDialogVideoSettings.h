@@ -1,34 +1,26 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "cores/VideoPlayer/Interface/StreamInfo.h"
+#include "settings/dialogs/GUIDialogSettingsManualBase.h"
 
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "settings/dialogs/GUIDialogSettingsManualBase.h"
 #ifdef HAS_DS_PLAYER
 #include "cores/DSPlayer/Dialogs/GUIDialogMadvrSettingsBase.h"
 #include "DSPropertyPage.h"
 #endif
+
+struct IntegerSettingOption;
 
 #ifdef HAS_DS_PLAYER
 class CGUIDialogVideoSettings : public CGUIDialogMadvrSettingsBase
@@ -38,31 +30,35 @@ class CGUIDialogVideoSettings : public CGUIDialogSettingsManualBase
 {
 public:
   CGUIDialogVideoSettings();
-  virtual ~CGUIDialogVideoSettings();
+  ~CGUIDialogVideoSettings() override;
 
 protected:
   // implementations of ISettingCallback
-  virtual void OnSettingChanged(const CSetting *setting);
-  virtual void OnSettingAction(const CSetting *setting);
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
 
-  void AddVideoStreams(CSettingGroup *group, const std::string & settingId);
-  static void VideoStreamsOptionFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data);
+  void AddVideoStreams(std::shared_ptr<CSettingGroup> group, const std::string & settingId);
+  static void VideoStreamsOptionFiller(std::shared_ptr<const CSetting> setting, std::vector<IntegerSettingOption> &list, int &current, void *data);
+
+  static void VideoOrientationFiller(std::shared_ptr<const CSetting> setting, std::vector<IntegerSettingOption> &list, int &current, void *data);
+
+  static std::string FormatFlags(StreamFlags flags);
 
   // specialization of CGUIDialogSettingsBase
-  virtual bool AllowResettingSettings() const { return false; }
-  virtual void Save();
-  virtual void SetupView();
+  bool AllowResettingSettings() const override { return false; }
+  void Save() override;
+  void SetupView() override;
 
   // specialization of CGUIDialogSettingsManualBase
-  virtual void InitializeSettings();
+  void InitializeSettings() override;
 
 private:
   int m_videoStream;
-  bool m_viewModeChanged;
 #ifdef HAS_DS_PLAYER
   CDSPropertyPage* m_pDSPropertyPage;
   int m_scalingMethod;
   int m_dsStats;
 #endif
 
+  bool m_viewModeChanged = false;
 };

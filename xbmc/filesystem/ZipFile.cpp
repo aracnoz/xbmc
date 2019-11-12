@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ZipFile.h"
+
 #include "URL.h"
 #include "utils/URIUtils.h"
 #include "utils/auto_buffer.h"
@@ -26,9 +15,6 @@
 
 #include <sys/stat.h>
 
-#if defined (TARGET_WINDOWS)
-#pragma comment(lib, "zlib.lib")
-#endif
 #define ZIP_CACHE_LIMIT 4*1024*1024
 
 using namespace XFILE;
@@ -195,7 +181,7 @@ int64_t CZipFile::Seek(int64_t iFilePosition, int iWhence)
         m_ZStream.total_out = 0;
         while (m_iFilePos < iFilePosition)
         {
-          unsigned int iToRead = (iFilePosition - m_iFilePos)>blockSize ? blockSize : (int)(iFilePosition - m_iFilePos);
+          ssize_t iToRead = (iFilePosition - m_iFilePos) > blockSize ? blockSize : iFilePosition - m_iFilePos;
           if (Read(buf.get(),iToRead) != iToRead)
             return -1;
         }
@@ -214,7 +200,7 @@ int64_t CZipFile::Seek(int64_t iFilePosition, int iWhence)
       iFilePosition += m_iFilePos;
       while (m_iFilePos < iFilePosition)
       {
-        unsigned int iToRead = (iFilePosition - m_iFilePos)>blockSize ? blockSize : (int)(iFilePosition - m_iFilePos);
+        ssize_t iToRead = (iFilePosition - m_iFilePos)>blockSize ? blockSize : iFilePosition - m_iFilePos;
         if (Read(buf.get(), iToRead) != iToRead)
           return -1;
       }
@@ -225,9 +211,9 @@ int64_t CZipFile::Seek(int64_t iFilePosition, int iWhence)
       // now this is a nasty bastard, possibly takes lotsoftime
       // uncompress, minding m_ZStream.total_out
 
-      while( (int)m_ZStream.total_out < mZipItem.usize+iFilePosition)
+      while(static_cast<ssize_t>(m_ZStream.total_out) < mZipItem.usize+iFilePosition)
       {
-        unsigned int iToRead = (mZipItem.usize + iFilePosition - m_ZStream.total_out > blockSize) ? blockSize : (int)(mZipItem.usize + iFilePosition - m_ZStream.total_out);
+        ssize_t iToRead = (mZipItem.usize + iFilePosition - m_ZStream.total_out > blockSize) ? blockSize : mZipItem.usize + iFilePosition - m_ZStream.total_out;
         if (Read(buf.get(), iToRead) != iToRead)
           return -1;
       }
@@ -299,7 +285,7 @@ ssize_t CZipFile::Read(void* lpBuf, size_t uiBufSize)
   // flush what might be left in the string buffer
   if (m_iDataInStringBuffer > 0)
   {
-    size_t iMax = static_cast<size_t>((uiBufSize>m_iDataInStringBuffer?m_iDataInStringBuffer:uiBufSize));
+    size_t iMax = uiBufSize>m_iDataInStringBuffer?m_iDataInStringBuffer:uiBufSize;
     memcpy(lpBuf,m_szStartOfStringBuffer,iMax);
     uiBufSize -= iMax;
     m_iDataInStringBuffer -= iMax;
@@ -372,76 +358,6 @@ void CZipFile::Close()
 
   mFile.Close();
 }
-/* CHANGED: JM - moved to CFile
-bool CZipFile::ReadString(char* szLine, int iLineLength)
-{
-  if (!m_szStringBuffer)
-  {
-    m_szStringBuffer = new char[1024]; // 1024 byte long strings per read
-    m_szStartOfStringBuffer = m_szStringBuffer;
-    m_iDataInStringBuffer = 0;
-    m_iRead = 0;
-  }
-
-  bool bEof = m_iDataInStringBuffer==0;
-  while ((iLineLength > 1) && (m_iRead > -1))
-  {
-    if (m_iDataInStringBuffer > 0)
-    {
-      bEof = false;
-      m_iRead = 1;
-      int iMax = (iLineLength<m_iDataInStringBuffer?iLineLength-1:m_iDataInStringBuffer-1);
-      for( int i=0;i<iMax;++i )
-      {
-        if (m_szStartOfStringBuffer[i] == '\r') // mac or win32 endings
-        {
-          strncpy(szLine,m_szStartOfStringBuffer,i);
-          szLine[i] = '\0';
-          m_iDataInStringBuffer -= i+1;
-          m_szStartOfStringBuffer += i+1;
-          if( m_szStartOfStringBuffer[0] == '\n') // win32 endings
-          {
-            m_szStartOfStringBuffer++;
-            m_iDataInStringBuffer--;
-          }
-          return true;
-        }
-        else if (m_szStartOfStringBuffer[i] == '\n') // unix or fucked up win32 endings
-        {
-          strncpy(szLine,m_szStartOfStringBuffer,i);
-          szLine[i] = '\0';
-          m_iDataInStringBuffer -= i+1;
-          m_szStartOfStringBuffer += i+1;
-          if (m_szStartOfStringBuffer[0] == '\r')
-          {
-            m_szStartOfStringBuffer++;
-            m_iDataInStringBuffer--;
-          }
-          return true;
-        }
-      }
-      strncpy(szLine,m_szStartOfStringBuffer,iMax);
-      szLine += iMax;
-      iLineLength -= iMax;
-      m_iDataInStringBuffer -= iMax;
-    }
-
-    if (m_iRead == 1 && (m_iDataInStringBuffer == 1))
-    {
-      m_szStringBuffer[0] = m_szStringBuffer[1023]; // need to make sure we don't loose any '\r\n' between buffers
-      m_iDataInStringBuffer = Read(m_szStringBuffer+1,1023);
-    }
-    else
-      m_iDataInStringBuffer = Read(m_szStringBuffer,1024);
-    m_szStartOfStringBuffer = m_szStringBuffer;
-    if (m_iDataInStringBuffer)
-      m_iRead = 1;
-    else
-      m_iRead = -1;
-  }
-  szLine[0] = '\0';
-  return !bEof;
-}*/
 
 bool CZipFile::FillBuffer()
 {
@@ -454,8 +370,8 @@ bool CZipFile::FillBuffer()
 
   if (mFile.Read(m_szBuffer,sToRead) != sToRead)
     return false;
-  m_ZStream.avail_in = sToRead;
-  m_ZStream.next_in = (Bytef*)m_szBuffer;
+  m_ZStream.avail_in = static_cast<unsigned int>(sToRead);
+  m_ZStream.next_in = reinterpret_cast<Byte*>(m_szBuffer);
   m_iZipFilePos += sToRead;
   return true;
 }
@@ -495,25 +411,25 @@ int CZipFile::UnpackFromMemory(std::string& strDest, const std::string& strInput
       return iResult;
     // we have a file - fill the buffer
     char* temp;
-    int toRead=0;
+    ssize_t toRead=0;
     if (isGZ)
     {
-      m_ZStream.avail_in = strInput.size();
-      m_ZStream.next_in = (Bytef*)strInput.data();
+      m_ZStream.avail_in = static_cast<unsigned int>(strInput.size());
+      m_ZStream.next_in = const_cast<Bytef*>((const Bytef*)strInput.data());
       temp = new char[8192];
       toRead = 8191;
     }
     else
     {
       m_ZStream.avail_in = mZipItem.csize;
-      m_ZStream.next_in = (Bytef*)strInput.data()+iPos+LHDR_SIZE+mZipItem.flength+mZipItem.elength;
+      m_ZStream.next_in = const_cast<Bytef*>((const Bytef*)strInput.data())+iPos+LHDR_SIZE+mZipItem.flength+mZipItem.elength;
       // init m_zipitem
       strDest.reserve(mZipItem.usize);
       temp = new char[mZipItem.usize+1];
       toRead = mZipItem.usize;
     }
     int iCurrResult;
-    while( (iCurrResult=Read(temp,toRead)) > 0)
+    while((iCurrResult = static_cast<int>(Read(temp, toRead))) > 0)
     {
       strDest.append(temp,temp+iCurrResult);
       iResult += iCurrResult;
@@ -547,8 +463,8 @@ bool CZipFile::DecompressGzip(const std::string& in, std::string& out)
   const int bufferSize = 16384;
   unsigned char buffer[bufferSize];
 
-  strm.avail_in = in.size();
-  strm.next_in = (unsigned char*)in.c_str();
+  strm.avail_in = static_cast<unsigned int>(in.size());
+  strm.next_in = reinterpret_cast<unsigned char*>(const_cast<char*>(in.c_str()));
 
   do
   {

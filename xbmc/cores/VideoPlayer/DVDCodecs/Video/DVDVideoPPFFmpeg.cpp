@@ -1,44 +1,33 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDVideoPPFFmpeg.h"
 #include "utils/log.h"
 #include "cores/FFmpeg.h"
+#include "cores/VideoPlayer/Process/ProcessInfo.h"
 
 extern "C" {
-#include "libavutil/mem.h"
+#include <libavutil/mem.h>
 }
 
-CDVDVideoPPFFmpeg::CDVDVideoPPFFmpeg():
-  m_sType("")
+CDVDVideoPPFFmpeg::CDVDVideoPPFFmpeg(CProcessInfo &processInfo):
+  m_sType(""), m_processInfo(processInfo)
 {
   m_pMode = m_pContext = NULL;
-  m_pSource = m_pTarget = NULL;
   m_iInitWidth = m_iInitHeight = 0;
   m_deinterlace = false;
-  memset(&m_FrameBuffer, 0, sizeof(DVDVideoPicture));
 }
+
 CDVDVideoPPFFmpeg::~CDVDVideoPPFFmpeg()
 {
   Dispose();
 }
+
 void CDVDVideoPPFFmpeg::Dispose()
 {
   if (m_pMode)
@@ -52,43 +41,28 @@ void CDVDVideoPPFFmpeg::Dispose()
     m_pContext = NULL;
   }
 
-  if( m_FrameBuffer.iFlags & DVP_FLAG_ALLOCATED )
-  {
-    for( int i = 0; i<4; i++ )
-    {
-      if( m_FrameBuffer.data[i] )
-      {
-        av_freep(&(m_FrameBuffer.data[i]));
-        m_FrameBuffer.data[i] = NULL;
-        m_FrameBuffer.iLineSize[i] = 0;
-      }
-    }
-    m_FrameBuffer.iFlags &= ~DVP_FLAG_ALLOCATED;
-  }
-
   m_iInitWidth = 0;
   m_iInitHeight = 0;
 }
 
 bool CDVDVideoPPFFmpeg::CheckInit(int iWidth, int iHeight)
 {
-  if(m_iInitWidth != iWidth || m_iInitHeight != iHeight)
+  if (m_iInitWidth != iWidth || m_iInitHeight != iHeight)
   {
-    if(m_pContext || m_pMode)
+    if (m_pContext || m_pMode)
     {
       Dispose();
     }
 
-    m_pContext = pp_get_context(m_pSource->iWidth, m_pSource->iHeight, PPCPUFlags() | PP_FORMAT_420);
+    m_pContext = pp_get_context(iWidth, iHeight, PPCPUFlags() | PP_FORMAT_420);
 
-    m_iInitWidth = m_pSource->iWidth;
-    m_iInitHeight = m_pSource->iHeight;
+    m_iInitWidth = iWidth;
+    m_iInitHeight = iHeight;
 
-    m_pMode = pp_get_mode_by_name_and_quality((char *)m_sType.c_str(), PP_QUALITY_MAX);
+    m_pMode = pp_get_mode_by_name_and_quality(m_sType.c_str(), PP_QUALITY_MAX);
   }
 
-
-  if(m_pMode)
+  if (m_pMode)
     return true;
   else
     return false;
@@ -107,109 +81,50 @@ void CDVDVideoPPFFmpeg::SetType(const std::string& mType, bool deinterlace)
     Dispose();
 }
 
-bool CDVDVideoPPFFmpeg::Process(DVDVideoPicture* pPicture)
+void CDVDVideoPPFFmpeg::Process(VideoPicture* pPicture)
 {
-  m_pSource =  pPicture;
+  VideoPicture* pSource = pPicture;
+  CVideoBuffer *videoBuffer;
 
-  if(m_pSource->format != RENDER_FMT_YUV420P)
-    return false;
+  if (pSource->videoBuffer->GetFormat() != AV_PIX_FMT_YUV420P)
+    return;
 
-  if( !CheckInit(m_pSource->iWidth, m_pSource->iHeight) )
+  if (!CheckInit(pSource->iWidth, pSource->iHeight))
   {
     CLog::Log(LOGERROR, "Initialization of ffmpeg postprocessing failed");
-    return false;
+    return;
   }
 
-  //If no target was set or we are using internal buffer, make sure it's correctly sized
-  if(m_pTarget == &m_FrameBuffer || !m_pTarget)
+  uint8_t* srcPlanes[YuvImage::MAX_PLANES], *dstPlanes[YuvImage::MAX_PLANES];
+  int srcStrides[YuvImage::MAX_PLANES];
+  pSource->videoBuffer->GetPlanes(srcPlanes);
+  pSource->videoBuffer->GetStrides(srcStrides);
+
+  videoBuffer = m_processInfo.GetVideoBufferManager().Get(AV_PIX_FMT_YUV420P,
+                                                          srcStrides[0] * pPicture->iHeight +
+                                                          srcStrides[1] * pPicture->iHeight, nullptr);
+  if (!videoBuffer)
   {
-    if(CheckFrameBuffer(m_pSource))
-      m_pTarget = &m_FrameBuffer;
-    else
-    {
-      m_pTarget = NULL;
-      return false;
-    }
+    return;
   }
 
-  int pict_type = (m_pSource->qscale_type != DVP_QSCALE_MPEG1) ?
-                   PP_PICT_TYPE_QP2 : 0;
+  videoBuffer->SetDimensions(pPicture->iWidth, pPicture->iHeight, srcStrides);
+  videoBuffer->GetPlanes(dstPlanes);
+  //! @bug libpostproc isn't const correct
+  pp_postprocess(const_cast<const uint8_t **>(srcPlanes), srcStrides,
+                 dstPlanes, srcStrides,
+                 pSource->iWidth, pSource->iHeight,
+                 pSource->qp_table, pSource->qstride,
+                 m_pMode, m_pContext,
+                 pSource->pict_type | pSource->qscale_type ? PP_PICT_TYPE_QP2 : 0);
 
-  pp_postprocess((const uint8_t**)m_pSource->data, m_pSource->iLineSize,
-                m_pTarget->data, m_pTarget->iLineSize,
-                m_pSource->iWidth, m_pSource->iHeight,
-                m_pSource->qp_table, m_pSource->qstride,
-                m_pMode, m_pContext,
-                pict_type); //m_pSource->iFrameType);
 
-  //Copy frame information over to target, but make sure it is set as allocated should decoder have forgotten
-  m_pTarget->iFlags = m_pSource->iFlags | DVP_FLAG_ALLOCATED;
+  pPicture->SetParams(*pSource);
+  if (pPicture->videoBuffer)
+    pPicture->videoBuffer->Release();
+  pPicture->videoBuffer = videoBuffer;
+
   if (m_deinterlace)
-    m_pTarget->iFlags &= ~DVP_FLAG_INTERLACED;
-  m_pTarget->iFrameType = m_pSource->iFrameType;
-  m_pTarget->iRepeatPicture = m_pSource->iRepeatPicture;
-  m_pTarget->iDuration = m_pSource->iDuration;
-  m_pTarget->qp_table = m_pSource->qp_table;
-  m_pTarget->qstride = m_pSource->qstride;
-  m_pTarget->qscale_type = m_pSource->qscale_type;
-  m_pTarget->iDisplayHeight = m_pSource->iDisplayHeight;
-  m_pTarget->iDisplayWidth = m_pSource->iDisplayWidth;
-  m_pTarget->pts = m_pSource->pts;
-  m_pTarget->format = RENDER_FMT_YUV420P;
-  return true;
-}
-
-
-
-bool CDVDVideoPPFFmpeg::CheckFrameBuffer(const DVDVideoPicture* pSource)
-{
-  if( m_FrameBuffer.iFlags & DVP_FLAG_ALLOCATED && (m_FrameBuffer.iWidth != pSource->iWidth || m_FrameBuffer.iHeight != pSource->iHeight))
-  {
-    m_FrameBuffer.iFlags &= ~DVP_FLAG_ALLOCATED;
-    for(int i = 0;i<3;i++)
-      if(m_FrameBuffer.data[i])
-      {
-        delete[] m_FrameBuffer.data[i];
-        m_FrameBuffer.data[i] = NULL;
-      }
-  }
-
-  if(!(m_FrameBuffer.iFlags & DVP_FLAG_ALLOCATED))
-  {
-    memset(&m_FrameBuffer, 0, sizeof(DVDVideoPicture));
-
-    m_FrameBuffer.iLineSize[0] = pSource->iLineSize[0];   //Y
-    m_FrameBuffer.iLineSize[1] = pSource->iLineSize[1]; //U
-    m_FrameBuffer.iLineSize[2] = pSource->iLineSize[2]; //V
-    m_FrameBuffer.iLineSize[3] = 0;
-
-    m_FrameBuffer.iWidth = pSource->iWidth;
-    m_FrameBuffer.iHeight = pSource->iHeight;
-
-    m_FrameBuffer.data[0] = (uint8_t*)av_malloc(m_FrameBuffer.iLineSize[0] * m_FrameBuffer.iHeight);
-    m_FrameBuffer.data[1] = (uint8_t*)av_malloc(m_FrameBuffer.iLineSize[1] * m_FrameBuffer.iHeight/2);
-    m_FrameBuffer.data[2] = (uint8_t*)av_malloc(m_FrameBuffer.iLineSize[2] * m_FrameBuffer.iHeight/2);
-
-    if( !m_FrameBuffer.data[0] || !m_FrameBuffer.data[1] || !m_FrameBuffer.data[2])
-    {
-      CLog::Log(LOGERROR, "CDVDVideoDeinterlace::AllocBufferOfType - Unable to allocate framebuffer, bailing");
-      return false;
-    }
-
-    m_FrameBuffer.iFlags |= DVP_FLAG_ALLOCATED;
-  }
-
-  return true;
-}
-
-
-bool CDVDVideoPPFFmpeg::GetPicture(DVDVideoPicture* pPicture)
-{
-  if( m_pTarget )
-  {
-    memmove(pPicture, m_pTarget, sizeof(DVDVideoPicture));
-    return true;
-  }
-  return false;
+    pPicture->iFlags &= ~DVP_FLAG_INTERLACED;
 }
 

@@ -1,29 +1,14 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "DVDDemux.h"
+#pragma once
 
-#if defined(HAVE_CONFIG_H)
-  #include "config.h"
-#endif
+#include "DVDDemux.h"
 
 #ifdef TARGET_WINDOWS
 #define __attribute__(dummy_val)
@@ -56,26 +41,25 @@ class CDVDDemuxBXA : public CDVDDemux
 public:
 
   CDVDDemuxBXA();
-  ~CDVDDemuxBXA();
+  ~CDVDDemuxBXA() override;
 
-  bool Open(CDVDInputStream* pInput);
+  bool Open(std::shared_ptr<CDVDInputStream> pInput);
   void Dispose();
-  void Reset();
-  void Abort();
-  void Flush();
-  DemuxPacket* Read();
+  bool Reset() override;
+  void Abort() override;
+  void Flush() override;
+  DemuxPacket* Read() override;
   bool SeekTime(double time, bool backwards = false, double* startpts = NULL) override { return false; }
-  void SetSpeed(int iSpeed) {};
-  int GetStreamLength() { return (int)m_header.durationMs; }
+  int GetStreamLength() override { return (int)m_header.durationMs; }
   CDemuxStream* GetStream(int iStreamId) const override;
   std::vector<CDemuxStream*> GetStreams() const override;
   int GetNrOfStreams() const override;
-  std::string GetFileName();
-  virtual std::string GetStreamCodecName(int iStreamId) override;
+  std::string GetFileName() override;
+  std::string GetStreamCodecName(int iStreamId) override;
 
 protected:
   friend class CDemuxStreamAudioBXA;
-  CDVDInputStream* m_pInput;
+  std::shared_ptr<CDVDInputStream> m_pInput;
   int64_t m_bytes;
 
   CDemuxStreamAudioBXA *m_stream;

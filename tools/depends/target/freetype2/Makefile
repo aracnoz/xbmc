@@ -3,19 +3,17 @@ DEPS= ../../Makefile.include Makefile
 
 # lib name, version
 LIBNAME=freetype
-VERSION=2.4.7
+VERSION=2.10.1
 SOURCE=$(LIBNAME)-$(VERSION)
-ARCHIVE=$(SOURCE).tar.bz2
+ARCHIVE=$(SOURCE).tar.xz
 
 # configuration settings
 # force using internal libtool
 export LIBTOOL=builds/unix/libtool
 CONFIGURE=cp -f $(CONFIG_SUB) $(CONFIG_GUESS) builds/unix; \
-          ./configure --prefix=$(PREFIX) --disable-shared
+          ./configure --prefix=$(PREFIX) --disable-shared --with-png=no
 
 LIBDYLIB=$(PLATFORM)/objs/.libs/lib$(LIBNAME).a
-
-CLEAN_FILES=$(ARCHIVE) $(PLATFORM)
 
 all: .installed-$(PLATFORM)
 
@@ -40,4 +38,3 @@ clean:
 
 distclean::
 	rm -rf $(PLATFORM) .installed-$(PLATFORM)
-

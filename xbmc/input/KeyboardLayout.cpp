@@ -1,41 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#include "KeyboardLayout.h"
+
+#include "InputCodingTableFactory.h"
+#include "guilib/LocalizeStrings.h"
+#include "utils/CharsetConverter.h"
+#include "utils/StringUtils.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
 
 #include <algorithm>
 #include <set>
-
-#include "KeyboardLayout.h"
-#include "guilib/LocalizeStrings.h"
-#include "utils/CharsetConverter.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
-#include "utils/XBMCTinyXML.h"
-#include "InputCodingTableFactory.h"
 
 CKeyboardLayout::CKeyboardLayout()
 {
   m_codingtable = NULL;
 }
 
-CKeyboardLayout::~CKeyboardLayout()
-{ }
+CKeyboardLayout::~CKeyboardLayout() = default;
 
 bool CKeyboardLayout::Load(const TiXmlElement* element)
 {
@@ -84,13 +72,12 @@ bool CKeyboardLayout::Load(const TiXmlElement* element)
       StringUtils::ToLower(modifiers);
 
       std::vector<std::string> variants = StringUtils::Split(modifiers, ",");
-      for (std::vector<std::string>::const_iterator itv = variants.begin(); itv != variants.end(); ++itv)
+      for (const auto& itv : variants)
       {
         unsigned int iKeys = ModifierKeyNone;
-        std::vector<std::string> keys = StringUtils::Split(*itv, "+");
-        for (std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it)
+        std::vector<std::string> keys = StringUtils::Split(itv, "+");
+        for (const std::string& strKey : keys)
         {
-          std::string strKey = *it;
           if (strKey == "shift")
             iKeys |= ModifierKeyShift;
           else if (strKey == "symbol")
@@ -111,8 +98,8 @@ bool CKeyboardLayout::Load(const TiXmlElement* element)
         std::vector<std::string> chars = BreakCharacters(strRow);
         if (!modifierKeysSet.empty())
         {
-          for (std::set<unsigned int>::const_iterator it = modifierKeysSet.begin(); it != modifierKeysSet.end(); ++it)
-            m_keyboards[*it].push_back(chars);
+          for (const auto& it : modifierKeysSet)
+            m_keyboards[it].push_back(chars);
         }
         else
           m_keyboards[ModifierKeyNone].push_back(chars);
@@ -170,9 +157,9 @@ std::vector<std::string> CKeyboardLayout::BreakCharacters(const std::string &cha
   std::vector<std::string> result;
   // break into utf8 characters
   std::u32string chars32 = g_charsetConverter.utf8ToUtf32(chars);
-  for (std::u32string::const_iterator it = chars32.begin(); it != chars32.end(); ++it)
+  for (const auto& it : chars32)
   {
-    std::u32string char32(1, *it);
+    std::u32string char32(1, it);
     result.push_back(g_charsetConverter.utf32ToUtf8(char32));
   }
 

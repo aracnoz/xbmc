@@ -1,39 +1,34 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "DVDOverlayCodecTX3G.h"
+
+#include "DVDCodecs/DVDCodecs.h"
 #include "DVDOverlayText.h"
 #include "DVDStreamInfo.h"
-#include "DVDCodecs/DVDCodecs.h"
-#include "DVDDemuxers/DVDDemuxPacket.h"
+#include "ServiceBroker.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
 #include "settings/Settings.h"
-#include "utils/log.h"
+#include "settings/SettingsComponent.h"
+#include "utils/RegExp.h"
 #include "utils/StringUtils.h"
 #include "utils/auto_buffer.h"
+#include "utils/log.h"
+
+#include <cstddef>
+
+#include "system.h"
 
 // 3GPP/TX3G (aka MPEG-4 Timed Text) Subtitle support
 // 3GPP -> 3rd Generation Partnership Program
 // adapted from https://trac.handbrake.fr/browser/trunk/libhb/dectx3gsub.c;
 
-#define LEN_CHECK(x)    do { if((end - pos) < (x)) return OC_ERROR; } while(0)
+#define LEN_CHECK(x)    do { if((end - pos) < static_cast<std::ptrdiff_t>(x)) return OC_ERROR; } while(0)
 
 // NOTE: None of these macros check for buffer overflow
 #define READ_U8()       *pos;                                                     pos += 1;
@@ -46,7 +41,7 @@
                       (((uint32_t) str[1]) << 16) | \
                       (((uint32_t) str[2]) << 8) | \
                       (((uint32_t) str[3]) << 0))
-                      
+
 typedef enum {
  BOLD       = 0x1,
  ITALIC     = 0x2,
@@ -67,8 +62,8 @@ CDVDOverlayCodecTX3G::CDVDOverlayCodecTX3G() : CDVDOverlayCodec("TX3G Subtitle D
 {
   m_pOverlay = NULL;
   // stupid, this comes from a static global in GUIWindowFullScreen.cpp
-  uint32_t colormap[8] = { 0xFFFFFF00, 0xFFFFFFFF, 0xFF0099FF, 0xFF00FF00, 0xFFCCFF00, 0xFF00FFFF, 0xFFE5E5E5, 0xFFC0C0C0 };
-  m_textColor = colormap[CSettings::GetInstance().GetInt(CSettings::SETTING_SUBTITLES_COLOR)];
+  uint32_t colormap[9] = { 0xFFFFFF00, 0xFFFFFFFF, 0xFF0099FF, 0xFF00FF00, 0xFFCCFF00, 0xFF00FFFF, 0xFFE5E5E5, 0xFFC0C0C0, 0xFF808080 };
+  m_textColor = colormap[CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SUBTITLES_COLOR)];
 }
 
 CDVDOverlayCodecTX3G::~CDVDOverlayCodecTX3G()
@@ -103,7 +98,7 @@ int CDVDOverlayCodecTX3G::Decode(DemuxPacket *pPacket)
   uint8_t  *end = pPacket->pData + pPacket->iSize;
 
   // Parse the packet as a TX3G TextSample.
-  // Look for a single StyleBox ('styl') and 
+  // Look for a single StyleBox ('styl') and
   // read all contained StyleRecords.
   // Ignore all other box types.
   // NOTE: Buffer overflows on read are not checked.
@@ -240,12 +235,24 @@ int CDVDOverlayCodecTX3G::Decode(DemuxPacket *pPacket)
     // this is a char index, not a byte index.
     charIndex++;
   }
-  
+
   if (strUTF8.empty())
     return OC_BUFFER;
 
   if (strUTF8[strUTF8.size()-1] == '\n')
     strUTF8.erase(strUTF8.size()-1);
+
+  // erase unsupport tags
+  CRegExp tags;
+  if (tags.RegComp("(\\{[^\\}]*\\})"))
+  {
+    int pos = 0;
+    while ((pos = tags.RegFind(strUTF8.c_str(), pos)) >= 0)
+    {
+      std::string tag = tags.GetMatch(0);
+      strUTF8.erase(pos, tag.length());
+    }
+  }
 
   // add a new text element to our container
   m_pOverlay->AddElement(new CDVDOverlayText::CElementText(strUTF8.c_str()));

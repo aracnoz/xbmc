@@ -1,28 +1,18 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SystemOperations.h"
-#include "messaging/ApplicationMessenger.h"
+
+#include "ServiceBroker.h"
 #include "interfaces/builtins/Builtins.h"
-#include "utils/Variant.h"
+#include "messaging/ApplicationMessenger.h"
 #include "powermanagement/PowerManager.h"
+#include "utils/Variant.h"
 
 using namespace JSONRPC;
 using namespace KODI::MESSAGING;
@@ -53,7 +43,7 @@ JSONRPC_STATUS CSystemOperations::EjectOpticalDrive(const std::string &method, I
 
 JSONRPC_STATUS CSystemOperations::Shutdown(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  if (g_powerManager.CanPowerdown())
+  if (CServiceBroker::GetPowerManager().CanPowerdown())
   {
     CApplicationMessenger::GetInstance().PostMsg(TMSG_POWERDOWN);
     return ACK;
@@ -64,7 +54,7 @@ JSONRPC_STATUS CSystemOperations::Shutdown(const std::string &method, ITransport
 
 JSONRPC_STATUS CSystemOperations::Suspend(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  if (g_powerManager.CanSuspend())
+  if (CServiceBroker::GetPowerManager().CanSuspend())
   {
     CApplicationMessenger::GetInstance().PostMsg(TMSG_SUSPEND);
     return ACK;
@@ -75,7 +65,7 @@ JSONRPC_STATUS CSystemOperations::Suspend(const std::string &method, ITransportL
 
 JSONRPC_STATUS CSystemOperations::Hibernate(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  if (g_powerManager.CanHibernate())
+  if (CServiceBroker::GetPowerManager().CanHibernate())
   {
     CApplicationMessenger::GetInstance().PostMsg(TMSG_HIBERNATE);
     return ACK;
@@ -86,7 +76,7 @@ JSONRPC_STATUS CSystemOperations::Hibernate(const std::string &method, ITranspor
 
 JSONRPC_STATUS CSystemOperations::Reboot(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant &parameterObject, CVariant &result)
 {
-  if (g_powerManager.CanReboot())
+  if (CServiceBroker::GetPowerManager().CanReboot())
   {
     CApplicationMessenger::GetInstance().PostMsg(TMSG_RESTART);
     return ACK;
@@ -98,13 +88,13 @@ JSONRPC_STATUS CSystemOperations::Reboot(const std::string &method, ITransportLa
 JSONRPC_STATUS CSystemOperations::GetPropertyValue(int permissions, const std::string &property, CVariant &result)
 {
   if (property == "canshutdown")
-    result = g_powerManager.CanPowerdown() && (permissions & ControlPower);
+    result = CServiceBroker::GetPowerManager().CanPowerdown() && (permissions & ControlPower);
   else if (property == "cansuspend")
-    result = g_powerManager.CanSuspend() && (permissions & ControlPower);
+    result = CServiceBroker::GetPowerManager().CanSuspend() && (permissions & ControlPower);
   else if (property == "canhibernate")
-    result = g_powerManager.CanHibernate() && (permissions & ControlPower);
+    result = CServiceBroker::GetPowerManager().CanHibernate() && (permissions & ControlPower);
   else if (property == "canreboot")
-    result = g_powerManager.CanReboot() && (permissions & ControlPower);
+    result = CServiceBroker::GetPowerManager().CanReboot() && (permissions & ControlPower);
   else
     return InvalidParams;
 

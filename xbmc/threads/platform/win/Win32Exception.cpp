@@ -1,36 +1,27 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Win32Exception.h"
-#include <dbghelp.h>
-#include <VersionHelpers.h>
+
 #include "Util.h"
 #include "WIN32Util.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+
 #include "platform/win32/CharsetConverter.h"
 
+#include <VersionHelpers.h>
+#include <dbghelp.h>
+
 typedef BOOL (WINAPI *MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType,
-                                        CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                                        CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-                                        CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
+                                        const PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
+                                        const PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
+                                        const PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
 // StackWalk64()
 typedef BOOL (__stdcall *tSW)(
@@ -93,7 +84,7 @@ bool win32_exception::write_minidump(EXCEPTION_POINTERS* pEp)
   }
 
   // Load the DBGHELP DLL
-  HMODULE hDbgHelpDll = ::LoadLibrary("DBGHELP.DLL");
+  HMODULE hDbgHelpDll = ::LoadLibrary(L"DBGHELP.DLL");
   if (!hDbgHelpDll)
   {
     goto cleanup;
@@ -154,7 +145,7 @@ bool win32_exception::write_stacktrace(EXCEPTION_POINTERS* pEp)
   HANDLE hDumpFile = INVALID_HANDLE_VALUE;
   tSC pSC = NULL;
 
-  HMODULE hDbgHelpDll = ::LoadLibrary("DBGHELP.DLL");
+  HMODULE hDbgHelpDll = ::LoadLibrary(L"DBGHELP.DLL");
   if (!hDbgHelpDll)
   {
     goto cleanup;
@@ -190,12 +181,19 @@ bool win32_exception::write_stacktrace(EXCEPTION_POINTERS* pEp)
     goto cleanup;
   }
 
-  frame.AddrPC.Offset         = pEp->ContextRecord->Eip;      // Current location in program
-  frame.AddrPC.Mode           = AddrModeFlat;                 // Address mode for this pointer: flat 32 bit addressing
-  frame.AddrStack.Offset      = pEp->ContextRecord->Esp;      // Stack pointers current value
-  frame.AddrStack.Mode        = AddrModeFlat;                 // Address mode for this pointer: flat 32 bit addressing
-  frame.AddrFrame.Offset      = pEp->ContextRecord->Ebp;      // Value of register used to access local function variables.
-  frame.AddrFrame.Mode        = AddrModeFlat;                 // Address mode for this pointer: flat 32 bit addressing
+  frame.AddrPC.Mode = AddrModeFlat; // Address mode for this pointer: flat 32 bit addressing
+  frame.AddrStack.Mode = AddrModeFlat; // Address mode for this pointer: flat 32 bit addressing
+  frame.AddrFrame.Mode = AddrModeFlat; // Address mode for this pointer: flat 32 bit addressing
+
+#if defined(_X86_)
+  frame.AddrPC.Offset = pEp->ContextRecord->Eip; // Current location in program
+  frame.AddrStack.Offset = pEp->ContextRecord->Esp; // Stack pointers current value
+  frame.AddrFrame.Offset = pEp->ContextRecord->Ebp; // Value of register used to access local function variables.
+#else
+  frame.AddrPC.Offset = pEp->ContextRecord->Rip; // Current location in program
+  frame.AddrStack.Offset = pEp->ContextRecord->Rsp; // Stack pointers current value
+  frame.AddrFrame.Offset = pEp->ContextRecord->Rbp; // Value of register used to access local function variables.
+#endif
 
   if(pSI(hCurProc, NULL, TRUE) == FALSE)
     goto cleanup;
@@ -271,7 +269,7 @@ bool win32_exception::ShouldHook()
 
   bool result = true;
 
-  auto module = ::LoadLibrary("kernel32.dll");
+  auto module = ::LoadLibrary(L"kernel32.dll");
   if (module)
   {
     auto func = reinterpret_cast<GCPFN>(::GetProcAddress(module, "GetCurrentPackageFullName"));
@@ -284,6 +282,6 @@ bool win32_exception::ShouldHook()
 
     ::FreeLibrary(module);
   }
-  
+
   return result;
 }

@@ -1,25 +1,18 @@
 /*
- *      Copyright (c) 2006 elupus (Joakim Plate)
- *      Copyright (C) 2006-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (c) 2006 elupus (Joakim Plate)
+ *  Copyright (C) 2006-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "cores/IPlayer.h"
+#include "guilib/DispResource.h"
+#include "threads/SystemClock.h"
+
 #include <string>
 
 class PLT_MediaController;
@@ -34,59 +27,53 @@ namespace UPNP
 class CUPnPPlayerController;
 
 class CUPnPPlayer
-  : public IPlayer
+  : public IPlayer, public IRenderLoop
 {
 public:
   CUPnPPlayer(IPlayerCallback& callback, const char* uuid);
-  virtual ~CUPnPPlayer();
+  ~CUPnPPlayer() override;
 
-  virtual bool OpenFile(const CFileItem& file, const CPlayerOptions& options);
-  virtual bool QueueNextFile(const CFileItem &file);
-  virtual bool CloseFile(bool reopen = false);
-  virtual bool IsPlaying() const;
-  virtual void Pause() override;
-  virtual bool HasVideo() const { return false; }
-  virtual bool HasAudio() const { return false; }
-  virtual void Seek(bool bPlus, bool bLargeStep, bool bChapterOverride);
-  virtual void SeekPercentage(float fPercent = 0);
-  virtual float GetPercentage();
-  virtual void SetVolume(float volume);
-  virtual void GetAudioInfo(std::string& strAudioInfo) {};
-  virtual void GetVideoInfo(std::string& strVideoInfo) {};
-  virtual bool CanRecord() { return false;};
-  virtual bool IsRecording() { return false;};
-  virtual bool Record(bool bOnOff) { return false;};
+  bool OpenFile(const CFileItem& file, const CPlayerOptions& options) override;
+  bool QueueNextFile(const CFileItem &file) override;
+  bool CloseFile(bool reopen = false) override;
+  bool IsPlaying() const override;
+  void Pause() override;
+  bool HasVideo() const override { return false; }
+  bool HasAudio() const override { return false; }
+  void Seek(bool bPlus, bool bLargeStep, bool bChapterOverride) override;
+  void SeekPercentage(float fPercent = 0) override;
+  void SetVolume(float volume) override;
 
-  virtual int  GetChapterCount()                               { return 0; }
-  virtual int  GetChapter()                                    { return -1; }
-  virtual void GetChapterName(std::string& strChapterName)     { return; }
-  virtual int  SeekChapter(int iChapter)                       { return -1; }
+  int GetChapterCount() override { return 0; }
+  int GetChapter() override { return -1; }
+  void GetChapterName(std::string& strChapterName, int chapterIdx = -1) override { }
+  int SeekChapter(int iChapter) override { return -1; }
 
-  virtual void SeekTime(int64_t iTime = 0);
-  virtual int64_t GetTime();
-  virtual int64_t GetTotalTime();
-  virtual void SetSpeed(float speed = 0) override;
-  virtual float GetSpeed() override;
+  void SeekTime(int64_t iTime = 0) override;
+  void SetSpeed(float speed = 0) override;
 
-  virtual bool SkipNext(){return false;}
-  virtual bool IsCaching() const {return false;};
-  virtual int GetCacheLevel() const {return -1;};
-  virtual void DoAudioWork();
-  virtual bool OnAction(const CAction &action);
+  bool IsCaching() const override { return false; }
+  int GetCacheLevel() const override { return -1; }
+  void DoAudioWork() override;
+  bool OnAction(const CAction &action) override;
 
-  virtual std::string GetPlayingTitle();
+  void FrameMove() override;
 
   int PlayFile(const CFileItem& file, const CPlayerOptions& options, CGUIDialogBusy*& dialog, XbmcThreads::EndTime& timeout);
 
 private:
   bool IsPaused() const;
+  int64_t GetTime();
+  int64_t GetTotalTime();
+  float GetPercentage();
 
-  PLT_MediaController*   m_control;
+  PLT_MediaController* m_control;
   CUPnPPlayerController* m_delegate;
-  std::string            m_current_uri;
-  std::string            m_current_meta;
-  bool                   m_started;
-  bool                   m_stopremote;
+  std::string m_current_uri;
+  std::string m_current_meta;
+  bool m_started;
+  bool m_stopremote;
+  XbmcThreads::EndTime m_updateTimer;
 };
 
 } /* namespace UPNP */

@@ -32,7 +32,7 @@
       <up>Up</up>
       <down>Down</down>
       <select>Select</select>
-      <enter>FullScreen</enter> 
+      <enter>FullScreen</enter>
       <pageplus>PageUp</pageplus>
       <pageminus>PageDown</pageminus>
       <back>Back</back>
@@ -196,7 +196,7 @@
       <select>OSD</select>
       <title>PlayerProcessInfo</title>
       <info>Info</info>
-      <guide>ActivateWindow(PVROSDGuide)</guide>
+      <guide>ActivateWindow(TVGuide)</guide>
       <teletext>ActivateWindow(Teletext)</teletext>
       <subtitle>NextSubtitle</subtitle>
       <star>NextSubtitle</star>
@@ -207,6 +207,20 @@
       <pageminus>SkipPrevious</pageminus>
     </remote>
   </FullscreenVideo>
+  <FullscreenGame>
+    <remote>
+      <left>StepBack</left>
+      <right>StepForward</right>
+      <back>Back</back>
+      <menu>OSD</menu>
+      <contentsmenu>OSD</contentsmenu>
+      <rootmenu>OSD</rootmenu>
+      <start>OSD</start>
+      <select>OSD</select>
+      <title>CodecInfo</title>
+      <info>Info</info>
+    </remote>
+  </FullscreenGame>
   <VideoTimeSeek>
     <remote>
       <select>Select</select>
@@ -245,8 +259,18 @@
       <rootmenu>OSD</rootmenu>
       <start>OSD</start>
       <info>Info</info>
-      <guide>ActivateWindow(PVROSDGuide)</guide>
+      <guide>ActivateWindow(TVGuide)</guide>
       <playlist>ActivateWindow(PVROSDChannels)</playlist>
+      <zero>Number0</zero>
+      <one>Number1</one>
+      <two>Number2</two>
+      <three>Number3</three>
+      <four>Number4</four>
+      <five>Number5</five>
+      <six>Number6</six>
+      <seven>Number7</seven>
+      <eight>Number8</eight>
+      <nine>Number9</nine>
     </remote>
   </Visualisation>
   <MusicOSD>
@@ -565,12 +589,29 @@
       <pageminus>ChannelDown</pageminus>
     </remote>
   </FullscreenRadio>
+  <FullscreenLiveTvPreview>
+    <remote>
+      <select>Select</select>
+    </remote>
+  </FullscreenLiveTvPreview>
+  <FullscreenRadioPreview>
+    <remote>
+      <select>Select</select>
+    </remote>
+  </FullscreenRadioPreview>
+  <FullscreenLiveTvInput>
+    <remote>
+      <select>Select</select>
+    </remote>
+  </FullscreenLiveTvInput>
+  <FullscreenRadioInput>
+    <remote>
+      <select>Select</select>
+    </remote>
+  </FullscreenRadioInput>
   <PVROSDChannels>
     <remote>
       <back>Close</back>
-      <menu>Close</menu>
-      <contentsmenu>Close</contentsmenu>
-      <rootmenu>Close</rootmenu>
       <start>Close</start>
       <playlist>Close</playlist>
       <zero>Number0</zero>
@@ -585,12 +626,9 @@
       <nine>number9</nine>
     </remote>
   </PVROSDChannels>
-  <PVROSDGuide>
+  <PVRChannelGuide>
     <remote>
       <back>Close</back>
-      <menu>Close</menu>
-      <contentsmenu>Close</contentsmenu>
-      <rootmenu>Close</rootmenu>
       <start>Close</start>
       <guide>Close</guide>
       <zero>Number0</zero>
@@ -604,7 +642,7 @@
       <eight>number8</eight>
       <nine>number9</nine>
     </remote>
-  </PVROSDGuide>
+  </PVRChannelGuide>
   <TVChannels>
     <remote>
       <zero>Number0</zero>

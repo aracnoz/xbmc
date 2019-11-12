@@ -1,27 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h" // for HAS_DVD_DRIVE
-
-#ifdef HAS_DVD_DRIVE
+#pragma once
 
 #include <string>
 #include <sstream>
@@ -39,7 +24,7 @@ namespace CDDB
 
 //Can be removed if/when removing Xcddb::queryCDinfo(int real_track_count, toc cdtoc[])
 //#define IN_PROGRESS           -1
-//#define QUERRY_OK             7
+//#define QUERY_OK             7
 //#define E_INEXACT_MATCH_FOUND      211
 //#define W_CDDB_already_shook_hands      402
 //#define E_CDDB_Handshake_not_successful 431
@@ -67,7 +52,7 @@ class Xcddb
 public:
   Xcddb();
   virtual ~Xcddb();
-  void setCDDBIpAdress(const std::string& ip_adress);
+  void setCDDBIpAddress(const std::string& ip_address);
   void setCacheDir(const std::string& pCacheDir );
 
 //  int queryCDinfo(int real_track_count, toc cdtoc[]);
@@ -134,9 +119,7 @@ protected:
    */
   std::string TrimToUTF8(const std::string &untrimmed);
 
-  std::string m_cddb_ip_adress;
+  std::string m_cddb_ip_address;
   std::string cCacheDir;
 };
 }
-
-#endif

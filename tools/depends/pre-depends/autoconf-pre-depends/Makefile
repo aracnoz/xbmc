@@ -10,14 +10,12 @@ VERSION=2.68
 SOURCE=$(LIBNAME)-$(VERSION)
 ARCHIVE=$(SOURCE).tar.gz
 
-export PATH:=$(CURDIR)/../pre-build-deps/bin:$(PATH)
+export PATH:=$(CURDIR)/../../pre-build-deps/bin:$(PATH)
 
 # configuration settings
 CONFIGURE=./configure --prefix=$(PREFIX)
 
 LIBDYLIB=$(PLATFORM)/bin/autoconf
-
-CLEAN_FILES=$(ARCHIVE) $(PLATFORM)
 
 all: $(PREFIX)/bin/$(LIBNAME)
 

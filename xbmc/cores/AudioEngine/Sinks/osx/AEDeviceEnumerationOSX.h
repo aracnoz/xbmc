@@ -1,30 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "cores/AudioEngine/Sinks/osx/CoreAudioDevice.h"
+#include "cores/AudioEngine/Utils/AEAudioFormat.h"
+#include "cores/AudioEngine/Utils/AEDeviceInfo.h"
 
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "cores/AudioEngine/Utils/AEDeviceInfo.h"
-#include "cores/AudioEngine/Sinks/osx/CoreAudioDevice.h"
 
 struct CADeviceInstance
 {
@@ -34,13 +24,13 @@ struct CADeviceInstance
 };
 typedef std::vector< std::pair<struct CADeviceInstance, CAEDeviceInfo> > CADeviceList;
 
-//Hirarchy:
+//Hierarchy:
 // Device
 //       - 1..n streams
 //            1..n formats
 //       - 0..n sources
 //on non planar devices we have numstreams * numsources devices for our list
-//on planar devices we have 1 * numsources devices for our list 
+//on planar devices we have 1 * numsources devices for our list
 class AEDeviceEnumerationOSX
 {
 public:
@@ -50,16 +40,16 @@ public:
   */
   AEDeviceEnumerationOSX(AudioDeviceID deviceID);
   // d'tor
-  ~AEDeviceEnumerationOSX(){};
-  
+  ~AEDeviceEnumerationOSX() = default;
+
   /*!
-  * @brief Gets the device list which was enumerated by the last call to Enumerate 
+  * @brief Gets the device list which was enumerated by the last call to Enumerate
   *        (which is also called in c'tor).
   *
   * @return Returns the device list.
   */
   CADeviceList  GetDeviceInfoList() const;
-  
+
   /*!
   * @brief Fetches all metadata from the CoreAudio device which is needed to generate a proper DeviceList for AE
   *        This method is always called from C'tor but can be called multiple times if the streams of a device
@@ -92,7 +82,7 @@ public:
   * @param outputStream [out] - the coreaudio streamid which contains the coreaudio format returned in outputFormat
   * @return true if a matching corea audio format was found - else false
   */
-  bool          FindSuitableFormatForStream(UInt32 &streamIdx, const AEAudioFormat &format, bool virt, 
+  bool          FindSuitableFormatForStream(UInt32 &streamIdx, const AEAudioFormat &format, bool virt,
                                             AudioStreamBasicDescription &outputFormat,
                                             AudioStreamID &outputStream) const;
 
@@ -128,13 +118,13 @@ public:
   float             ScoreFormat(const AudioStreamBasicDescription &formatDesc, const AEAudioFormat &format) const;
 
 private:
-  
+
   /*!
   * @brief Checks if this is a digital device based on CA transportType or name
   * @return - true if this is a digital device - else false.
   */
   bool              isDigitalDevice() const;
-  
+
   /*!
   * @brief Checks if there are passthrough formats or digital formats
   *       (the latter are passthrough formats with dedicated format config like AC3/DTS)
@@ -142,8 +132,8 @@ private:
   * @param hasPassthroughFormats [out] - true if there were passthrough formats in the list
   * @param hasDigitalFormat [out] - true if there were dedicated passthrough formats in the list
   */
-  void              hasPassthroughOrDigitalFormats(const StreamFormatList &formatList, 
-                                                   bool &hasPassthroughFormats, 
+  void              hasPassthroughOrDigitalFormats(const StreamFormatList &formatList,
+                                                   bool &hasPassthroughFormats,
                                                    bool &hasDigitalFormat) const;
 
   /*!
@@ -154,7 +144,7 @@ private:
   * @param transportType [in] - the transportType of the device
   * @return the AE devicetype
   */
-  enum AEDeviceType getDeviceType(bool hasPassthroughFormats, bool isDigital, 
+  enum AEDeviceType getDeviceType(bool hasPassthroughFormats, bool isDigital,
                                   UInt32 numChannels, UInt32 transportType) const;
 
   /*!
@@ -166,7 +156,7 @@ private:
   * @brief Scores a samplerate based on:
   * 1. Prefer exact match
   * 2. Prefer exact multiple of source samplerate and prefer the lowest
-  * 
+  *
   * @param destinationRate [in] - the destination samplerate to score
   * @param sourceRate [in] - the sourceRate of the audio format - this is the samplerate the score is based on
   * @return the score
@@ -178,7 +168,7 @@ private:
   bool              hasDataType(const AEDataTypeList &list, CAEStreamInfo::DataType type) const;
 
   /*!
-  * @brief Converts a CA format description to a list of AEFormat desciptions (as one format can result
+  * @brief Converts a CA format description to a list of AEFormat descriptions (as one format can result
   *        in more then 1 AE format - e.x. AC3 ca format results in AC3 and DTS AE format
   *
   * @param formatDesc [in] - The CA format description to be converted
@@ -191,7 +181,7 @@ private:
 
 
   /*!
-  * @brief Convet a CA channel label to an AE channel.
+  * @brief Convert a CA channel label to an AE channel.
   * @param CAChannelLabel - the CA channel label to be converted
   * @return the corresponding AEChannel
   */

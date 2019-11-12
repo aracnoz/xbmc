@@ -1,30 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <algorithm> 
 #include "RegExp.h"
+
 #include "log.h"
 #include "utils/StringUtils.h"
 #include "utils/Utf8Utils.h"
+
+#include <algorithm>
+#include <stdlib.h>
+#include <string.h>
 
 using namespace PCRE;
 
@@ -348,7 +338,7 @@ int CRegExp::PrivateRegFind(size_t bufferLen, const char *str, unsigned int star
   {
     CLog::Log(LOGERROR, "PCRE: Called without a string to match");
     return -1;
-  } 
+  }
 
   if (startoffset > bufferLen)
   {
@@ -385,7 +375,7 @@ int CRegExp::PrivateRegFind(size_t bufferLen, const char *str, unsigned int star
       CLog::Log(LOGERROR, "PCRE: Match limit reached");
       return -1;
 
-#ifdef PCRE_ERROR_SHORTUTF8 
+#ifdef PCRE_ERROR_SHORTUTF8
     case PCRE_ERROR_SHORTUTF8:
       {
         const size_t startPos = (m_subject.length() > fragmentLen) ? CUtf8Utils::RFindValidUtf8Char(m_subject, m_subject.length() - fragmentLen) : 0;
@@ -448,8 +438,8 @@ std::string CRegExp::GetReplaceString(const std::string& sReplaceExp) const
       const char nextChar = expr[pos];
       if (nextChar == '&' || nextChar == '\\')
       { // this is "\&" or "\\" combination
-        result.push_back(nextChar); // add '&' or '\' to result 
-        pos++; 
+        result.push_back(nextChar); // add '&' or '\' to result
+        pos++;
       }
       else if (isdigit(nextChar))
       { // this is "\0" - "\9" combination
@@ -559,8 +549,8 @@ void CRegExp::Cleanup()
 {
   if (m_re)
   {
-    pcre_free(m_re); 
-    m_re = NULL; 
+    pcre_free(m_re);
+    m_re = NULL;
   }
 
   if (m_sd)

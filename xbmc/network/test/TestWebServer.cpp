@@ -1,37 +1,26 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#if defined(TARGET_WINDOWS)
+#  include <windows.h>
+#endif
 
 #include <errno.h>
 #include <stdlib.h>
 
 #include <gtest/gtest.h>
-#include "system.h"
 #include "URL.h"
 #include "filesystem/CurlFile.h"
 #include "filesystem/File.h"
 #include "interfaces/json-rpc/JSONRPC.h"
 #include "network/WebServer.h"
 #include "network/httprequesthandler/HTTPVfsHandler.h"
-#ifdef HAS_JSONRPC
 #include "network/httprequesthandler/HTTPJsonRpcHandler.h"
-#endif // HAS_JSONRPC
 #include "settings/MediaSourceSettings.h"
 #include "test/TestUtils.h"
 #include "utils/JSONVariantParser.h"
@@ -39,10 +28,11 @@
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
 
+#include <random>
+
 using namespace XFILE;
 
 #define WEBSERVER_HOST          "localhost"
-#define WEBSERVER_PORT          23456
 
 #define TEST_URL_JSONRPC        "jsonrpc"
 
@@ -56,22 +46,32 @@ class TestWebServer : public testing::Test
 protected:
   TestWebServer()
     : webserver(),
-      baseUrl(StringUtils::Format("http://" WEBSERVER_HOST ":%d", WEBSERVER_PORT)),
       sourcePath(XBMC_REF_FILE_PATH("xbmc/network/test/data/webserver/"))
-  { }
-  virtual ~TestWebServer() { }
+  {
+    static uint16_t port;
+    if (port == 0)
+    {
+      std::random_device rd;
+      std::mt19937 mt(rd());
+      std::uniform_int_distribution<uint16_t> dist(49152, 65535);
+      port = dist(mt);
+    }
+    webserverPort = port;
+    baseUrl = StringUtils::Format("http://" WEBSERVER_HOST ":%u", webserverPort);
+  }
+  ~TestWebServer() override = default;
 
 protected:
-  virtual void SetUp()
+  void SetUp() override
   {
     SetupMediaSources();
 
-    webserver.Start(WEBSERVER_PORT, "", "");
+    webserver.Start(webserverPort, "", "");
     webserver.RegisterRequestHandler(&m_jsonRpcHandler);
     webserver.RegisterRequestHandler(&m_vfsHandler);
   }
 
-  virtual void TearDown()
+  void TearDown() override
   {
     if (webserver.IsStarted())
       webserver.Stop();
@@ -246,7 +246,7 @@ protected:
       // check the content
       CHttpRange firstRange;
       ASSERT_TRUE(ranges.GetFirst(firstRange));
-      expectedContent = expectedContent.substr(firstRange.GetFirstPosition(), firstRange.GetLength());
+      expectedContent = expectedContent.substr(static_cast<size_t>(firstRange.GetFirstPosition()), static_cast<size_t>(firstRange.GetLength()));
       EXPECT_STREQ(expectedContent.c_str(), result.c_str());
 
       // and Content-Length
@@ -263,14 +263,14 @@ protected:
     std::string contentType = httpHeader.GetValue(MHD_HTTP_HEADER_CONTENT_TYPE);
     std::string contentTypeStart = expectedMimeType + "; boundary=";
     // it must start with "multipart/byteranges; boundary=" followed by the boundary
-    ASSERT_EQ(0, contentType.find(contentTypeStart));
+    ASSERT_EQ(0U, contentType.find(contentTypeStart));
     ASSERT_GT(contentType.size(), contentTypeStart.size());
     // extract the boundary
     std::string multipartBoundary = contentType.substr(contentTypeStart.size());
     ASSERT_FALSE(multipartBoundary.empty());
     multipartBoundary = "--" + multipartBoundary;
 
-    ASSERT_EQ(0, result.find(multipartBoundary));
+    ASSERT_EQ(0U, result.find(multipartBoundary));
     std::vector<std::string> rangeParts = StringUtils::Split(result, multipartBoundary);
     // the first part is not really a part and is therefore empty (the place before the first boundary)
     ASSERT_TRUE(rangeParts.front().empty());
@@ -306,7 +306,7 @@ protected:
       // parse and check Content-Range
       std::string contentRangeHeader = rangeHeader.GetValue(MHD_HTTP_HEADER_CONTENT_RANGE);
       std::vector<std::string> contentRangeHeaderParts = StringUtils::Split(contentRangeHeader, "/");
-      ASSERT_EQ(2, contentRangeHeaderParts.size());
+      ASSERT_EQ(2U, contentRangeHeaderParts.size());
 
       // check the length of the range
       EXPECT_TRUE(StringUtils::IsNaturalNumber(contentRangeHeaderParts.back()));
@@ -315,12 +315,12 @@ protected:
 
       // remove the leading "bytes " string from the range definition
       std::string contentRangeDefinition = contentRangeHeaderParts.front();
-      ASSERT_EQ(0, contentRangeDefinition.find("bytes "));
+      ASSERT_EQ(0U, contentRangeDefinition.find("bytes "));
       contentRangeDefinition = contentRangeDefinition.substr(6);
 
       // check the start and end positions of the range
       std::vector<std::string> contentRangeParts = StringUtils::Split(contentRangeDefinition, "-");
-      ASSERT_EQ(2, contentRangeParts.size());
+      ASSERT_EQ(2U, contentRangeParts.size());
       EXPECT_TRUE(StringUtils::IsNaturalNumber(contentRangeParts.front()));
       uint64_t contentRangeStart = str2uint64(contentRangeParts.front());
       EXPECT_EQ(range.GetFirstPosition(), contentRangeStart);
@@ -330,7 +330,7 @@ protected:
 
       // make sure the length of the content matches the one of the expected range
       EXPECT_EQ(range.GetLength(), data.size());
-      EXPECT_STREQ(expectedContent.substr(range.GetFirstPosition(), range.GetLength()).c_str(), data.c_str());
+      EXPECT_STREQ(expectedContent.substr(static_cast<size_t>(range.GetFirstPosition()), static_cast<size_t>(range.GetLength())).c_str(), data.c_str());
     }
   }
 
@@ -344,6 +344,7 @@ protected:
   CHTTPVfsHandler m_vfsHandler;
   std::string baseUrl;
   std::string sourcePath;
+  uint16_t webserverPort;
 };
 
 TEST_F(TestWebServer, IsStarted)
@@ -351,7 +352,7 @@ TEST_F(TestWebServer, IsStarted)
   ASSERT_TRUE(webserver.IsStarted());
 }
 
-TEST_F(TestWebServer, CanGetJsonRpcApiDescription)
+TEST_F(TestWebServer, CanGetJsonRpcApiDescriptionWithHttpGet)
 {
   std::string result;
   CCurlFile curl;
@@ -372,7 +373,77 @@ TEST_F(TestWebServer, CanGetJsonRpcApiDescription)
   EXPECT_TRUE(cacheControl.find("no-cache") != std::string::npos);
 }
 
-TEST_F(TestWebServer, CanGetJsonRpcResponse)
+TEST_F(TestWebServer, CanReadDataOverJsonRpcWithHttpGet)
+{
+  // initialized JSON-RPC
+  JSONRPC::CJSONRPC::Initialize();
+
+  std::string result;
+  CCurlFile curl;
+  ASSERT_TRUE(curl.Get(GetUrl(TEST_URL_JSONRPC "?request=" + CURL::Encode("{ \"jsonrpc\": \"2.0\", \"method\": \"JSONRPC.Version\", \"id\": 1 }")), result));
+  ASSERT_FALSE(result.empty());
+
+  // parse the JSON-RPC response
+  CVariant resultObj;
+  ASSERT_TRUE(CJSONVariantParser::Parse(result, resultObj));
+  // make sure it's an object
+  ASSERT_TRUE(resultObj.isObject());
+
+  // get the HTTP header details
+  const CHttpHeader& httpHeader = curl.GetHttpHeader();
+
+  // Content-Type must be "application/json"
+  EXPECT_STREQ("application/json", httpHeader.GetMimeType().c_str());
+  // Accept-Ranges must be "none"
+  EXPECT_STREQ("none", httpHeader.GetValue(MHD_HTTP_HEADER_ACCEPT_RANGES).c_str());
+
+  // Cache-Control must contain "mag-age=0" and "no-cache"
+  std::string cacheControl = httpHeader.GetValue(MHD_HTTP_HEADER_CACHE_CONTROL);
+  EXPECT_TRUE(cacheControl.find("max-age=0") != std::string::npos);
+  EXPECT_TRUE(cacheControl.find("no-cache") != std::string::npos);
+
+  // uninitialize JSON-RPC
+  JSONRPC::CJSONRPC::Cleanup();
+}
+
+TEST_F(TestWebServer, CannotModifyOverJsonRpcWithHttpGet)
+{
+  // initialized JSON-RPC
+  JSONRPC::CJSONRPC::Initialize();
+
+  std::string result;
+  CCurlFile curl;
+  ASSERT_TRUE(curl.Get(GetUrl(TEST_URL_JSONRPC "?request=" + CURL::Encode("{ \"jsonrpc\": \"2.0\", \"method\": \"Input.Left\", \"id\": 1 }")), result));
+  ASSERT_FALSE(result.empty());
+
+  // parse the JSON-RPC response
+  CVariant resultObj;
+  ASSERT_TRUE(CJSONVariantParser::Parse(result, resultObj));
+  // make sure it's an object
+  ASSERT_TRUE(resultObj.isObject());
+  // it must contain the "error" property with the "Bad client permission" error code
+  ASSERT_TRUE(resultObj.isMember("error") && resultObj["error"].isObject());
+  ASSERT_TRUE(resultObj["error"].isMember("code") && resultObj["error"]["code"].isInteger());
+  ASSERT_EQ(JSONRPC::BadPermission, resultObj["error"]["code"].asInteger());
+
+  // get the HTTP header details
+  const CHttpHeader& httpHeader = curl.GetHttpHeader();
+
+  // Content-Type must be "application/json"
+  EXPECT_STREQ("application/json", httpHeader.GetMimeType().c_str());
+  // Accept-Ranges must be "none"
+  EXPECT_STREQ("none", httpHeader.GetValue(MHD_HTTP_HEADER_ACCEPT_RANGES).c_str());
+
+  // Cache-Control must contain "mag-age=0" and "no-cache"
+  std::string cacheControl = httpHeader.GetValue(MHD_HTTP_HEADER_CACHE_CONTROL);
+  EXPECT_TRUE(cacheControl.find("max-age=0") != std::string::npos);
+  EXPECT_TRUE(cacheControl.find("no-cache") != std::string::npos);
+
+  // uninitialize JSON-RPC
+  JSONRPC::CJSONRPC::Cleanup();
+}
+
+TEST_F(TestWebServer, CanReadDataOverJsonRpcWithHttpPost)
 {
   // initialized JSON-RPC
   JSONRPC::CJSONRPC::Initialize();
@@ -384,9 +455,47 @@ TEST_F(TestWebServer, CanGetJsonRpcResponse)
   ASSERT_FALSE(result.empty());
 
   // parse the JSON-RPC response
-  CVariant resultObj = CJSONVariantParser::Parse(reinterpret_cast<const unsigned char*>(result.c_str()), result.size());
+  CVariant resultObj;
+  ASSERT_TRUE(CJSONVariantParser::Parse(result, resultObj));
   // make sure it's an object
   ASSERT_TRUE(resultObj.isObject());
+
+  // get the HTTP header details
+  const CHttpHeader& httpHeader = curl.GetHttpHeader();
+
+  // Content-Type must be "application/json"
+  EXPECT_STREQ("application/json", httpHeader.GetMimeType().c_str());
+  // Accept-Ranges must be "none"
+  EXPECT_STREQ("none", httpHeader.GetValue(MHD_HTTP_HEADER_ACCEPT_RANGES).c_str());
+
+  // Cache-Control must contain "mag-age=0" and "no-cache"
+  std::string cacheControl = httpHeader.GetValue(MHD_HTTP_HEADER_CACHE_CONTROL);
+  EXPECT_TRUE(cacheControl.find("max-age=0") != std::string::npos);
+  EXPECT_TRUE(cacheControl.find("no-cache") != std::string::npos);
+
+  // uninitialize JSON-RPC
+  JSONRPC::CJSONRPC::Cleanup();
+}
+
+TEST_F(TestWebServer, CanModifyOverJsonRpcWithHttpPost)
+{
+  // initialized JSON-RPC
+  JSONRPC::CJSONRPC::Initialize();
+
+  std::string result;
+  CCurlFile curl;
+  curl.SetMimeType("application/json");
+  ASSERT_TRUE(curl.Post(GetUrl(TEST_URL_JSONRPC), "{ \"jsonrpc\": \"2.0\", \"method\": \"Input.Left\", \"id\": 1 }", result));
+  ASSERT_FALSE(result.empty());
+
+  // parse the JSON-RPC response
+  CVariant resultObj;
+  ASSERT_TRUE(CJSONVariantParser::Parse(result, resultObj));
+  // make sure it's an object
+  ASSERT_TRUE(resultObj.isObject());
+  // it must contain the "result" property with the "OK" value
+  ASSERT_TRUE(resultObj.isMember("result") && resultObj["result"].isString());
+  EXPECT_STREQ("OK", resultObj["result"].asString().c_str());
 
   // get the HTTP header details
   const CHttpHeader& httpHeader = curl.GetHttpHeader();

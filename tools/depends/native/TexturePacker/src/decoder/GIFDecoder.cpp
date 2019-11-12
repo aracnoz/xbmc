@@ -18,9 +18,11 @@
  *
  */
 
-#include <cstring>
 #include "GIFDecoder.h"
+
 #include "GifHelper.h"
+
+#include <cstring>
 
 // returns true for gif files, otherwise returns false
 bool GIFDecoder::CanDecode(const std::string &filename)
@@ -45,7 +47,7 @@ bool GIFDecoder::LoadFile(const std::string &filename, DecodedFrames &frames)
       for (unsigned int i = 0; i < extractedFrames.size(); i++)
       {
         DecodedFrame frame;
-        
+
         frame.rgbaImage.pixels = (char *)new char[frameSize];
         memcpy(frame.rgbaImage.pixels, extractedFrames[i]->m_pImage, frameSize);
         frame.rgbaImage.height = height;
@@ -53,11 +55,12 @@ bool GIFDecoder::LoadFile(const std::string &filename, DecodedFrames &frames)
         frame.rgbaImage.bbp = 32;
         frame.rgbaImage.pitch = pitch;
         frame.delay = extractedFrames[i]->m_delay;
-        
+
         frames.frameList.push_back(frame);
       }
     }
     frames.user = gifImage;
+    frames.destroyFN = &gifDestroyFN;
     return true;
   }
   else
@@ -76,8 +79,12 @@ void GIFDecoder::FreeDecodedFrames(DecodedFrames &frames)
   delete (GifHelper *)frames.user;
   frames.clear();
 }
+void GIFDecoder::gifDestroyFN(void* user)
+{
+  delete (GifHelper *)user;
+}
 
 void GIFDecoder::FillSupportedExtensions()
 {
-  m_supportedExtensions.push_back(".gif");
+  m_supportedExtensions.emplace_back(".gif");
 }

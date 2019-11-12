@@ -1,41 +1,37 @@
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "VideoLibraryRefreshingJob.h"
-#include "NfoFile.h"
+
+#include "ServiceBroker.h"
 #include "TextureDatabase.h"
 #include "addons/Scraper.h"
-#include "dialogs/GUIDialogExtendedProgressBar.h"
-#include "dialogs/GUIDialogOK.h"
-#include "dialogs/GUIDialogProgress.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "dialogs/GUIDialogYesNo.h"
+#include "filesystem/PluginDirectory.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIKeyboardFactory.h"
 #include "guilib/GUIWindowManager.h"
+#include "guilib/LocalizeStrings.h"
 #include "media/MediaType.h"
-#include "utils/log.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
 #include "video/VideoDatabase.h"
 #include "video/VideoInfoDownloader.h"
 #include "video/VideoInfoScanner.h"
+#include "video/tags/IVideoInfoTagLoader.h"
+#include "video/tags/VideoInfoTagLoaderFactory.h"
+#include "video/tags/VideoTagLoaderPlugin.h"
+
+using namespace KODI::MESSAGING;
+using namespace VIDEO;
 
 CVideoLibraryRefreshingJob::CVideoLibraryRefreshingJob(CFileItemPtr item, bool forceRefresh, bool refreshAll, bool ignoreNfo /* = false */, const std::string& searchTitle /* = "" */)
   : CVideoLibraryProgressJob(nullptr),
@@ -46,8 +42,7 @@ CVideoLibraryRefreshingJob::CVideoLibraryRefreshingJob(CFileItemPtr item, bool f
     m_searchTitle(searchTitle)
 { }
 
-CVideoLibraryRefreshingJob::~CVideoLibraryRefreshingJob()
-{ }
+CVideoLibraryRefreshingJob::~CVideoLibraryRefreshingJob() = default;
 
 bool CVideoLibraryRefreshingJob::operator==(const CJob* job) const
 {
@@ -72,6 +67,12 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
   if (scraper == nullptr)
     return false;
 
+  if (URIUtils::IsPlugin(m_item->GetPath()) && !XFILE::CPluginDirectory::IsMediaLibraryScanningAllowed(ADDON::TranslateContent(scraper->Content()), m_item->GetPath()))
+  {
+    CLog::Log(LOGNOTICE, "CVideoLibraryRefreshingJob: Plugin '%s' does not support media library scanning and refreshing", CURL::GetRedacted(m_item->GetPath()).c_str());
+    return false;
+  }
+
   // copy the scraper in case we need it again
   ADDON::ScraperPtr originalScraper(scraper);
 
@@ -81,7 +82,6 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
     itemTitle = m_item->GetMovieName(scanSettings.parent_name);
 
   CScraperUrl scraperUrl;
-  VIDEO::CVideoInfoScanner scanner;
   bool needsRefresh = m_forceRefresh;
   bool hasDetails = false;
   bool ignoreNfo = m_ignoreNfo;
@@ -90,20 +90,44 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
   bool failure = false;
   do
   {
+    std::unique_ptr<CVideoInfoTag> pluginTag;
+    std::unique_ptr<CGUIListItem::ArtMap> pluginArt;
+
     if (!ignoreNfo)
     {
+      std::unique_ptr<IVideoInfoTagLoader> loader;
+      loader.reset(CVideoInfoTagLoaderFactory::CreateLoader(*m_item, scraper,
+                                                            scanSettings.parent_name_root, m_forceRefresh));
       // check if there's an NFO for the item
-      CNfoFile::NFOResult nfoResult = scanner.CheckForNFOFile(m_item.get(), scanSettings.parent_name_root, scraper, scraperUrl);
-      // if there's no NFO remember it in case we have to refresh again
-      if (nfoResult == CNfoFile::ERROR_NFO)
-        ignoreNfo = true;
-      else if (nfoResult != CNfoFile::NO_NFO)
-        hasDetails = true;
+      CInfoScanner::INFO_TYPE nfoResult = CInfoScanner::NO_NFO;
+      if (loader)
+      {
+        std::unique_ptr<CVideoInfoTag> tag(new CVideoInfoTag());
+        nfoResult = loader->Load(*tag, false);
+        if (nfoResult == CInfoScanner::FULL_NFO && m_item->IsPlugin() && scraper->ID() == "metadata.local")
+        {
+          // get video info and art from plugin source with metadata.local scraper
+          if (scraper->Content() == CONTENT_TVSHOWS && !m_item->m_bIsFolder && tag->m_iIdShow < 0)
+            // preserve show_id for episode
+            tag->m_iIdShow = m_item->GetVideoInfoTag()->m_iIdShow;
+          pluginTag = std::move(tag);
+          CVideoTagLoaderPlugin* nfo = dynamic_cast<CVideoTagLoaderPlugin*>(loader.get());
+          if (nfo && nfo->GetArt())
+            pluginArt = std::move(nfo->GetArt());
+        }
+        else if (nfoResult == CInfoScanner::URL_NFO)
+          scraperUrl = loader->ScraperUrl();
+      }
 
+      // if there's no NFO remember it in case we have to refresh again
+      if (nfoResult == CInfoScanner::ERROR_NFO)
+        ignoreNfo = true;
+      else if (nfoResult != CInfoScanner::NO_NFO)
+        hasDetails = true;
 
       // if we are performing a forced refresh ask the user to choose between using a valid NFO and a valid scraper
       if (needsRefresh && IsModal() && !scraper->IsNoop()
-          && nfoResult != CNfoFile::ERROR_NFO)
+          && nfoResult != CInfoScanner::ERROR_NFO)
       {
         int heading = 20159;
         if (scraper->Content() == CONTENT_MOVIES)
@@ -141,7 +165,7 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
 
       // try to find a matching item
       MOVIELIST itemResultList;
-      int result = infoDownloader.FindMovie(itemTitle, itemResultList, GetProgressDialog());
+      int result = infoDownloader.FindMovie(itemTitle, -1, itemResultList, GetProgressDialog());
 
       // close the progress dialog
       MarkFinished();
@@ -157,7 +181,7 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
           else
           {
             // ask the user what to do
-            CGUIDialogSelect* selectDialog = static_cast<CGUIDialogSelect*>(g_windowManager.GetWindow(WINDOW_DIALOG_SELECT));
+            CGUIDialogSelect* selectDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
             selectDialog->Reset();
             selectDialog->SetHeading(scraper->Content() == CONTENT_TVSHOWS ? 20356 : 196);
             for (const auto& itemResult : itemResultList)
@@ -291,7 +315,18 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
       }
     }
 
+    if (pluginTag || pluginArt)
+      // set video info and art from plugin source with metadata.local scraper to items
+      for (auto &i: items)
+      {
+        if (pluginTag)
+          *i->GetVideoInfoTag() = *pluginTag;
+        if (pluginArt)
+          i->SetArt(*pluginArt);
+      }
+
     // finally download the information for the item
+    CVideoInfoScanner scanner;
     if (!scanner.RetrieveVideoInfo(items, scanSettings.parent_name,
                                    scraper->Content(), !ignoreNfo,
                                    scraperUrl.m_url.empty() ? NULL : &scraperUrl,
@@ -302,7 +337,7 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
 
       // check if the user cancelled
       if (!IsCancelled() && IsModal())
-        CGUIDialogOK::ShowAndGetInput(195, itemTitle);
+        HELPERS::ShowOKDialogText(CVariant{195}, CVariant{itemTitle});
 
       return false;
     }
@@ -327,7 +362,7 @@ bool CVideoLibraryRefreshingJob::Work(CVideoDatabase &db)
   } while (needsRefresh);
 
   if (failure && IsModal())
-    CGUIDialogOK::ShowAndGetInput(195, itemTitle);
+    HELPERS::ShowOKDialogText(CVariant{195}, CVariant{itemTitle});
 
   return true;
 }

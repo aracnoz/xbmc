@@ -1,26 +1,15 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include <stdint.h>
+#include <string>
 #include <time.h>
 
 class CDateTime;
@@ -31,10 +20,25 @@ int64_t CurrentHostFrequency(void);
 class CTimeUtils
 {
 public:
-  static void UpdateFrameTime(bool flip); ///< update the frame time.  Not threadsafe
-  static unsigned int GetFrameTime(); ///< returns the frame time in MS.  Not threadsafe
+  
+  /*!
+   * @brief Update the time frame
+   * @note Not threadsafe
+   */
+  static void UpdateFrameTime(bool flip);
+  
+  /*!
+   * @brief Returns the frame time in MS
+   * @note Not threadsafe
+   */
+  static unsigned int GetFrameTime();
   static CDateTime GetLocalTime(time_t time);
-
+  
+  /*!
+   * @brief Returns a time string without seconds, i.e: HH:MM
+   * @param hhmmss Time string in the format HH:MM:SS
+  */
+  static std::string WithoutSeconds(const std::string hhmmss);
 private:
   static unsigned int frameTime;
 };

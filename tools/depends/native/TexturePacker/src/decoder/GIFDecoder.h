@@ -19,17 +19,20 @@
  */
 
 #pragma once
+
 #include "IDecoder.h"
 
 class GIFDecoder : public IDecoder
 {
   public:
-    virtual ~GIFDecoder(){}
-    virtual bool CanDecode(const std::string &filename);
-    virtual bool LoadFile(const std::string &filename, DecodedFrames &frames);
-    virtual void FreeDecodedFrames(DecodedFrames &frames);
-    virtual const char* GetImageFormatName() { return "GIF"; }
-    virtual const char* GetDecoderName() { return "libgif"; }
+    ~GIFDecoder() override = default;
+    bool CanDecode(const std::string &filename) override;
+    bool LoadFile(const std::string &filename, DecodedFrames &frames) override;
+    void FreeDecodedFrames(DecodedFrames &frames) override;
+    const char* GetImageFormatName() override { return "GIF"; }
+    const char* GetDecoderName() override { return "libgif"; }
   protected:
-    virtual void FillSupportedExtensions();
+    void FillSupportedExtensions() override;
+  private:
+    static void gifDestroyFN(void* user);
 };

@@ -7,8 +7,18 @@ LIST_BINARY_EXTENSIONS="dylib so"
 
 export CODESIGN_ALLOCATE=`xcodebuild -find codesign_allocate`
 
-GEN_ENTITLEMENTS="$XBMC_DEPENDS_ROOT/buildtools-native/bin/gen_entitlements.py"
-LDID="$XBMC_DEPENDS_ROOT/buildtools-native/bin/ldid"
+GEN_ENTITLEMENTS="$NATIVEPREFIX/bin/gen_entitlements.py"
+IOS11_ENTITLEMENTS="$XBMC_DEPENDS/share/ios11_entitlements.xml"
+LDID32="$NATIVEPREFIX/bin/ldid32"
+LDID64="$NATIVEPREFIX/bin/ldid64"
+LDID=${LDID32}
+
+if [ "${CURRENT_ARCH}" == "arm64" ] || [ "${CURRENT_ARCH}" == "aarch64" ]; then
+  LDID=${LDID64}
+  echo "using LDID64"
+else
+  echo "using LDID32"
+fi
 
 if [ ! -f ${GEN_ENTITLEMENTS} ]; then
   echo "error: $GEN_ENTITLEMENTS not found. Codesign won't work."
@@ -23,12 +33,31 @@ if [ "${PLATFORM_NAME}" == "iphoneos" ] || [ "${PLATFORM_NAME}" == "appletvos" ]
 
   #do fake sign - needed for jailbroken ios5.1 devices for some reason
   if [ -f ${LDID} ]; then
-    ${LDID} -S ${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/${APP_NAME}
+    find ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/ -name "*.dylib" | xargs ${LDID} -S${IOS11_ENTITLEMENTS}
+    find ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/ -name "*.so" | xargs ${LDID} -S${IOS11_ENTITLEMENTS}
+    ${LDID} -S${IOS11_ENTITLEMENTS} ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/${EXECUTABLE_NAME}
+    
+    #repackage python eggs
+    EGGS=`find ${CODESIGNING_FOLDER_PATH} -name "*.egg" -type f`
+        for i in $EGGS; do
+          echo $i
+          mkdir del
+          unzip $i -d del
+          find ./del/ -name "*.so" -type f |  xargs ${LDID} -S${IOS11_ENTITLEMENTS}
+          rm $i
+          cd del && zip -r $i ./* &&  cd ..
+          rm -r ./del/
+        done
   fi
 
   # pull the CFBundleIdentifier out of the built xxx.app
   BUNDLEID=`mdls -raw -name kMDItemCFBundleIdentifier ${CODESIGNING_FOLDER_PATH}`
+  if [ "${BUNDLEID}" == "(null)" ] ; then
+    BUNDLEID=`/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' ${CODESIGNING_FOLDER_PATH}/Info.plist`
+  fi
+
   echo "CFBundleIdentifier is ${BUNDLEID}"
+
 
   # Prefer the expanded name, if available.
   CODE_SIGN_IDENTITY_FOR_ITEMS="${EXPANDED_CODE_SIGN_IDENTITY_NAME}"
@@ -38,9 +67,9 @@ if [ "${PLATFORM_NAME}" == "iphoneos" ] || [ "${PLATFORM_NAME}" == "appletvos" ]
  fi
  echo "${CODE_SIGN_IDENTITY_FOR_ITEMS}"
 
-  ${GEN_ENTITLEMENTS} "${BUNDLEID}" "${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/${PROJECT_NAME}.xcent";
-  codesign -v -f -s "${CODE_SIGN_IDENTITY_FOR_ITEMS}" --entitlements "${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/${PROJECT_NAME}.xcent" "${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/"
-  
+  ${GEN_ENTITLEMENTS} "${BUNDLEID}" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/${EXECUTABLE_NAME}.xcent";
+  codesign -v -f -s "${CODE_SIGN_IDENTITY_FOR_ITEMS}" --entitlements "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/${EXECUTABLE_NAME}.xcent" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/"
+
   #if user has set a code_sign_identity different from iPhone Developer we do a real codesign (for deployment on non-jailbroken devices)
   if ! [ -z "${CODE_SIGN_IDENTITY}" ] && [ "${CODE_SIGN_IDENTITY}" == "iPhone Developer" ] && [ "${CODE_SIGN_IDENTITY}" != "Don't Code Sign"  ]; then
     echo "Doing a full bundle sign using genuine identity ${CODE_SIGN_IDENTITY}"

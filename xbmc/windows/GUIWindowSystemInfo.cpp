@@ -1,36 +1,29 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "GUIWindowSystemInfo.h"
+
 #include "GUIInfoManager.h"
-#include "guilib/WindowIDs.h"
+#include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIMessage.h"
 #include "guilib/LocalizeStrings.h"
+#include "guilib/WindowIDs.h"
+#include "guilib/guiinfo/GUIInfoLabels.h"
 #include "pvr/PVRManager.h"
-#include "utils/SystemInfo.h"
-#include "utils/StringUtils.h"
 #include "storage/MediaManager.h"
-#include "guiinfo/GUIInfoLabels.h"
 #ifdef HAS_DS_PLAYER
 #include "DSFilterVersion.h"
 #endif
+
+#include "utils/CPUInfo.h"
+#include "utils/StringUtils.h"
+#include "utils/SystemInfo.h"
 
 #define CONTROL_TB_POLICY   30
 #define CONTROL_BT_STORAGE  94
@@ -51,9 +44,7 @@ CGUIWindowSystemInfo::CGUIWindowSystemInfo(void) :
   m_loadType = KEEP_IN_MEMORY;
 }
 
-CGUIWindowSystemInfo::~CGUIWindowSystemInfo(void)
-{
-}
+CGUIWindowSystemInfo::~CGUIWindowSystemInfo(void) = default;
 
 bool CGUIWindowSystemInfo::OnMessage(CGUIMessage& message)
 {
@@ -64,7 +55,7 @@ bool CGUIWindowSystemInfo::OnMessage(CGUIMessage& message)
       CGUIWindow::OnMessage(message);
       SET_CONTROL_LABEL(52, CSysInfo::GetAppName() + " " + CSysInfo::GetVersion());
       SET_CONTROL_LABEL(53, CSysInfo::GetBuildDate());
-      CONTROL_ENABLE_ON_CONDITION(CONTROL_BT_PVR, PVR::CPVRManager::GetInstance().IsStarted());
+      CONTROL_ENABLE_ON_CONDITION(CONTROL_BT_PVR, CServiceBroker::GetPVRManager().IsStarted());
       return true;
     }
     break;
@@ -90,7 +81,7 @@ bool CGUIWindowSystemInfo::OnMessage(CGUIMessage& message)
         SET_CONTROL_HIDDEN(CONTROL_TB_POLICY);
       else if (m_section == CONTROL_BT_POLICY)
       {
-        SET_CONTROL_LABEL(CONTROL_TB_POLICY, g_infoManager.GetLabel(SYSTEM_PRIVACY_POLICY));
+        SET_CONTROL_LABEL(CONTROL_TB_POLICY, CServiceBroker::GetGUI()->GetInfoManager().GetLabel(SYSTEM_PRIVACY_POLICY));
         SET_CONTROL_VISIBLE(CONTROL_TB_POLICY);
       }
       return true;
@@ -119,7 +110,7 @@ void CGUIWindowSystemInfo::FrameMove()
   {
     SET_CONTROL_LABEL(40, g_localizeStrings.Get(20155));
     if (m_diskUsage.empty())
-      m_diskUsage = g_mediaManager.GetDiskUsage();
+      m_diskUsage = CServiceBroker::GetMediaManager().GetDiskUsage();
 
     for (size_t d = 0; d < m_diskUsage.size(); d++)
     {
@@ -130,7 +121,7 @@ void CGUIWindowSystemInfo::FrameMove()
   else if (m_section == CONTROL_BT_NETWORK)
   {
     SET_CONTROL_LABEL(40,g_localizeStrings.Get(20158));
-    SET_CONTROL_LABEL(i++, g_infoManager.GetLabel(NETWORK_LINK_STATE));
+    SET_CONTROL_LABEL(i++, CServiceBroker::GetGUI()->GetInfoManager().GetLabel(NETWORK_LINK_STATE));
     SetControlLabel(i++, "%s: %s", 149, NETWORK_MAC_ADDRESS);
     SetControlLabel(i++, "%s: %s", 150, NETWORK_IP_ADDRESS);
     SetControlLabel(i++, "%s: %s", 13159, NETWORK_SUBNET_MASK);
@@ -143,7 +134,7 @@ void CGUIWindowSystemInfo::FrameMove()
   else if (m_section == CONTROL_BT_VIDEO)
   {
     SET_CONTROL_LABEL(40,g_localizeStrings.Get(20159));
-    SET_CONTROL_LABEL(i++,g_infoManager.GetLabel(SYSTEM_VIDEO_ENCODER_INFO));
+    SET_CONTROL_LABEL(i++,CServiceBroker::GetGUI()->GetInfoManager().GetLabel(SYSTEM_VIDEO_ENCODER_INFO));
     SetControlLabel(i++, "%s %s", 13287, SYSTEM_SCREEN_RESOLUTION);
 #ifndef HAS_DX
     SetControlLabel(i++, "%s %s", 22007, SYSTEM_RENDER_VENDOR);
@@ -156,7 +147,7 @@ void CGUIWindowSystemInfo::FrameMove()
 #endif
 #ifdef HAS_DS_PLAYER
     i++;  // empty line
-    SetControlLabel(i++, "%s: %s", 55102, CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::MADSHI_VIDEO_RENDERER));   
+    SetControlLabel(i++, "%s: %s", 55102, CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::MADSHI_VIDEO_RENDERER));
     SetControlLabel(i++, "%s: %s", 55131, CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::INTERNAL_SANEAR));
     if (CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::INTERNAL_LAVSPLITTER) == CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::INTERNAL_LAVVIDEO)
       && CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::INTERNAL_LAVSPLITTER) == CDSFilterVersion::Get()->GetStringVersion(CGraphFilters::INTERNAL_LAVAUDIO))
@@ -179,12 +170,14 @@ void CGUIWindowSystemInfo::FrameMove()
   else if (m_section == CONTROL_BT_HARDWARE)
   {
     SET_CONTROL_LABEL(40,g_localizeStrings.Get(20160));
-    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUModel());
+    SET_CONTROL_LABEL(i++, "CPU: " + CServiceBroker::GetCPUInfo()->GetCPUModel());
 #if defined(__arm__) && defined(TARGET_LINUX)
-    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUBogoMips());
-    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUHardware());
-    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPURevision());
-    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUSerial());
+    SET_CONTROL_LABEL(i++, "BogoMips: " + CServiceBroker::GetCPUInfo()->GetCPUBogoMips());
+    if (!CServiceBroker::GetCPUInfo()->GetCPUSoC().empty())
+      SET_CONTROL_LABEL(i++, "SoC: " + CServiceBroker::GetCPUInfo()->GetCPUSoC());
+    SET_CONTROL_LABEL(i++, "Hardware: " + CServiceBroker::GetCPUInfo()->GetCPUHardware());
+    SET_CONTROL_LABEL(i++, "Revision: " + CServiceBroker::GetCPUInfo()->GetCPURevision());
+    SET_CONTROL_LABEL(i++, "Serial: " + CServiceBroker::GetCPUInfo()->GetCPUSerial());
 #endif
     SetControlLabel(i++, "%s %s", 22011, SYSTEM_CPU_TEMPERATURE);
 #if (!defined(__arm__) && !defined(__aarch64__)) || defined(TARGET_RASPBERRY_PI)
@@ -234,7 +227,7 @@ void CGUIWindowSystemInfo::ResetLabels()
 void CGUIWindowSystemInfo::SetControlLabel(int id, const char *format, int label, int info)
 {
   std::string tmpStr = StringUtils::Format(format, g_localizeStrings.Get(label).c_str(),
-      g_infoManager.GetLabel(info).c_str());
+      CServiceBroker::GetGUI()->GetInfoManager().GetLabel(info).c_str());
   SET_CONTROL_LABEL(id, tmpStr);
 }
 

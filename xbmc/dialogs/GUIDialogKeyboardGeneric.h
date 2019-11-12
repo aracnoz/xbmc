@@ -1,31 +1,19 @@
 /*
- *      Copyright (C) 2012-2013 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "guilib/GUIDialog.h"
+#include "guilib/GUIKeyboard.h"
+#include "input/KeyboardLayout.h"
+
 #include <string>
 #include <vector>
-
-#include "guilib/GUIKeyboard.h"
-#include "guilib/GUIDialog.h"
-#include "input/KeyboardLayout.h"
 
 class CGUIFont;
 
@@ -37,9 +25,9 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     CGUIDialogKeyboardGeneric();
 
     //CGUIKeyboard Interface
-    virtual bool ShowAndGetInput(char_callback_t pCallback, const std::string &initialString, std::string &typedString, const std::string &heading, bool bHiddenInput);
-    virtual void Cancel();
-    virtual int GetWindowId() const;
+    bool ShowAndGetInput(char_callback_t pCallback, const std::string &initialString, std::string &typedString, const std::string &heading, bool bHiddenInput) override;
+    void Cancel() override;
+    int GetWindowId() const override;
 
     void SetHeading(const std::string& heading);
     void SetText(const std::string& text);
@@ -49,17 +37,18 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     bool IsInputHidden() const { return m_hiddenInput; };
 
   protected:
-    virtual void OnWindowLoaded();
-    virtual void OnInitWindow();
-    virtual bool OnAction(const CAction &action);
-    virtual bool OnMessage(CGUIMessage& message);
-    virtual void OnDeinitWindow(int nextWindowID);
+    void OnWindowLoaded() override;
+    void OnInitWindow() override;
+    bool OnAction(const CAction &action) override;
+    bool OnMessage(CGUIMessage& message) override;
+    void OnDeinitWindow(int nextWindowID) override;
     void SetControlLabel(int id, const std::string &label);
     void OnShift();
     void MoveCursor(int iAmount);
     void OnLayout();
     void OnSymbols();
     void OnIPAddress();
+    void OnVoiceRecognition();
     void OnOK();
 
   private:
@@ -91,9 +80,9 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     std::vector<std::wstring> m_words;
     std::string m_hzcode;
     int         m_pos;
-    int         m_num;
+    int         m_num = 0;
     float       m_listwidth;
-    CGUIFont   *m_listfont;
+    CGUIFont   *m_listfont = nullptr;
     CCriticalSection  m_CS;
 
     char_callback_t m_pCharCallback;

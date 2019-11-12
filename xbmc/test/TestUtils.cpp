@@ -1,27 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TestUtils.h"
 #include "Util.h"
 #include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
+#include "platform/Filesystem.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 
@@ -33,46 +22,27 @@
 #include <ctime>
 #endif
 
+#include <system_error>
+
+namespace fs = KODI::PLATFORM::FILESYSTEM;
+
 class CTempFile : public XFILE::CFile
 {
 public:
-  CTempFile(){};
+  CTempFile() = default;
   ~CTempFile()
   {
     Delete();
   }
   bool Create(const std::string &suffix)
   {
-    char tmp[MAX_PATH];
+    std::error_code ec;
+    m_ptempFilePath = fs::temp_file_path(suffix, ec);
+    if (ec)
+      return false;
 
-    m_ptempFileDirectory = CSpecialProtocol::TranslatePath("special://temp/");
-    m_ptempFilePath = m_ptempFileDirectory + "xbmctempfileXXXXXX";
-    m_ptempFilePath += suffix;
-    if (m_ptempFilePath.length() >= MAX_PATH)
-    {
-      m_ptempFilePath = "";
+    if (m_ptempFilePath.empty())
       return false;
-    }
-    strcpy(tmp, m_ptempFilePath.c_str());
-
-#ifdef TARGET_WINDOWS
-    if (!GetTempFileName(CSpecialProtocol::TranslatePath("special://temp/").c_str(),
-                         "xbmctempfile", 0, tmp))
-    {
-      m_ptempFilePath = "";
-      return false;
-    }
-    m_ptempFilePath = tmp;
-#else
-    int fd;
-    if ((fd = mkstemps(tmp, suffix.length())) < 0)
-    {
-      m_ptempFilePath = "";
-      return false;
-    }
-    close(fd);
-    m_ptempFilePath = tmp;
-#endif
 
     OpenForWrite(m_ptempFilePath.c_str(), true);
     return true;
@@ -88,11 +58,10 @@ public:
   }
   std::string getTempFileDirectory() const
   {
-    return m_ptempFileDirectory;
+    return URIUtils::GetDirectory(m_ptempFilePath);
   }
 private:
   std::string m_ptempFilePath;
-  std::string m_ptempFileDirectory;
 };
 
 CXBMCTestUtils::CXBMCTestUtils()
@@ -165,7 +134,7 @@ XFILE::CFile *CXBMCTestUtils::CreateCorruptedFile(std::string const& strFileName
 {
   XFILE::CFile inputfile, *tmpfile = CreateTempFile(suffix);
   unsigned char buf[20], tmpchar;
-  unsigned int size, i;
+  ssize_t size, i;
 
   if (tmpfile && inputfile.Open(strFileName))
   {
@@ -231,10 +200,10 @@ std::vector<std::string> &CXBMCTestUtils::getGUISettingsFiles()
 }
 
 static const char usage[] =
-"XBMC Test Suite\n"
-"Usage: xbmc-test [options]\n"
+"Kodi Test Suite\n"
+"Usage: kodi-test [options]\n"
 "\n"
-"The following options are recognized by the xbmc-test program.\n"
+"The following options are recognized by the kodi-test program.\n"
 "\n"
 "  --add-testfilefactory-readurl [URL]\n"
 "    Add a url to be used int the TestFileFactory read tests.\n"
@@ -283,27 +252,25 @@ void CXBMCTestUtils::ParseArgs(int argc, char **argv)
     arg = argv[i];
     if (arg == "--add-testfilefactory-readurl")
     {
-      TestFileFactoryReadUrls.push_back(argv[++i]);
+      TestFileFactoryReadUrls.emplace_back(argv[++i]);
     }
     else if (arg == "--add-testfilefactory-readurls")
     {
       arg = argv[++i];
       std::vector<std::string> urls = StringUtils::Split(arg, ",");
-      std::vector<std::string>::iterator it;
-      for (it = urls.begin(); it < urls.end(); ++it)
-        TestFileFactoryReadUrls.push_back(*it);
+      for (const auto& it : urls)
+        TestFileFactoryReadUrls.push_back(it);
     }
     else if (arg == "--add-testfilefactory-writeurl")
     {
-      TestFileFactoryWriteUrls.push_back(argv[++i]);
+      TestFileFactoryWriteUrls.emplace_back(argv[++i]);
     }
     else if (arg == "--add-testfilefactory-writeurls")
     {
       arg = argv[++i];
       std::vector<std::string> urls = StringUtils::Split(arg, ",");
-      std::vector<std::string>::iterator it;
-      for (it = urls.begin(); it < urls.end(); ++it)
-        TestFileFactoryWriteUrls.push_back(*it);
+      for (const auto& it : urls)
+        TestFileFactoryWriteUrls.push_back(it);
     }
     else if (arg == "--set-testfilefactory-writeinputfile")
     {
@@ -311,27 +278,25 @@ void CXBMCTestUtils::ParseArgs(int argc, char **argv)
     }
     else if (arg == "--add-advancedsettings-file")
     {
-      AdvancedSettingsFiles.push_back(argv[++i]);
+      AdvancedSettingsFiles.emplace_back(argv[++i]);
     }
     else if (arg == "--add-advancedsettings-files")
     {
       arg = argv[++i];
       std::vector<std::string> urls = StringUtils::Split(arg, ",");
-      std::vector<std::string>::iterator it;
-      for (it = urls.begin(); it < urls.end(); ++it)
-        AdvancedSettingsFiles.push_back(*it);
+      for (const auto& it : urls)
+        AdvancedSettingsFiles.push_back(it);
     }
     else if (arg == "--add-guisettings-file")
     {
-      GUISettingsFiles.push_back(argv[++i]);
+      GUISettingsFiles.emplace_back(argv[++i]);
     }
     else if (arg == "--add-guisettings-files")
     {
       arg = argv[++i];
       std::vector<std::string> urls = StringUtils::Split(arg, ",");
-      std::vector<std::string>::iterator it;
-      for (it = urls.begin(); it < urls.end(); ++it)
-        GUISettingsFiles.push_back(*it);
+      for (const auto& it : urls)
+        GUISettingsFiles.push_back(it);
     }
     else if (arg == "--set-probability")
     {

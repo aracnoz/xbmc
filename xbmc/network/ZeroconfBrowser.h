@@ -1,25 +1,14 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include <atomic>
 #include <string>
 #include <set>
 #include <vector>
@@ -41,7 +30,7 @@ public:
     public:
       typedef std::map<std::string, std::string> tTxtRecordMap;
 
-      ZeroconfService();
+      ZeroconfService() = default;
       ZeroconfService(const std::string& fcr_name, const std::string& fcr_type, const std::string& fcr_domain);
 
       /// easy conversion to string and back (used in czeronfdiretory to store this service)
@@ -72,7 +61,7 @@ public:
 
       void SetPort(int f_port);
       int GetPort() const {return m_port;}
-    
+
       void SetTxtRecords(const tTxtRecordMap& txt_records);
       const tTxtRecordMap& GetTxtRecords() const { return m_txtrecords_map;}
       ///@}
@@ -84,14 +73,14 @@ public:
 
       //2 entries below store 1 ip:port pair for this service
       std::string m_ip;
-      int        m_port;
+      int        m_port = 0;
 
       //used for mdns in case dns resolution fails
       //we store the hostname and resolve with mdns functions again
       std::string m_hostname;
-      
+
       //1 entry below stores the txt-record as a key value map for this service
-      tTxtRecordMap m_txtrecords_map;    
+      tTxtRecordMap m_txtrecords_map;
   };
 
   // starts browsing
@@ -142,7 +131,8 @@ public:
 protected:
   //singleton: we don't want to get instantiated nor copied or deleted from outside
   CZeroconfBrowser();
-  CZeroconfBrowser(const CZeroconfBrowser&);
+  CZeroconfBrowser(const CZeroconfBrowser&) = delete;
+  CZeroconfBrowser& operator=(const CZeroconfBrowser&) = delete;
   virtual ~CZeroconfBrowser();
 
   // pure virtual methods to implement for OS specific implementations
@@ -161,10 +151,10 @@ private:
   CCriticalSection* mp_crit_sec;
   typedef std::set<std::string> tServices;
   tServices m_services;
-  bool m_started;
+  bool m_started = false;
 
   //protects singleton creation/destruction
-  static long sm_singleton_guard;
+  static std::atomic_flag sm_singleton_guard;
   static CZeroconfBrowser* smp_instance;
 };
 #include <iostream>

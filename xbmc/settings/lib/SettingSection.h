@@ -1,30 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
-#include <vector>
+#pragma once
 
 #include "ISetting.h"
 #include "Setting.h"
 #include "SettingCategoryAccess.h"
+
+#include <string>
+#include <vector>
 
 class CSettingsManager;
 
@@ -43,11 +32,11 @@ public:
    \param id Identifier of the setting group
    \param settingsManager Reference to the settings manager
    */
-  CSettingGroup(const std::string &id, CSettingsManager *settingsManager = NULL);
-  ~CSettingGroup();
+  CSettingGroup(const std::string &id, CSettingsManager *settingsManager = nullptr);
+  ~CSettingGroup() override = default;
 
   // implementation of ISetting
-  virtual bool Deserialize(const TiXmlNode *node, bool update = false) override;
+  bool Deserialize(const TiXmlNode *node, bool update = false) override;
 
   /*!
    \brief Gets the full list of settings belonging to the setting group.
@@ -65,19 +54,22 @@ public:
    */
   SettingList GetSettings(SettingLevel level) const;
 
-  void AddSetting(CSetting *setting);
+  void AddSetting(std::shared_ptr<CSetting> setting);
   void AddSettings(const SettingList &settings);
 
-  const ISettingControl *GetControl() const { return m_control; }
-  ISettingControl *GetControl() { return m_control; }
-  void SetControl(ISettingControl *control) { m_control = control; }
+  bool ReplaceSetting(std::shared_ptr<const CSetting> currentSetting, std::shared_ptr<CSetting> newSetting);
+
+  std::shared_ptr<const ISettingControl> GetControl() const { return m_control; }
+  std::shared_ptr<ISettingControl> GetControl() { return m_control; }
+  void SetControl(std::shared_ptr<ISettingControl> control) { m_control = control; }
 
 private:
   SettingList m_settings;
-  ISettingControl *m_control;
+  std::shared_ptr<ISettingControl> m_control;
 };
 
-typedef std::vector<CSettingGroup *> SettingGroupList;
+using SettingGroupPtr = std::shared_ptr<CSettingGroup>;
+using SettingGroupList = std::vector<SettingGroupPtr>;
 
 /*!
  \ingroup settings
@@ -94,11 +86,11 @@ public:
    \param id Identifier of the setting category
    \param settingsManager Reference to the settings manager
    */
-  CSettingCategory(const std::string &id, CSettingsManager *settingsManager = NULL);
-  ~CSettingCategory();
+  CSettingCategory(const std::string &id, CSettingsManager *settingsManager = nullptr);
+  ~CSettingCategory() override = default;
 
   // implementation of ISetting
-  virtual bool Deserialize(const TiXmlNode *node, bool update = false) override;
+  bool Deserialize(const TiXmlNode *node, bool update = false) override;
 
   /*!
    \brief Gets the full list of setting groups belonging to the setting
@@ -124,7 +116,7 @@ public:
    */
   bool CanAccess() const;
 
-  void AddGroup(CSettingGroup *group);
+  void AddGroup(SettingGroupPtr group);
   void AddGroups(const SettingGroupList &groups);
 
 private:
@@ -132,7 +124,8 @@ private:
   CSettingCategoryAccess m_accessCondition;
 };
 
-typedef std::vector<CSettingCategory *> SettingCategoryList;
+using SettingCategoryPtr = std::shared_ptr<CSettingCategory>;
+using SettingCategoryList = std::vector<SettingCategoryPtr>;
 
 /*!
  \ingroup settings
@@ -149,11 +142,11 @@ public:
    \param id Identifier of the setting section
    \param settingsManager Reference to the settings manager
    */
-  CSettingSection(const std::string &id, CSettingsManager *settingsManager = NULL);
-  ~CSettingSection();
+  CSettingSection(const std::string &id, CSettingsManager *settingsManager = nullptr);
+  ~CSettingSection() override = default;
 
   // implementation of ISetting
-  virtual bool Deserialize(const TiXmlNode *node, bool update = false) override;
+  bool Deserialize(const TiXmlNode *node, bool update = false) override;
 
   /*!
    \brief Gets the full list of setting categories belonging to the setting
@@ -172,9 +165,12 @@ public:
    */
   SettingCategoryList GetCategories(SettingLevel level) const;
 
-  void AddCategory(CSettingCategory *category);
+  void AddCategory(SettingCategoryPtr category);
   void AddCategories(const SettingCategoryList &categories);
 
 private:
   SettingCategoryList m_categories;
 };
+
+using SettingSectionPtr = std::shared_ptr<CSettingSection>;
+using SettingSectionList = std::vector<SettingSectionPtr>;

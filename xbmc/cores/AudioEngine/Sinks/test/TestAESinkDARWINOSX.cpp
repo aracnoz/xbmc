@@ -1,31 +1,19 @@
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "gtest/gtest.h"
-
-#if defined(TARGET_DARWIN_OSX)
-#include "cores/AudioEngine/Sinks/osx/CoreAudioHardware.h"
-#include "cores/AudioEngine/Sinks/osx/CoreAudioHelpers.h"
-#include "cores/AudioEngine/Utils/AEUtil.h"
+#include "cores/AudioEngine/Sinks/darwin/CoreAudioHelpers.h"
 #include "cores/AudioEngine/Sinks/osx/AEDeviceEnumerationOSX.h"
+#include "cores/AudioEngine/Sinks/osx/CoreAudioHardware.h"
+#include "cores/AudioEngine/Utils/AEUtil.h"
+
 #include <vector>
+
+#include <gtest/gtest.h>
 
 std::vector<AudioStreamBasicDescription> stereoFormatsWithPassthrough;
 std::vector<AudioStreamBasicDescription> stereoFormatsWithoutPassthrough;
@@ -70,15 +58,15 @@ void addPassthroughFormats(std::vector<AudioStreamBasicDescription> &streamForma
 
   FillOutASBDForLPCM(streamFormat, 96000, 2, 16, 16, false, false, false);
   streamFormat.mFormatID = kAudioFormat60958AC3;
-  streamFormats.push_back(streamFormat); // stereoFormtsWithoutPassthrough.size() + 0
+  streamFormats.push_back(streamFormat); // stereoFormatsWithoutPassthrough.size() + 0
 
   FillOutASBDForLPCM(streamFormat, 48000, 2, 16, 16, false, false, false);
   streamFormat.mFormatID = kAudioFormat60958AC3;
-  streamFormats.push_back(streamFormat); // stereoFormtsWithoutPassthrough.size() + 1
+  streamFormats.push_back(streamFormat); // stereoFormatsWithoutPassthrough.size() + 1
 
   FillOutASBDForLPCM(streamFormat, 44100, 2, 16, 16, false, false, false);
   streamFormat.mFormatID = kAudioFormat60958AC3;
-  streamFormats.push_back(streamFormat); // stereoFormtsWithoutPassthrough.size() + 2
+  streamFormats.push_back(streamFormat); // stereoFormatsWithoutPassthrough.size() + 2
 }
 
 void initStereoFormatsWithoutPassthrough()
@@ -394,4 +382,3 @@ TEST(TestAESinkDARWINOSXScoreStream, MatchFloat5_1_96000InAllWithoutPassthroughF
   formatIdx = findMatchingFormat(allFormatsWithoutPassthrough, srcFormat);
   EXPECT_EQ(formatIdx, (unsigned int)15);
 }
-#endif //TARGET_DARWIN_OSX

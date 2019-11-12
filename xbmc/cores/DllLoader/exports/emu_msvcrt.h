@@ -1,24 +1,17 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include <stdint.h>
+#include <stdio.h>
+
+#include "PlatformDefs.h"
 
 #ifdef TARGET_POSIX
 #define _onexit_t void*
@@ -45,13 +38,7 @@ typedef void ( *PFV)(void);
 #define IS_STDIN_STREAM(stream)     (stream != NULL && __IS_STDIN_STREAM(stream))
 #define IS_STDOUT_STREAM(stream)    (stream != NULL && __IS_STDOUT_STREAM(stream))
 #define IS_STDERR_STREAM(stream)    (stream != NULL && __IS_STDERR_STREAM(stream))
-#if defined(TARGET_WINDOWS) && (_MSC_VER < 1900)
-#define IS_VALID_STREAM(stream)     (stream != NULL && (stream->_ptr != NULL))
-#elif defined(TARGET_WINDOWS) && (_MSC_VER >= 1900)
-#define IS_VALID_STREAM(stream)     (stream != nullptr && (stream->_Placeholder != nullptr))
-#else
-#define IS_VALID_STREAM(stream)     true
-#endif
+#define IS_VALID_STREAM(stream)     (stream != nullptr)
 
 
 #define IS_STD_STREAM(stream)       (stream != NULL && (__IS_STDIN_STREAM(stream) || __IS_STDOUT_STREAM(stream) || __IS_STDERR_STREAM(stream)))
@@ -125,7 +112,7 @@ extern "C"
   long dll_ftell(FILE *stream);
   off64_t dll_ftell64(FILE *stream);
   long dll_tell ( int fd );
-  __int64 dll_telli64 ( int fd );
+  long long dll_telli64 ( int fd );
   size_t dll_fwrite ( const void * buffer, size_t size, size_t count, FILE * stream );
   int dll_fflush (FILE * stream);
   int dll_ferror (FILE * stream);
@@ -140,13 +127,6 @@ extern "C"
   void dll_clearerr(FILE* stream);
   int dll_initterm(PFV * start, PFV * end);
   uintptr_t dll_beginthread(void( *start_address )( void * ),unsigned stack_size,void *arglist);
-  HANDLE dll_beginthreadex(LPSECURITY_ATTRIBUTES lpThreadAttributes, DWORD dwStackSize,
-                           LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags,
-#ifdef TARGET_FREEBSD
-                           LPLONG lpThreadId);
-#else
-                           LPDWORD lpThreadId);
-#endif
   int dll_stati64(const char *path, struct _stati64 *buffer);
   int dll_stat64(const char *path, struct __stat64 *buffer);
 #ifdef TARGET_WINDOWS
@@ -159,7 +139,7 @@ extern "C"
   void dllperror(const char* s);
   char* dllstrerror(int iErr);
   int dll_mkdir(const char* dir);
-  char* dll_getcwd(char *buffer, int maxlen);
+  const char* dll_getcwd(char *buffer, int maxlen);
   int dll_putenv(const char* envstring);
   int dll_ctype(int i);
   int dll_system(const char *command);
@@ -178,11 +158,6 @@ extern "C"
   int dll_open_osfhandle(intptr_t _OSFileHandle, int _Flags);
 #endif
   int dll_setvbuf(FILE *stream, char *buf, int type, size_t size);
-
-#if _MSC_VER < 1900
-  int dll_filbuf(FILE *fp);
-  int dll_flsbuf(int data, FILE*fp);
-#endif
 
 #if defined(TARGET_ANDROID)
   volatile int * __cdecl dll_errno(void);

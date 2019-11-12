@@ -9,7 +9,6 @@
 			<width>1520</width>
 			<include>Animation_DialogPopupVisible</include>
 			<visible>!Window.IsVisible(sliderdialog)</visible>
-			<visible>![Window.IsActive(osdaudiodspsettings) + Window.Is(osdaudiosettings)]</visible>
 			<include content="DialogBackgroundCommons">
 				<param name="width" value="1520" />
 				<param name="height" value="870" />
@@ -29,8 +28,9 @@
 				<top>100</top>
 				<width>1160</width>
 				<height>750</height>
+				<pagecontrol>60</pagecontrol>
 				<onleft>9000</onleft>
-				<onright>9000</onright>
+				<onright>60</onright>
 				<onup>5</onup>
 				<ondown>5</ondown>
 			</control>
@@ -57,6 +57,7 @@
 			<control type="sliderex" id="13">
 				<description>Default Slider</description>
 				<include>DefaultSettingButton</include>
+				<textwidth>800</textwidth>
 			</control>
 			<control type="label" id="14">
 				<description>Default Label</description>
@@ -83,6 +84,17 @@
 					<param name="id" value="30" />
 					<param name="label" value="" />
 				</include>
+			</control>
+			<control type="scrollbar" id="60">
+				<left>1189</left>
+				<top>100</top>
+				<width>12</width>
+				<height>750</height>
+				<orientation>vertical</orientation>
+				<onleft>5</onleft>
+				<onright>9000</onright>
+				<animation effect="fade" start="0" end="100" delay="300" time="320">WindowOpen</animation>
+				<animation effect="fade" start="100" end="0" time="150">WindowClose</animation>
 			</control>
 		</control>
 	</controls>

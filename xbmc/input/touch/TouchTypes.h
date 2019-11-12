@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "utils/Vector.h"
 
@@ -29,14 +18,6 @@
 class Touch : public CVector
 {
 public:
-  Touch() { reset(); }
-  virtual ~Touch() { }
-
-  /*!
-   * \brief Resets the x/y coordinates and the time
-   */
-  virtual void reset() { CVector::reset(); time = -1; }
-
   /*!
    * \brief Checks if the touch is valid i.e. if the x/y coordinates and the
    *        time are >= 0
@@ -52,7 +33,7 @@ public:
    */
   void copy(const Touch &other) { x = other.x; y = other.y; time = other.time; }
 
-  int64_t time; // in nanoseconds
+  int64_t time = -1; // in nanoseconds
 };
 
 /*!
@@ -68,7 +49,7 @@ public:
   /*!
    * \brief Resets the pointer and all its touches
    */
-  void reset() { down.reset(); last.reset(); moving = false; size = 0.0f; }
+  void reset() { down = {}; last = {}; moving = false; size = 0.0f; }
 
   /*!
    * \brief Checks if the "down" touch is valid

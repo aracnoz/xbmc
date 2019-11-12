@@ -1,39 +1,26 @@
 /*
- * Copyright (C) 2000, 2001, 2002 Håkan Hjort <d95hjort@dtek.chalmers.se>
+ *  Copyright (C) 2000, 2001, 2002 Håkan Hjort <d95hjort@dtek.chalmers.se>
  *
- * The data structures in this file should represent the layout of the
- * pci and dsi packets as they are stored in the stream.  Information
- * found by reading the source to VOBDUMP is the base for the structure
- * and names of these data types.
+ *  SPDX-License-Identifier: GPL-2.0-only
+ *  See LICENSES/README.md for more information.
  *
- * VOBDUMP: a program for examining DVD .VOB files.
- * Copyright 1998, 1999 Eric Smith <eric@brouhaha.com>
+ *  The data structures in this file should represent the layout of the
+ *  pci and dsi packets as they are stored in the stream. Information
+ *  found by reading the source to VOBDUMP is the base for the structure
+ *  and names of these data types.
  *
- * VOBDUMP is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.  Note that I am not
- * granting permission to redistribute or modify VOBDUMP under the terms
- * of any later version of the General Public License.
- *
- * This program is distributed in the hope that it will be useful (or at
- * least amusing), but WITHOUT ANY WARRANTY; without even the implied
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- * the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  VOBDUMP: a program for examining DVD .VOB files.
+ *  Copyright 1998, 1999 Eric Smith <eric@brouhaha.com>
  */
 
-#ifndef LIBDVDREAD_NAV_TYPES_H
-#define LIBDVDREAD_NAV_TYPES_H
+#pragma once
 
 //#include <inttypes.h>
 #include "ifo_types.h" /* only dvd_time_t, vm_cmd_t and user_ops_t */
 
 
 #undef ATTRIBUTE_PACKED
-#undef PRAGMA_PACK_BEGIN 
+#undef PRAGMA_PACK_BEGIN
 #undef PRAGMA_PACK_END
 
 #if defined(__GNUC__)
@@ -66,7 +53,7 @@
 
 
 /**
- * PCI General Information 
+ * PCI General Information
  */
 typedef struct {
   uint32_t nv_pck_lbn;      /**< sector address of this nav pack */
@@ -87,8 +74,8 @@ typedef struct {
   uint32_t nsml_agl_dsta[9];  /**< address of destination vobu in AGL_C#n */
 } ATTRIBUTE_PACKED nsml_agli_t;
 
-/** 
- * Highlight General Information 
+/**
+ * Highlight General Information
  *
  * For btngrX_dsp_ty the bits have the following meaning:
  * 000b: normal 4/3 only buttons
@@ -97,7 +84,7 @@ typedef struct {
  * 1XXb: pan&scan buttons
  */
 typedef struct {
-  uint16_t hli_ss; /**< status, only low 2 bits 0: no buttons, 1: different 2: equal 3: eual except for button cmds */
+  uint16_t hli_ss; /**< status, only low 2 bits 0: no buttons, 1: different 2: equal 3: equal except for button cmds */
   uint32_t hli_s_ptm;              /**< start ptm of hli */
   uint32_t hli_e_ptm;              /**< end ptm of hli */
   uint32_t btn_se_e_ptm;           /**< end ptm of button select */
@@ -110,7 +97,7 @@ typedef struct {
   unsigned int zero4 : 1;          /**< reserved */
   unsigned int btngr3_dsp_ty : 3;  /**< display type of subpic stream for button group 3 */
   uint8_t btn_ofn;     /**< button offset number range 0-255 */
-  uint8_t btn_ns;      /**< number of valid buttons  <= 36/18/12 (low 6 bits) */  
+  uint8_t btn_ns;      /**< number of valid buttons  <= 36/18/12 (low 6 bits) */
   uint8_t nsl_btn_ns;  /**< number of buttons selectable by U_BTNNi (low 6 bits)   nsl_btn_ns <= btn_ns */
   uint8_t zero5;       /**< reserved */
   uint8_t fosl_btnn;   /**< forcedly selected button  (low 6 bits) */
@@ -118,9 +105,9 @@ typedef struct {
 } ATTRIBUTE_PACKED hl_gi_t;
 
 
-/** 
- * Button Color Information Table 
- * Each entry beeing a 32bit word that contains the color indexs and alpha
+/**
+ * Button Color Information Table
+ * Each entry being a 32bit word that contains the color indexs and alpha
  * values to use.  They are all represented by 4 bit number and stored
  * like this [Ci3, Ci2, Ci1, Ci0, A3, A2, A1, A0].   The actual palette
  * that the indexes reference is in the PGC.
@@ -130,7 +117,7 @@ typedef struct {
   uint32_t btn_coli[3][2];  /**< [button color number-1][select:0/action:1] */
 } ATTRIBUTE_PACKED btn_colit_t;
 
-/** 
+/**
  * Button Information
  *
  * NOTE: I've had to change the structure from the disk layout to get
@@ -160,7 +147,7 @@ typedef struct {
 } ATTRIBUTE_PACKED btni_t;
 
 /**
- * Highlight Information 
+ * Highlight Information
  */
 typedef struct {
   hl_gi_t     hl_gi;
@@ -182,7 +169,7 @@ typedef struct {
 
 
 /**
- * DSI General Information 
+ * DSI General Information
  */
 typedef struct {
   uint32_t nv_pck_scr;
@@ -211,7 +198,7 @@ typedef struct {
     uint32_t stp_ptm1;
     uint32_t stp_ptm2;
     uint32_t gap_len1;
-    uint32_t gap_len2;      
+    uint32_t gap_len2;
   } vob_a[8];
 } ATTRIBUTE_PACKED sml_pbi_t;
 
@@ -231,7 +218,7 @@ typedef struct {
 } ATTRIBUTE_PACKED sml_agli_t;
 
 /**
- * VOBU Search Information 
+ * VOBU Search Information
  */
 typedef struct {
   uint32_t next_video; /**< Next vobu that contains video */
@@ -246,7 +233,7 @@ typedef struct {
 
 /**
  * Synchronous Information
- */ 
+ */
 typedef struct {
   uint16_t a_synca[8];   /**< offset to first audio packet for this VOBU */
   uint32_t sp_synca[32]; /**< offset to first subpicture packet */
@@ -269,4 +256,3 @@ typedef struct {
 #pragma pack()
 #endif
 
-#endif /* LIBDVDREAD_NAV_TYPES_H */

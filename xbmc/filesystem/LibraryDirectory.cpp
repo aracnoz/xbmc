@@ -1,48 +1,33 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "LibraryDirectory.h"
+
 #include "Directory.h"
-#include "playlists/SmartPlayList.h"
-#include "profiles/ProfilesManager.h"
+#include "File.h"
+#include "FileItem.h"
+#include "GUIInfoManager.h"
 #include "SmartPlaylistDirectory.h"
-#include "utils/URIUtils.h"
-#include "utils/StringUtils.h"
-#include "utils/XMLUtils.h"
+#include "URL.h"
 #include "guilib/GUIControlFactory.h" // for label parsing
 #include "guilib/TextureManager.h"
-#include "FileItem.h"
-#include "File.h"
-#include "URL.h"
-#include "GUIInfoManager.h"
+#include "playlists/SmartPlayList.h"
+#include "profiles/ProfileManager.h"
+#include "utils/StringUtils.h"
+#include "utils/URIUtils.h"
+#include "utils/XMLUtils.h"
 #include "utils/log.h"
 
 using namespace XFILE;
 
-CLibraryDirectory::CLibraryDirectory(void)
-{
-}
+CLibraryDirectory::CLibraryDirectory(void) = default;
 
-CLibraryDirectory::~CLibraryDirectory(void)
-{
-}
+CLibraryDirectory::~CLibraryDirectory(void) = default;
 
 bool CLibraryDirectory::GetDirectory(const CURL& url, CFileItemList &items)
 {
@@ -80,6 +65,10 @@ bool CLibraryDirectory::GetDirectory(const CURL& url, CFileItemList &items)
       }
       else if (type == "folder")
       {
+        std::string label;
+        if (XMLUtils::GetString(node, "label", label))
+          label = CGUIControlFactory::FilterLabel(label);
+        items.SetLabel(label);
         std::string path;
         XMLUtils::GetPath(node, "path", path);
         if (!path.empty())
@@ -132,8 +121,8 @@ bool CLibraryDirectory::GetDirectory(const CURL& url, CFileItemList &items)
       CFileItemPtr item(new CFileItem(URIUtils::AddFileToFolder(basePath, folder), true));
 
       item->SetLabel(label);
-      if (!icon.empty() && g_TextureManager.HasTexture(icon))
-        item->SetIconImage(icon);
+      if (!icon.empty() && CServiceBroker::GetGUI()->GetTextureManager().HasTexture(icon))
+        item->SetArt("icon", icon);
       item->m_iprogramCount = order;
       items.Add(item);
     }
@@ -145,21 +134,22 @@ bool CLibraryDirectory::GetDirectory(const CURL& url, CFileItemList &items)
 TiXmlElement *CLibraryDirectory::LoadXML(const std::string &xmlFile)
 {
   if (!CFile::Exists(xmlFile))
-    return NULL;
+    return nullptr;
 
   if (!m_doc.LoadFile(xmlFile))
-    return NULL;
+    return nullptr;
 
   TiXmlElement *xml = m_doc.RootElement();
   if (!xml || xml->ValueStr() != "node")
-    return NULL;
+    return nullptr;
 
   // check the condition
   std::string condition = XMLUtils::GetAttribute(xml, "visible");
-  if (condition.empty() || g_infoManager.EvaluateBool(condition))
+  CGUIComponent* gui = CServiceBroker::GetGUI();
+  if (condition.empty() || (gui && gui->GetInfoManager().EvaluateBool(condition)))
     return xml;
 
-  return NULL;
+  return nullptr;
 }
 
 bool CLibraryDirectory::Exists(const CURL& url)
@@ -169,7 +159,7 @@ bool CLibraryDirectory::Exists(const CURL& url)
 
 std::string CLibraryDirectory::GetNode(const CURL& url)
 {
-  std::string libDir = URIUtils::AddFileToFolder(CProfilesManager::GetInstance().GetLibraryFolder(), url.GetHostName() + "/");
+  std::string libDir = URIUtils::AddFileToFolder(m_profileManager->GetLibraryFolder(), url.GetHostName() + "/");
   if (!CDirectory::Exists(libDir))
     libDir = URIUtils::AddFileToFolder("special://xbmc/system/library/", url.GetHostName() + "/");
 

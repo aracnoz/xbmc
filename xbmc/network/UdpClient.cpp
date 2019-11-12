@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "threads/SystemClock.h"
@@ -24,7 +12,7 @@
 #include <sys/ioctl.h>
 #endif
 #include "Network.h"
-#include "guilib/GraphicContext.h"
+#include "windowing/GraphicContext.h"
 #include "utils/log.h"
 #include "utils/TimeUtils.h"
 
@@ -37,9 +25,7 @@
 CUdpClient::CUdpClient(void) : CThread("UDPClient")
 {}
 
-CUdpClient::~CUdpClient(void)
-{
-}
+CUdpClient::~CUdpClient(void) = default;
 
 bool CUdpClient::Create(void)
 {
@@ -70,7 +56,7 @@ bool CUdpClient::Create(void)
   ioctlsocket(client_socket, FIONBIO, &nonblocking);
 
   CLog::Log(UDPCLIENT_DEBUG_LEVEL, "UDPCLIENT: Spawning listener thread...");
-  CThread::Create(false, THREAD_MINSTACKSIZE);
+  CThread::Create(false);
 
   CLog::Log(UDPCLIENT_DEBUG_LEVEL, "UDPCLIENT: Ready.");
 
@@ -92,7 +78,7 @@ bool CUdpClient::Broadcast(int aPort, const std::string& aMessage)
 {
   CSingleLock lock(critical_section);
 
-  SOCKADDR_IN addr;
+  struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_port = htons(aPort);
   addr.sin_addr.s_addr = INADDR_BROADCAST;
@@ -109,7 +95,7 @@ bool CUdpClient::Send(const std::string& aIpAddress, int aPort, const std::strin
 {
   CSingleLock lock(critical_section);
 
-  SOCKADDR_IN addr;
+  struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_port = htons(aPort);
   addr.sin_addr.s_addr = inet_addr(aIpAddress.c_str());
@@ -121,7 +107,7 @@ bool CUdpClient::Send(const std::string& aIpAddress, int aPort, const std::strin
   return true;
 }
 
-bool CUdpClient::Send(SOCKADDR_IN aAddress, const std::string& aMessage)
+bool CUdpClient::Send(struct sockaddr_in aAddress, const std::string& aMessage)
 {
   CSingleLock lock(critical_section);
 
@@ -131,7 +117,7 @@ bool CUdpClient::Send(SOCKADDR_IN aAddress, const std::string& aMessage)
   return true;
 }
 
-bool CUdpClient::Send(SOCKADDR_IN aAddress, LPBYTE pMessage, DWORD dwSize)
+bool CUdpClient::Send(struct sockaddr_in aAddress, unsigned char* pMessage, DWORD dwSize)
 {
   CSingleLock lock(critical_section);
 
@@ -148,7 +134,7 @@ void CUdpClient::Process()
 
   CLog::Log(UDPCLIENT_DEBUG_LEVEL, "UDPCLIENT: Listening.");
 
-  SOCKADDR_IN remoteAddress;
+  struct sockaddr_in remoteAddress;
   char messageBuffer[1024];
   DWORD dataAvailable;
 
@@ -194,13 +180,7 @@ void CUdpClient::Process()
         CLog::Log(UDPCLIENT_DEBUG_LEVEL, "UDPCLIENT RX: %u\t\t<- '%s'",
                   XbmcThreads::SystemClockMillis(), message.c_str() );
 
-        // NOTE: You should consider locking access to the screen device
-        // or at least wait until after vertical refresh before firing off events
-        // to protect access to graphics resources.
-
-        g_graphicsContext.Lock();
-        OnMessage(remoteAddress, message, (LPBYTE)messageBuffer, messageLength);
-        g_graphicsContext.Unlock();
+        OnMessage(remoteAddress, message, reinterpret_cast<unsigned char*>(messageBuffer), messageLength);
       }
       else
       {
@@ -246,7 +226,7 @@ bool CUdpClient::DispatchNextCommand()
 
     do
     {
-      ret = sendto(client_socket, (LPCSTR) command.binary, command.binarySize, 0, (struct sockaddr *) & command.address, sizeof(command.address));
+      ret = sendto(client_socket, (const char*) command.binary, command.binarySize, 0, (struct sockaddr *) & command.address, sizeof(command.address));
     }
     while (ret == -1);
 

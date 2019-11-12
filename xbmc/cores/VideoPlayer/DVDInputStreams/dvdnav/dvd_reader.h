@@ -1,27 +1,15 @@
 /*
- * Copyright (C) 2001, 2002 Billy Biggs <vektor@dumbterm.net>,
- *                          Håkan Hjort <d95hjort@dtek.chalmers.se>,
- *                          Björn Englund <d4bjorn@dtek.chalmers.se>
+ *  Copyright (C) 2001, 2002 Billy Biggs <vektor@dumbterm.net>,
+ *                           Håkan Hjort <d95hjort@dtek.chalmers.se>,
+ *                           Björn Englund <d4bjorn@dtek.chalmers.se>
  *
- * This file is part of libdvdread.
+ *  This file is part of libdvdread.
  *
- * libdvdread is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * libdvdread is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with libdvdread; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef LIBDVDREAD_DVD_READER_H
-#define LIBDVDREAD_DVD_READER_H
+#pragma once
 
 #ifdef _MSC_VER
 #include "config.h"
@@ -32,6 +20,19 @@
 
 #include <sys/types.h>
 //#include <inttypes.h>
+
+/*****************************************************************************
+* iovec structure: vectored data entry
+*****************************************************************************/
+#ifdef TARGET_WINDOWS
+struct iovec
+{
+  void *iov_base;     /* Pointer to data. */
+  size_t iov_len;     /* Length of data.  */
+};
+#else
+#   include <sys/uio.h>                                      /* struct iovec */
+#endif
 
 /**
  * The DVD access interface.
@@ -58,16 +59,24 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  
+
 /**
  * Opaque type that is used as a handle for one instance of an opened DVD.
  */
 typedef struct dvd_reader_s dvd_reader_t;
-  
+
 /**
  * Opaque type for a file read handle, much like a normal fd or FILE *.
  */
 typedef struct dvd_file_s dvd_file_t;
+
+struct dvd_reader_stream_cb
+{
+  int(*pf_seek)  (void *p_stream, uint64_t i_pos);
+  int(*pf_read)  (void *p_stream, void* buffer, int i_read);
+  int(*pf_readv) (void *p_stream, void *p_iovec, int i_blocks);
+};
+typedef struct dvd_reader_stream_cb dvd_reader_stream_cb;
 
 /**
  * Public type that is used to provide statistics on a handle.
@@ -84,7 +93,7 @@ typedef struct {
  *
  * If the given file is a block device, or is the mountpoint for a block
  * device, then that device is used for CSS authentication using libdvdcss.
- * If no device is available, then no CSS authentication is performed, 
+ * If no device is available, then no CSS authentication is performed,
  * and we hope that the image is decrypted.
  *
  * If the path given is a directory, then the files in that directory may be
@@ -95,7 +104,7 @@ typedef struct {
  *   path/VTS_01_1.VOB
  *   path/vts_01_1.vob
  *
- * @param path Specifies the the device, file or directory to be used. 
+ * @param path Specifies the the device, file or directory to be used.
  * @return If successful a a read handle is returned. Otherwise 0 is returned.
  *
  * dvd = DVDOpen(path);
@@ -114,13 +123,13 @@ dvd_reader_t *DVDOpen( const char * );
 void DVDClose( dvd_reader_t * );
 
 /**
- * 
+ *
  */
 typedef enum {
   DVD_READ_INFO_FILE,        /**< VIDEO_TS.IFO  or VTS_XX_0.IFO (title) */
   DVD_READ_INFO_BACKUP_FILE, /**< VIDEO_TS.BUP  or VTS_XX_0.BUP (title) */
   DVD_READ_MENU_VOBS,        /**< VIDEO_TS.VOB  or VTS_XX_0.VOB (title) */
-  DVD_READ_TITLE_VOBS        /**< VTS_XX_[1-9].VOB (title).  All files in 
+  DVD_READ_TITLE_VOBS        /**< VTS_XX_[1-9].VOB (title).  All files in
 				  the title set are opened and read as a
 				  single file. */
 } dvd_read_domain_t;
@@ -161,7 +170,7 @@ int DVDFileStat(dvd_reader_t *, int, dvd_read_domain_t, dvd_stat_t *);
  *
  * @param dvd  A dvd read handle.
  * @param titlenum Which Video Title Set should be used, VIDEO_TS is 0.
- * @param domain Which domain. 
+ * @param domain Which domain.
  * @return If successful a a file read handle is returned, otherwise 0.
  *
  * dvd_file = DVDOpenFile(dvd, titlenum, domain); */
@@ -179,8 +188,8 @@ void DVDCloseFile( dvd_file_t * );
 /**
  * Reads block_count number of blocks from the file at the given block offset.
  * Returns number of blocks read on success, -1 on error.  This call is only
- * for reading VOB data, and should not be used when reading the IFO files.  
- * When reading from an encrypted drive, blocks are decrypted using libdvdcss 
+ * for reading VOB data, and should not be used when reading the IFO files.
+ * When reading from an encrypted drive, blocks are decrypted using libdvdcss
  * where required.
  *
  * @param dvd_file  A file read handle.
@@ -210,7 +219,7 @@ int32_t DVDFileSeek( dvd_file_t *, int32_t );
 /**
  * Reads the given number of bytes from the file.  This call can only be used
  * on the information files, and may not be used for reading from a VOB.  This
- * reads from and increments the currrent seek position for the file.
+ * reads from and increments the current seek position for the file.
  *
  * @param dvd_file  A file read handle.
  * @param data Pointer to a buffer to write the data into.
@@ -236,7 +245,7 @@ ssize_t DVDFileSize( dvd_file_t * );
  * This is the MD5 sum of VIDEO_TS.IFO and the VTS_0?_0.IFO files
  * in title order (those that exist).
  * If you need a 'text' representation of the id, print it as a
- * hexadecimal number, using lowercase letters, discid[0] first. 
+ * hexadecimal number, using lowercase letters, discid[0] first.
  * I.e. the same format as the command-line 'md5sum' program uses.
  *
  * @param dvd A read handle to get the disc ID from
@@ -301,7 +310,7 @@ int DVDISOVolumeInfo( dvd_reader_t *, char *, unsigned int,
  *             -1 - returns the current setting.
  *              0 - UDF Cache turned off.
  *              1 - (default level) Pointers to IFO files and some data from
- *                  PrimaryVolumeDescriptor are cached. 
+ *                  PrimaryVolumeDescriptor are cached.
  *
  * @return The level of caching.
  */
@@ -310,4 +319,4 @@ int DVDUDFCacheLevel( dvd_reader_t *, int );
 #ifdef __cplusplus
 };
 #endif
-#endif /* LIBDVDREAD_DVD_READER_H */
+

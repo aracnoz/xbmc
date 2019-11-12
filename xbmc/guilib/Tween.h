@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 ///////////////////////////////////////////////////////////////////////
 // Tween.h
@@ -60,8 +48,8 @@ enum TweenerType
 class Tweener
 {
 public:
-  Tweener(TweenerType tweenerType = EASE_OUT) { m_tweenerType = tweenerType; }
-  virtual ~Tweener() {};
+  explicit Tweener(TweenerType tweenerType = EASE_OUT) { m_tweenerType = tweenerType; }
+  virtual ~Tweener() = default;
 
   void SetEasing(TweenerType type) { m_tweenerType = type; }
   virtual float Tween(float time, float start, float change, float duration)=0;
@@ -74,19 +62,19 @@ protected:
 class LinearTweener : public Tweener
 {
 public:
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     return change * time / duration + start;
   }
-  virtual bool HasResumePoint() const { return false; }
+  bool HasResumePoint() const override { return false; }
 };
 
 
 class QuadTweener : public Tweener
 {
 public:
-  QuadTweener(float a = 1.0f) { _a=a; }
-  virtual float Tween(float time, float start, float change, float duration)
+  explicit QuadTweener(float a = 1.0f) { _a=a; }
+  float Tween(float time, float start, float change, float duration) override
   {
     switch (m_tweenerType)
       {
@@ -118,7 +106,7 @@ private:
 class CubicTweener : public Tweener
 {
 public:
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     switch (m_tweenerType)
       {
@@ -148,7 +136,7 @@ public:
 class CircleTweener : public Tweener
 {
 public:
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     switch (m_tweenerType)
       {
@@ -178,9 +166,9 @@ public:
 class BackTweener : public Tweener
 {
 public:
-  BackTweener(float s=1.70158) { _s=s; }
+  explicit BackTweener(float s=1.70158) { _s=s; }
 
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     float s = _s;
     switch (m_tweenerType)
@@ -218,7 +206,7 @@ private:
 class SineTweener : public Tweener
 {
 public:
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     time /= duration;
     switch (m_tweenerType)
@@ -243,7 +231,7 @@ public:
 class BounceTweener : public Tweener
 {
 public:
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     switch (m_tweenerType)
       {
@@ -290,7 +278,7 @@ class ElasticTweener : public Tweener
 public:
   ElasticTweener(float a=0.0, float p=0.0) { _a=a; _p=p; }
 
-  virtual float Tween(float time, float start, float change, float duration)
+  float Tween(float time, float start, float change, float duration) override
   {
     switch (m_tweenerType)
       {

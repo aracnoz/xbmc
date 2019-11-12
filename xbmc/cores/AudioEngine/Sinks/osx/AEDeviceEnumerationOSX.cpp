@@ -1,29 +1,18 @@
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AEDeviceEnumerationOSX.h"
+
+#include "cores/AudioEngine/Sinks/darwin/CoreAudioHelpers.h"
 #include "cores/AudioEngine/Sinks/osx/CoreAudioChannelLayout.h"
-#include "cores/AudioEngine/Sinks/osx/CoreAudioHelpers.h"
 #include "cores/AudioEngine/Utils/AEUtil.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
 
 #include <sstream>
 
@@ -31,7 +20,7 @@
 // default channel map - in case it can't be fetched from the device
 static enum AEChannel CAChannelMap[CA_MAX_CHANNELS + 1] = {
   AE_CH_FL , AE_CH_FR , AE_CH_BL , AE_CH_BR , AE_CH_FC , AE_CH_LFE , AE_CH_SL , AE_CH_SR ,
-  AE_CH_UNKNOWN1  , AE_CH_UNKNOWN2  , AE_CH_UNKNOWN3  , AE_CH_UNKNOWN4  , 
+  AE_CH_UNKNOWN1  , AE_CH_UNKNOWN2  , AE_CH_UNKNOWN3  , AE_CH_UNKNOWN4  ,
   AE_CH_UNKNOWN5  , AE_CH_UNKNOWN6  , AE_CH_UNKNOWN7  , AE_CH_UNKNOWN8  ,
   AE_CH_UNKNOWN9  , AE_CH_UNKNOWN10 , AE_CH_UNKNOWN11 , AE_CH_UNKNOWN12 ,
   AE_CH_UNKNOWN13 , AE_CH_UNKNOWN14 , AE_CH_UNKNOWN15 , AE_CH_UNKNOWN16 ,
@@ -83,7 +72,7 @@ bool AEDeviceEnumerationOSX::Enumerate()
       CCoreAudioStream::GetAvailablePhysicalFormats(streamList[streamIdx], &info.formatList);
 
       CCoreAudioStream::GetAvailableVirtualFormats(streamList[streamIdx], &info.formatListVirt);
-      
+
       hasPassthroughOrDigitalFormats(info.formatList, info.hasPassthroughFormats, info.isDigital);
 
       info.isDigital |= isDigital;
@@ -109,7 +98,7 @@ bool AEDeviceEnumerationOSX::isDigitalDevice() const
   if (!isDigital)
   {
     std::string devNameLower = m_caDevice.GetName();
-    StringUtils::ToLower(devNameLower);                       
+    StringUtils::ToLower(devNameLower);
     isDigital = devNameLower.find("digital") != std::string::npos;
   }
   return isDigital;
@@ -132,9 +121,9 @@ void AEDeviceEnumerationOSX::hasPassthroughOrDigitalFormats(const StreamFormatLi
     else
     {
       // PassthroughFormat 2ch 16bit LE 48000Hz / 192000Hz */
-      if (desc.mBitsPerChannel == 16 && 
+      if (desc.mBitsPerChannel == 16 &&
           !(desc.mFormatFlags & kAudioFormatFlagIsBigEndian) &&
-          desc.mChannelsPerFrame == 2 && 
+          desc.mChannelsPerFrame == 2 &&
           (desc.mSampleRate == 48000 || desc.mSampleRate == 192000))
       {
         hasPassthroughFormats = true;
@@ -143,17 +132,17 @@ void AEDeviceEnumerationOSX::hasPassthroughOrDigitalFormats(const StreamFormatLi
   }
 }
 
-enum AEDeviceType AEDeviceEnumerationOSX::getDeviceType(bool hasPassthroughFormats, 
-                                                        bool isDigital, 
-                                                        UInt32 numChannels,  
+enum AEDeviceType AEDeviceEnumerationOSX::getDeviceType(bool hasPassthroughFormats,
+                                                        bool isDigital,
+                                                        UInt32 numChannels,
                                                         UInt32 transportType) const
 {
   // flag indicating that the device name "sounds" like HDMI
   bool hasHdmiName = m_deviceName.find("HDMI") != std::string::npos;
   // flag indicating that the device name "sounds" like DisplayPort
   bool hasDisplayPortName = m_deviceName.find("DisplayPort") != std::string::npos;
-  enum AEDeviceType deviceType = AE_DEVTYPE_PCM;//default    
-  
+  enum AEDeviceType deviceType = AE_DEVTYPE_PCM;//default
+
   // decide the type of the device based on the discovered information
   // in the streams
   // device defaults to PCM (see start of the while loop)
@@ -170,11 +159,11 @@ enum AEDeviceType AEDeviceEnumerationOSX::getDeviceType(bool hasPassthroughForma
       // or CA reported the transportType as HDMI
       if (hasHdmiName || transportType == kIOAudioDeviceTransportTypeHdmi)
         deviceType = AE_DEVTYPE_HDMI;
-      
+
       // either the devicename suggests its DisplayPort
       // or CA reported the transportType as DisplayPort or Thunderbolt
-      if (hasDisplayPortName || 
-          transportType == kIOAudioDeviceTransportTypeDisplayPort || 
+      if (hasDisplayPortName ||
+          transportType == kIOAudioDeviceTransportTypeDisplayPort ||
           transportType == kIOAudioDeviceTransportTypeThunderbolt)
         deviceType = AE_DEVTYPE_DP;
     }
@@ -202,7 +191,7 @@ CADeviceList AEDeviceEnumerationOSX::GetDeviceInfoList() const
   UInt32 numDevices = m_caStreamInfos.size();
   if (m_isPlanar)
     numDevices = 1;
-  
+
   for (UInt32 streamIdx = 0; streamIdx < numDevices; streamIdx++)
   {
     CAEDeviceInfo deviceInfo;
@@ -210,7 +199,7 @@ CADeviceList AEDeviceEnumerationOSX::GetDeviceInfoList() const
     devInstance.audioDeviceId = m_deviceID;
     devInstance.streamIndex = streamIdx;
     devInstance.sourceId = INT_MAX;//don't set audio source by default
-    
+
     deviceInfo.m_deviceName = getDeviceNameForStream(streamIdx);
     deviceInfo.m_displayName = m_deviceName;
     deviceInfo.m_displayNameExtra = getExtraDisplayNameForStream(streamIdx);
@@ -220,7 +209,7 @@ CADeviceList AEDeviceEnumerationOSX::GetDeviceInfoList() const
     deviceInfo.m_streamTypes = getTypeListForStream(streamIdx);
     deviceInfo.m_deviceType = m_caStreamInfos[streamIdx].deviceType;
     deviceInfo.m_wantsIECPassthrough = true;
-    
+
     CoreAudioDataSourceList sourceList;
     // if this enumerator contains multiple devices with more then 1 source we add :source suffixes to the
     // device names and overwrite the extraname with the source name
@@ -247,7 +236,7 @@ unsigned int AEDeviceEnumerationOSX::GetNumPlanes() const
   if (m_isPlanar)
     return m_caStreamInfos.size();
   else
-    return 1;//interlaved - one plane
+    return 1;//interleaved - one plane
 }
 
 bool AEDeviceEnumerationOSX::hasSampleRate(const AESampleRateList &list, const unsigned int samplerate) const
@@ -285,7 +274,7 @@ AEDataFormatList AEDeviceEnumerationOSX::getFormatListForStream(UInt32 streamIdx
   AEDataFormatList returnDataFormatList;
   if (streamIdx >= m_caStreamInfos.size())
     return returnDataFormatList;
-  
+
   // check the streams
   const StreamFormatList &formatList = m_caStreamInfos[streamIdx].formatList;
   for(UInt32 formatIdx = 0; formatIdx < formatList.size(); formatIdx++)
@@ -327,7 +316,7 @@ CAEChannelInfo AEDeviceEnumerationOSX::getChannelInfoForStream(UInt32 streamIdx)
   CAEChannelInfo channelInfo;
   if (streamIdx >= m_caStreamInfos.size())
     return channelInfo;
-  
+
   if (m_isPlanar)
   {
     //get channel map to match the devices channel layout as set in audio-midi-setup
@@ -450,7 +439,7 @@ AESampleRateList AEDeviceEnumerationOSX::getSampleRateListForStream(UInt32 strea
   AESampleRateList returnSampleRateList;
   if (streamIdx >= m_caStreamInfos.size())
     return returnSampleRateList;
-  
+
   // check the streams
   const StreamFormatList &formatList = m_caStreamInfos[streamIdx].formatList;
   for(UInt32 formatIdx = 0; formatIdx < formatList.size(); formatIdx++)
@@ -468,30 +457,38 @@ AESampleRateList AEDeviceEnumerationOSX::getSampleRateListForStream(UInt32 strea
         returnSampleRateList.push_back(formatDesc.mSampleRate);
       formatDesc.mSampleRate = 48000;
     }
-    
+
     if (!hasSampleRate(returnSampleRateList, formatDesc.mSampleRate))
       returnSampleRateList.push_back(formatDesc.mSampleRate);
   }
-  
+
   return returnSampleRateList;
 }
 
 std::string AEDeviceEnumerationOSX::getDeviceNameForStream(UInt32 streamIdx) const
 {
-  std::string deviceName = "";
+  std::stringstream deviceIdStr;
+  deviceIdStr << m_deviceID;
+
+  // device name is the devicename from coreaudio + the device id to make it unique
+  // for example devicename could be DisplayPort and couldn't be distinguished if multiple
+  // DisplayPort devices are available
+  std::string deviceName = m_deviceName + "-" + deviceIdStr.str();
   if (m_isPlanar)// planar devices are saved as :stream0
-    deviceName = m_deviceName + ":stream0";
+  {
+    deviceName += ":stream0";
+  }
   else
   {
     std::stringstream streamIdxStr;
     streamIdxStr << streamIdx;
-    deviceName = m_deviceName + ":stream" + streamIdxStr.str();
+    deviceName += ":stream" + streamIdxStr.str();
   }
   return deviceName;
 }
 
 std::string AEDeviceEnumerationOSX::getExtraDisplayNameForStream(UInt32 streamIdx) const
-{ 
+{
   // for distinguishing the streams inside one device we add
   // the corresponding channels to the extraDisplayName
   // planar devices are ignored here as their streams are
@@ -578,27 +575,27 @@ float AEDeviceEnumerationOSX::ScoreFormat(const AudioStreamBasicDescription &for
 bool AEDeviceEnumerationOSX::FindSuitableFormatForStream(UInt32 &streamIdx, const AEAudioFormat &format, bool virt, AudioStreamBasicDescription &outputFormat, AudioStreamID &outputStream) const
 {
   CLog::Log(LOGDEBUG, "%s: Finding stream for format %s", __FUNCTION__, CAEUtil::DataFormatToStr(format.m_dataFormat));
-  
+
   bool                        formatFound  = false;
   float                       outputScore  = 0;
   UInt32                      streamIdxStart = streamIdx;
   UInt32                      streamIdxEnd   = streamIdx + 1;
   UInt32                      streamIdxCurrent = streamIdx;
-  
+
   if (streamIdx == INT_MAX)
   {
     streamIdxStart = 0;
     streamIdxEnd = m_caStreamInfos.size();
     streamIdxCurrent = 0;
   }
-  
+
   if (streamIdxCurrent >= m_caStreamInfos.size())
     return false;
-  
+
   // loop over all streams or over given streams (depends on initial value of param streamIdx
   for(streamIdxCurrent = streamIdxStart; streamIdxCurrent < streamIdxEnd; streamIdxCurrent++)
   {
-    
+
     // Probe physical or virtual  formats
     const StreamFormatList *formats = &m_caStreamInfos[streamIdxCurrent].formatList;
     if (virt)
@@ -633,10 +630,10 @@ bool AEDeviceEnumerationOSX::FindSuitableFormatForStream(UInt32 &streamIdx, cons
       }
     }
   }
-  
+
   if (m_isPlanar)
     outputFormat.mChannelsPerFrame = std::min((size_t)format.m_channelLayout.Count(), m_caStreamInfos.size());
-  
+
   return formatFound;
 }
 
@@ -745,7 +742,7 @@ enum AEChannel AEDeviceEnumerationOSX::caChannelToAEChannel(const AudioChannelLa
   }
   if (unknownChannel == AE_CH_MAX)
     unknownChannel = AE_CH_UNKNOWN1;
-  
+
   return ret;
 }
 
@@ -763,13 +760,13 @@ void AEDeviceEnumerationOSX::GetAEChannelMap(CAEChannelInfo &channelMap, unsigne
   bool mapAvailable = false;
   unsigned int numberChannelsInDeviceLayout = CA_MAX_CHANNELS; // default number of channels from CAChannelMap
   AudioChannelLayout *layout = NULL;
-  
+
   // try to fetch either the multichannel or the stereo channel layout from the device
   if (channelsPerFrame == 2 || channelMap.Count() == 2)
     mapAvailable = m_caDevice.GetPreferredChannelLayoutForStereo(calayout);
   else
     mapAvailable = m_caDevice.GetPreferredChannelLayout(calayout);
-  
+
   // if a map was fetched - check if it is usable
   if (mapAvailable)
   {
@@ -779,32 +776,32 @@ void AEDeviceEnumerationOSX::GetAEChannelMap(CAEChannelInfo &channelMap, unsigne
     else
       numberChannelsInDeviceLayout = layout->mNumberChannelDescriptions;
   }
-  
+
   // start the mapping action
   // the number of channels to be added to the outgoing channelmap
   // this is CA_MAX_CHANNELS at max and might be lower for some output devices (channelsPerFrame)
   unsigned int numChannelsToMap = std::min((unsigned int)CA_MAX_CHANNELS, (unsigned int)channelsPerFrame);
-  
+
   // if there was a map fetched we force the number of
   // channels to map to channelsPerFrame (this allows mapping
   // of more then CA_MAX_CHANNELS if needed)
   if (mapAvailable)
     numChannelsToMap = channelsPerFrame;
-  
+
   std::string layoutStr;
-  
+
   if (logMapping)
   {
     CLog::Log(LOGDEBUG, "%s Engine requests layout %s", __FUNCTION__, ((std::string)channelMap).c_str());
-    
+
     if (mapAvailable)
       CLog::Log(LOGDEBUG, "%s trying to map to %s layout: %s", __FUNCTION__, channelsPerFrame == 2 ? "stereo" : "multichannel", calayout.ChannelLayoutToString(*layout, layoutStr));
     else
       CLog::Log(LOGDEBUG, "%s no map available - using static multichannel map layout", __FUNCTION__);
   }
-  
+
   channelMap.Reset();// start with an empty map
-  
+
   for (unsigned int channel = 0; channel < numChannelsToMap; channel++)
   {
     // we only try to map channels which are defined in the device layout
@@ -816,15 +813,15 @@ void AEDeviceEnumerationOSX::GetAEChannelMap(CAEChannelInfo &channelMap, unsigne
         currentChannel = caChannelToAEChannel(layout->mChannelDescriptions[channel].mChannelLabel);
       else// get the channel from the default map
         currentChannel = CAChannelMap[channel];
-      
+
     }
     else// fill with unknown channels
       currentChannel = caChannelToAEChannel(kAudioChannelLabel_Unknown);
-    
+
     if(!channelMap.HasChannel(currentChannel))// only add if not already added
       channelMap += currentChannel;
   }
-  
+
   if (logMapping)
     CLog::Log(LOGDEBUG, "%s mapped channels to layout %s", __FUNCTION__, ((std::string)channelMap).c_str());
 }

@@ -1,33 +1,22 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "XBDateTime.h"
+#include "addons/Addon.h"
+#include "utils/ScraperParser.h"
+#include "utils/ScraperUrl.h"
+#include "video/Episode.h"
 
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "addons/Addon.h"
-#include "XBDateTime.h"
-#include "utils/ScraperUrl.h"
-#include "utils/ScraperParser.h"
-#include "video/Episode.h"
 
 class CAlbum;
 class CArtist;
@@ -69,7 +58,7 @@ TYPE ScraperTypeFromContent(const CONTENT_TYPE &content);
 class CScraperError
 {
 public:
-  CScraperError() : m_fAborted(true) {}
+  CScraperError() = default;
   CScraperError(const std::string &sTitle, const std::string &sMessage) :
     m_fAborted(false), m_sTitle(sTitle), m_sMessage(sMessage) {}
 
@@ -78,7 +67,7 @@ public:
   const std::string &Message() const { return m_sMessage; }
 
 private:
-  bool m_fAborted;
+  bool m_fAborted = true;
   std::string m_sTitle;
   std::string m_sMessage;
 };
@@ -86,11 +75,7 @@ private:
 class CScraper : public CAddon
 {
 public:
-
-  static std::unique_ptr<CScraper> FromExtension(AddonProps props, const cp_extension_t* ext);
-
-  explicit CScraper(AddonProps props);
-  CScraper(AddonProps props, bool requiressettings, CDateTimeSpan persistence, CONTENT_TYPE pathContent);
+  explicit CScraper(const AddonInfoPtr& addonInfo, TYPE addonType);
 
   /*! \brief Set the scraper settings for a particular path from an XML string
    Loads the default and user settings (if not already loaded) and, if the given XML string is non-empty,
@@ -120,15 +105,16 @@ public:
   bool RequiresSettings() const { return m_requiressettings; }
   bool Supports(const CONTENT_TYPE &content) const;
 
-  bool IsInUse() const;
+  bool IsInUse() const override;
   bool IsNoop();
+  bool IsPython() const { return m_isPython; }
 
   // scraper media functions
   CScraperUrl NfoUrl(const std::string &sNfoContent);
 
   /*! \brief Resolve an external ID (e.g. MusicBrainz IDs) to a URL using scrapers
    If we have an ID in hand, e.g. MusicBrainz IDs or TheTVDB Season IDs
-   we can get directly to a URL instead of searching by name and choosing from 
+   we can get directly to a URL instead of searching by name and choosing from
    the search results. The correct scraper type should be used to get the right
    URL for a given ID, so we can differentiate albums, artists, TV Seasons, etc.
    \param externalID the external ID - e.g. MusicBrainzArtist/AlbumID
@@ -138,7 +124,7 @@ public:
   CScraperUrl ResolveIDToUrl(const std::string &externalID);
 
   std::vector<CScraperUrl> FindMovie(XFILE::CCurlFile &fcurl,
-    const std::string &sMovie, bool fFirst);
+    const std::string &movieTitle, int movieYear, bool fFirst);
   std::vector<MUSIC_GRABBER::CMusicAlbumInfo> FindAlbum(XFILE::CCurlFile &fcurl,
     const std::string &sAlbum, const std::string &sArtist = "");
   std::vector<MUSIC_GRABBER::CMusicArtistInfo> FindArtist(
@@ -154,10 +140,10 @@ public:
   bool GetArtwork(XFILE::CCurlFile &fcurl, CVideoInfoTag &details);
 
 private:
-  CScraper(const CScraper &rhs);
-  CScraper& operator=(const CScraper&);
-  CScraper(CScraper&&);
-  CScraper& operator=(CScraper&&);
+  CScraper(const CScraper &rhs) = delete;
+  CScraper& operator=(const CScraper&) = delete;
+  CScraper(CScraper&&) = delete;
+  CScraper& operator=(CScraper&&) = delete;
 
   std::string SearchStringEncoding() const
     { return m_parser.GetSearchStringEncoding(); }
@@ -177,6 +163,7 @@ private:
                          const std::vector<std::string>* extras);
 
   bool m_fLoaded;
+  bool m_isPython = false;
   bool m_requiressettings;
   CDateTimeSpan m_persistence;
   CONTENT_TYPE m_pathContent;

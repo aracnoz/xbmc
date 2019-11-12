@@ -1,40 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "AEAudioFormat.h"
 #include "PlatformDefs.h"
 #include <math.h>
 
 extern "C" {
-#include "libavutil/samplefmt.h"
+#include <libavutil/samplefmt.h>
 }
-
-#ifdef TARGET_WINDOWS
-#if _M_IX86_FP>0 && !defined(HAVE_SSE)
-#define HAVE_SSE
-#if _M_IX86_FP>1 && !defined(HAVE_SSE2)
-#define HAVE_SSE2
-#endif
-#endif
-#endif
 
 #if defined(HAVE_SSE) && defined(__SSE__)
 #include <xmmintrin.h>
@@ -61,18 +41,12 @@ enum AVSync
 
 struct AEDelayStatus
 {
-  AEDelayStatus()
-  : delay(0.0)
-  , maxcorrection(0.0)
-  , tick(0)
-  {}
-
   void   SetDelay(double d);
-  double GetDelay();
+  double GetDelay() const;
 
-  double delay;  // delay in sink currently
-  double maxcorrection; // time correction must not be greater than sink delay
-  int64_t tick;  // timestamp when delay was calculated
+  double delay = 0.0;  // delay in sink currently
+  double maxcorrection = 0.0; // time correction must not be greater than sink delay
+  int64_t tick = 0;  // timestamp when delay was calculated
 };
 
 /**
@@ -95,24 +69,19 @@ struct AEDelayStatus
 class CAESpinSection
 {
 public:
-  CAESpinSection()
-  : m_enter(0)
-  , m_leave(0)
-  {}
-
   void enter() { m_enter++; }
   void leave() { m_leave = m_enter; }
 
 protected:
   friend class CAESpinLock;
-  volatile unsigned int m_enter;
-  volatile unsigned int m_leave;
+  volatile unsigned int m_enter = 0;
+  volatile unsigned int m_leave = 0;
 };
 
 class CAESpinLock
 {
 public:
-  CAESpinLock(CAESpinSection& section)
+  explicit CAESpinLock(CAESpinSection& section)
   : m_section(section)
   , m_begin(section.m_enter)
   {}
@@ -147,9 +116,9 @@ private:
 public:
   static CAEChannelInfo          GuessChLayout     (const unsigned int channels);
   static const char*             GetStdChLayoutName(const enum AEStdChLayout layout);
-  static const unsigned int      DataFormatToBits  (const enum AEDataFormat dataFormat);
-  static const unsigned int      DataFormatToUsedBits (const enum AEDataFormat dataFormat);
-  static const unsigned int      DataFormatToDitherBits(const enum AEDataFormat dataFormat);
+  static unsigned int      DataFormatToBits  (const enum AEDataFormat dataFormat);
+  static unsigned int      DataFormatToUsedBits (const enum AEDataFormat dataFormat);
+  static unsigned int      DataFormatToDitherBits(const enum AEDataFormat dataFormat);
   static const char*             DataFormatToStr   (const enum AEDataFormat dataFormat);
   static const char* StreamTypeToStr(const enum CAEStreamInfo::DataType dataType);
 
@@ -160,7 +129,7 @@ public:
    \return the corresponding gain in dB from -60dB .. 0dB.
    \sa GainToScale
    */
-  static inline const float PercentToGain(const float value)
+  static inline float PercentToGain(const float value)
   {
     static const float db_range = 60.0f;
     return (value - 1)*db_range;
@@ -173,7 +142,7 @@ public:
    \return value the volume from 0..1
    \sa ScaleToGain
    */
-  static inline const float GainToPercent(const float gain)
+  static inline float GainToPercent(const float gain)
   {
     static const float db_range = 60.0f;
     return 1+(gain/db_range);
@@ -185,12 +154,12 @@ public:
    \return the scale factor (equivalent to a voltage multiplier).
    \sa PercentToGain
    */
-  static inline const float GainToScale(const float dB)
+  static inline float GainToScale(const float dB)
   {
-    float val = 0.0f; 
+    float val = 0.0f;
     // we need to make sure that our lowest db returns plain zero
-    if (dB > -60.0f) 
-      val = pow(10.0f, dB/20); 
+    if (dB > -60.0f)
+      val = pow(10.0f, dB/20);
 
     // in order to not introduce computing overhead for nearly zero
     // values of dB e.g. -0.01 or -0.001 we clamp to top
@@ -206,7 +175,7 @@ public:
    \return dB the gain in decibels.
    \sa GainToScale
    */
-  static inline const float ScaleToGain(const float scale)
+  static inline float ScaleToGain(const float scale)
   {
     return 20*log10(scale);
   }
@@ -216,14 +185,6 @@ public:
   static void SSEMulAddArray  (float *data, float *add, const float mul, uint32_t count);
   #endif
   static void ClampArray(float *data, uint32_t count);
-
-  /*
-    Rand implementations based on:
-    http://software.intel.com/en-us/articles/fast-random-number-generator-on-the-intel-pentiumr-4-processor/
-    This is NOT safe for crypto work, but perfectly fine for audio usage (dithering)
-  */
-  static float FloatRand1(const float min, const float max);
-  static void  FloatRand4(const float min, const float max, float result[4], __m128 *sseresult = NULL);
 
   static bool S16NeedsByteSwap(AEDataFormat in, AEDataFormat out);
 

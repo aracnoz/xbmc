@@ -1,31 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDOverlayCodecFFmpeg.h"
+
 #include "DVDOverlayImage.h"
 #include "DVDStreamInfo.h"
-#include "DVDClock.h"
-#include "DVDDemuxers/DVDDemuxPacket.h"
-#include "utils/log.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "utils/EndianSwap.h"
-#include "guilib/GraphicContext.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
 
 CDVDOverlayCodecFFmpeg::CDVDOverlayCodecFFmpeg() : CDVDOverlayCodec("FFmpeg Subtitle Decoder")
 {
@@ -73,7 +62,7 @@ bool CDVDOverlayCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &optio
   if( hints.extradata && hints.extrasize > 0 )
   {
     m_pCodecContext->extradata_size = hints.extrasize;
-    m_pCodecContext->extradata = (uint8_t*)av_mallocz(hints.extrasize + FF_INPUT_BUFFER_PADDING_SIZE);
+    m_pCodecContext->extradata = (uint8_t*)av_mallocz(hints.extrasize + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(m_pCodecContext->extradata, hints.extradata, hints.extrasize);
 
     // start parsing of extra data - create a copy to be safe and make it zero-terminating to avoid access violations!
@@ -82,7 +71,7 @@ bool CDVDOverlayCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &optio
     memcpy(parse_extra, hints.extradata, parse_extrasize);
     parse_extra[parse_extrasize] = '\0';
 
-    // assume that the extra data is formatted as a concatenation of lines ('\n' terminated) 
+    // assume that the extra data is formatted as a concatenation of lines ('\n' terminated)
     char *ptr = parse_extra;
     do // read line by line
     {
@@ -97,18 +86,18 @@ bool CDVDOverlayCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &optio
           CLog::Log(LOGDEBUG,"%s - parsed extradata: size: %d x %d", __FUNCTION__,  width, height);
         }
       }
-      /*        
+      /*
       // leaving commented code: these items don't work yet... but they may be meaningful
       if (!strncmp(ptr, "palette:", 8))
         if (sscanf(ptr, "palette: %x, %x, %x, %x, %x, %x, %x, %x,"
-                                " %x, %x, %x, %x, %x, %x, %x, %x", ...        
+                                " %x, %x, %x, %x, %x, %x, %x, %x", ...
       if (!strncasecmp(ptr, "forced subs: on", 15))
         forced_subs_only = 1;
       */
       // if tried all possibilities, then read newline char and move to next line
       ptr = strchr(ptr, '\n');
       if (ptr != NULL) ptr++;
-    } 
+    }
     while (ptr != NULL && ptr <= parse_extra + parse_extrasize);
 
     delete[] parse_extra;
@@ -162,7 +151,7 @@ int CDVDOverlayCodecFFmpeg::Decode(DemuxPacket *pPacket)
     return OC_BUFFER;
 
   double pts_offset = 0.0;
- 
+
   if (m_pCodecContext->codec_id == AV_CODEC_ID_HDMV_PGS_SUBTITLE && m_Subtitle.format == 0)
   {
     // for pgs subtitles the packet pts of the end_segments are wrong
@@ -243,7 +232,7 @@ CDVDOverlay* CDVDOverlayCodecFFmpeg::GetOverlay()
       }
     }
 
-    RENDER_STEREO_MODE render_stereo_mode = g_graphicsContext.GetStereoMode();
+    RENDER_STEREO_MODE render_stereo_mode = CServiceBroker::GetWinSystem()->GetGfxContext().GetStereoMode();
     if (render_stereo_mode != RENDER_STEREO_MODE_OFF)
     {
       if (rect.h > m_height / 2)

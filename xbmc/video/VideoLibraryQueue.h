@@ -1,30 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
-#include <set>
+#pragma once
 
 #include "FileItem.h"
 #include "threads/CriticalSection.h"
 #include "utils/JobManager.h"
+
+#include <map>
+#include <set>
 
 class CGUIDialogProgressBarHandle;
 class CVideoLibraryJob;
@@ -38,7 +27,7 @@ class CVideoLibraryJob;
 class CVideoLibraryQueue : protected CJobQueue
 {
 public:
-  ~CVideoLibraryQueue();
+  ~CVideoLibraryQueue() override;
 
   /*!
    \brief Gets the singleton instance of the video library queue.
@@ -112,6 +101,13 @@ public:
   void MarkAsWatched(const CFileItemPtr &item, bool watched);
 
   /*!
+   \brief Queue a reset resume point job.
+
+   \param[in] item Item to reset the resume point for
+   */
+  void ResetResumePoint(const CFileItemPtr item);
+
+  /*!
    \brief Adds the given job to the queue.
 
    \param[in] job Video library job to be queued.
@@ -121,7 +117,7 @@ public:
   /*!
    \brief Cancels the given job and removes it from the queue.
 
-   \param[in] job Video library job to be canceld and removed from the queue.
+   \param[in] job Video library job to be canceled and removed from the queue.
    */
   void CancelJob(CVideoLibraryJob *job);
 
@@ -137,7 +133,7 @@ public:
 
 protected:
   // implementation of IJobCallback
-  virtual void OnJobComplete(unsigned int jobID, bool success, CJob *job);
+  void OnJobComplete(unsigned int jobID, bool success, CJob *job) override;
 
   /*!
    \brief Notifies all to refresh the current listings.
@@ -146,14 +142,14 @@ protected:
 
 private:
   CVideoLibraryQueue();
-  CVideoLibraryQueue(const CVideoLibraryQueue&);
-  CVideoLibraryQueue const& operator=(CVideoLibraryQueue const&);
+  CVideoLibraryQueue(const CVideoLibraryQueue&) = delete;
+  CVideoLibraryQueue const& operator=(CVideoLibraryQueue const&) = delete;
 
   typedef std::set<CVideoLibraryJob*> VideoLibraryJobs;
   typedef std::map<std::string, VideoLibraryJobs> VideoLibraryJobMap;
   VideoLibraryJobMap m_jobs;
   CCriticalSection m_critical;
 
-  bool m_modal;
-  bool m_cleaning;
+  bool m_modal = false;
+  bool m_cleaning = false;
 };

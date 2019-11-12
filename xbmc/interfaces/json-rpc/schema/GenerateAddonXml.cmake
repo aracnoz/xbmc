@@ -1,5 +1,6 @@
-file(STRINGS ${CORE_SOURCE_DIR}/xbmc/interfaces/json-rpc/schema/version.txt jsonrpc_version)
+include(${CMAKE_SOURCE_DIR}/cmake/scripts/common/Macros.cmake)
+core_find_versions()
 
-execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${CORE_BINARY_DIR}/addons/xbmc.json/addon.xml)
-configure_file(${CORE_SOURCE_DIR}/addons/xbmc.json/addon.xml.in
+file(REMOVE ${CORE_BINARY_DIR}/addons/xbmc.json/addon.xml)
+configure_file(${CMAKE_SOURCE_DIR}/addons/xbmc.json/addon.xml.in
                ${CORE_BINARY_DIR}/addons/xbmc.json/addon.xml @ONLY)

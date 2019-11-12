@@ -1,30 +1,21 @@
 /*
- *      Copyright (C) 2015-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JoystickMonitor.h"
-#include "DefaultJoystick.h"
+
 #include "Application.h"
+#include "ServiceBroker.h"
+#include "games/controllers/ControllerIDs.h"
 #include "input/InputManager.h"
 
 #include <cmath>
 
+using namespace KODI;
 using namespace JOYSTICK;
 
 #define AXIS_DEADZONE  0.05f
@@ -34,7 +25,7 @@ std::string CJoystickMonitor::ControllerID() const
   return DEFAULT_CONTROLLER_ID;
 }
 
-bool CJoystickMonitor::AcceptsInput()
+bool CJoystickMonitor::AcceptsInput(const FeatureName& feature) const
 {
   // Only accept input when screen saver is active
   return g_application.IsInScreenSaver();
@@ -44,18 +35,18 @@ bool CJoystickMonitor::OnButtonPress(const FeatureName& feature, bool bPressed)
 {
   if (bPressed)
   {
-    CInputManager::GetInstance().SetMouseActive(false);
+    CServiceBroker::GetInputManager().SetMouseActive(false);
     return ResetTimers();
   }
 
   return false;
 }
 
-bool CJoystickMonitor::OnButtonMotion(const FeatureName& feature, float magnitude)
+bool CJoystickMonitor::OnButtonMotion(const FeatureName& feature, float magnitude, unsigned int motionTimeMs)
 {
   if (std::fabs(magnitude) > AXIS_DEADZONE)
   {
-    CInputManager::GetInstance().SetMouseActive(false);
+    CServiceBroker::GetInputManager().SetMouseActive(false);
     return ResetTimers();
   }
 
@@ -67,7 +58,29 @@ bool CJoystickMonitor::OnAnalogStickMotion(const FeatureName& feature, float x, 
   // Analog stick deadzone already processed
   if (x != 0.0f || y != 0.0f)
   {
-    CInputManager::GetInstance().SetMouseActive(false);
+    CServiceBroker::GetInputManager().SetMouseActive(false);
+    return ResetTimers();
+  }
+
+  return false;
+}
+
+bool CJoystickMonitor::OnWheelMotion(const FeatureName& feature, float position, unsigned int motionTimeMs)
+{
+  if (std::fabs(position) > AXIS_DEADZONE)
+  {
+    CServiceBroker::GetInputManager().SetMouseActive(false);
+    return ResetTimers();
+  }
+
+  return false;
+}
+
+bool CJoystickMonitor::OnThrottleMotion(const FeatureName& feature, float position, unsigned int motionTimeMs)
+{
+  if (std::fabs(position) > AXIS_DEADZONE)
+  {
+    CServiceBroker::GetInputManager().SetMouseActive(false);
     return ResetTimers();
   }
 

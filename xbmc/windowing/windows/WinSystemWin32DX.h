@@ -1,50 +1,43 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#ifndef WIN_SYSTEM_WIN32_DX_H
-#define WIN_SYSTEM_WIN32_DX_H
-
-#ifdef HAS_DX
 
 #pragma once
 
-#include "windowing/windows/WinSystemWin32.h"
 #include "rendering/dx/RenderSystemDX.h"
-#include "utils/GlobalsHandling.h"
+#include "windowing/windows/WinSystemWin32.h"
 
+#include <easyhook/easyhook.h>
+
+struct D3D10DDIARG_CREATERESOURCE;
 
 class CWinSystemWin32DX : public CWinSystemWin32, public CRenderSystemDX
 {
+  friend interface DX::IDeviceNotify;
 public:
   CWinSystemWin32DX();
   ~CWinSystemWin32DX();
 
-  virtual bool CreateNewWindow(std::string name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction);
-  virtual bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop);
-  virtual void OnMove(int x, int y);
-  virtual bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays);
-  virtual bool WindowedMode() { return CRenderSystemDX::m_useWindowedDX; }
-  virtual void NotifyAppFocusChange(bool bGaining);
-  virtual void PresentRender(bool rendererd, bool videoLayer);
+  // Implementation of CWinSystemBase via CWinSystemWin32
+  CRenderSystemBase *GetRenderSystem() override { return this; }
+  bool CreateNewWindow(const std::string& name, bool fullScreen, RESOLUTION_INFO& res) override;
+  bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop) override;
+  bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) override;
+  void PresentRenderImpl(bool rendered) override;
+  bool DPIChanged(WORD dpi, RECT windowRect) const override;
+  void SetWindow(HWND hWnd) const;
+  bool DestroyRenderSystem() override;
+  void* GetHWContext() override { return m_deviceResources->GetD3DContext(); }
 
-  std::string GetClipboardText(void);
+  void UninitHooks();
+  void InitHooks(IDXGIOutput* pOutput);
+
+  void OnMove(int x, int y) override;
+  void OnResize(int width, int height);
 
   /*!
    \brief Register as a dependent of the DirectX Render System
@@ -54,28 +47,35 @@ public:
    where any resources dependent on the DirectX device should be destroyed and recreated.
    \sa Unregister, ID3DResource
   */
-  void Register(ID3DResource *resource) override { CRenderSystemDX::Register(resource); };
+  void Register(ID3DResource *resource) const
+  {
+    m_deviceResources->Register(resource);
+  };
   /*!
    \brief Unregister as a dependent of the DirectX Render System
    Resources should call this on destruction if they're a dependent on the Render System
    \sa Register, ID3DResource
   */
-  void Unregister(ID3DResource *resource) override { CRenderSystemDX::Unregister(resource); };
+  void Unregister(ID3DResource *resource) const
+  {
+    m_deviceResources->Unregister(resource);
+  };
 
   void Register(IDispResource *resource) override { CWinSystemWin32::Register(resource); };
   void Unregister(IDispResource *resource) override { CWinSystemWin32::Unregister(resource); };
 
+  void FixRefreshRateIfNecessary(const D3D10DDIARG_CREATERESOURCE* pResource) const;
+
 protected:
-  bool UseWindowedDX(bool fullScreen);
-  void UpdateMonitor() override;
-  void OnDisplayLost() override { CWinSystemWin32::OnDisplayLost(); };
-  void OnDisplayReset() override { CWinSystemWin32::OnDisplayReset(); };
-  void OnDisplayBack() override { CWinSystemWin32::OnDisplayBack(); };
+  void SetDeviceFullScreen(bool fullScreen, RESOLUTION_INFO& res) override;
+  void ReleaseBackBuffer() override;
+  void CreateBackBuffer() override;
+  void ResizeDeviceBuffers() override;
+  bool IsStereoEnabled() override;
+  void OnScreenChange(HMONITOR monitor) override;
+  bool ChangeResolution(const RESOLUTION_INFO& res, bool forceChange = false) override;
+
+  HMODULE m_hDriverModule;
+  TRACED_HOOK_HANDLE m_hHook;
 };
 
-XBMC_GLOBAL_REF(CWinSystemWin32DX,g_Windowing);
-#define g_Windowing XBMC_GLOBAL_USE(CWinSystemWin32DX)
-
-#endif
-
-#endif // WIN_SYSTEM_WIN32_DX_H

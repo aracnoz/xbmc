@@ -1,9 +1,6 @@
-#ifndef CMDLINEARGS_H
-#define CMDLINEARGS_H
-
 /*
  *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *      http://kodi.tv
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,10 +18,10 @@
  *
  */
 
+#pragma once
+
 #ifdef TARGET_POSIX
-#include "PlatformDefs.h"
-#include "xwinapi.h"
-typedef LPSTR PSZ;
+char* GetCommandLine();
 #define _snprintf snprintf
 #else
 #include <windows.h>
@@ -39,12 +36,12 @@ public:
     {
         // Save local copy of the command line string, because
         // ParseCmdLine() modifies this string while parsing it.
-        PSZ cmdline = GetCommandLine();
+        char* cmdline = GetCommandLine();
         m_cmdline = new char [strlen (cmdline) + 1];
         if (m_cmdline)
         {
             strcpy (m_cmdline, cmdline);
-            ParseCmdLine(); 
+            ParseCmdLine();
         } else {
 #ifdef TARGET_POSIX
           delete[] cmdline;
@@ -87,7 +84,7 @@ public:
     }
 
 private:
-    PSZ m_cmdline; // the command line string
+    char* m_cmdline; // the command line string
 
     ////////////////////////////////////////////////////////////////////////////////
     // Parse m_cmdline into individual tokens, which are delimited by spaces. If a
@@ -103,7 +100,7 @@ private:
                QUOTE = '\"' };
 
         bool bInQuotes = false;
-        PSZ pargs = m_cmdline;
+        char* pargs = m_cmdline;
 
         while (*pargs)
         {
@@ -113,7 +110,7 @@ private:
             bInQuotes = (*pargs == QUOTE);  // see if this token is quoted
 
             if (bInQuotes)                  // skip leading quote
-                pargs++; 
+                pargs++;
 
             push_back (pargs);              // store position of current token
 
@@ -124,7 +121,7 @@ private:
             if (bInQuotes)
             {
                 // find next quote followed by a space or terminator
-                while (*pargs && 
+                while (*pargs &&
                       !(*pargs == QUOTE && (isspace (pargs[1]) || pargs[1] == TERM)))
                     pargs++;
                 if (*pargs)
@@ -137,7 +134,7 @@ private:
             else
             {
                 // skip to next non-whitespace character
-                while (*pargs && !isspace (*pargs)) 
+                while (*pargs && !isspace (*pargs))
                     pargs++;
                 if (*pargs && isspace (*pargs)) // end of token
                 {
@@ -149,5 +146,3 @@ private:
     } // ParseCmdLine()
 }; // class CmdLineArgs
 
-
-#endif // CMDLINEARGS_H

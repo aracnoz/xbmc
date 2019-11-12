@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "events/UniqueEvent.h"
 #include "media/MediaType.h"
@@ -29,13 +18,13 @@ public:
   CMediaLibraryEvent(const MediaType& mediaType, const std::string& mediaPath, const CVariant& label, const CVariant& description, const std::string& icon, EventLevel level = EventLevel::Information);
   CMediaLibraryEvent(const MediaType& mediaType, const std::string& mediaPath, const CVariant& label, const CVariant& description, const std::string& icon, const CVariant& details, EventLevel level = EventLevel::Information);
   CMediaLibraryEvent(const MediaType& mediaType, const std::string& mediaPath, const CVariant& label, const CVariant& description, const std::string& icon, const CVariant& details, const CVariant& executionLabel, EventLevel level = EventLevel::Information);
-  virtual ~CMediaLibraryEvent() { }
+  ~CMediaLibraryEvent() override = default;
 
-  virtual const char* GetType() const { return "MediaLibraryEvent"; }
-  virtual std::string GetExecutionLabel() const;
+  const char* GetType() const override { return "MediaLibraryEvent"; }
+  std::string GetExecutionLabel() const override;
 
-  virtual bool CanExecute() const { return !m_mediaType.empty(); }
-  virtual bool Execute() const;
+  bool CanExecute() const override { return !m_mediaType.empty(); }
+  bool Execute() const override;
 
 protected:
   MediaType m_mediaType;

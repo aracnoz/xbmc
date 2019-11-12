@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Language: en_GB\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: /xml/Home.xml /xml/DialogFullScreenInfo.xml
+#: /xml/Home.xml /xml/DialogSeekBar.xml
 msgctxt "#31000"
 msgid "Now playing"
 msgstr ""
@@ -56,7 +56,10 @@ msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr ""
 
-#empty string with id 31008
+#: /xml/SkinSettings.xml
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr ""
 
 #: /xml/MyVideoNav.xml
 msgctxt "#31009"
@@ -136,7 +139,10 @@ msgctxt "#31023"
 msgid "Viewtype"
 msgstr ""
 
-#empty string with id 31024
+#: /xml/SkinSettings.xml
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr ""
 
 #: /xml/DialogFavourites.xml
 msgctxt "#31025"
@@ -253,10 +259,7 @@ msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr ""
 
-#: /xml/VideoOSD.xml
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr ""
+#empty string with id 31051
 
 #: /xml/Includes.xml
 msgctxt "#31052"
@@ -590,12 +593,15 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr ""
 
-#: /xml/MyVideoNav.xml /xml/View_502_FanArt.xml
+#: /xml/Custom_1101_SettingsList.xml
 msgctxt "#31132"
-msgid "min"
+msgid "Select Program"
 msgstr ""
 
-#empty string with id 31133
+#: /xml/Custom_1101_SettingsList.xml
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr ""
 
 #: /xml/DialogSeekBar.xml
 msgctxt "#31134"
@@ -724,4 +730,38 @@ msgstr ""
 #: /xml/DialogNumeric.xml
 msgctxt "#31161"
 msgid "Numeric pad"
+msgstr ""
+
+#: /xml/Home.xml
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr ""
+
+#: /xml/Custom_1105_MusicOSDSettings.xml
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr ""
+
+#. Choose profile identifier
+#: /xml/SkinSettings.xml
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr ""
+
+#. Label for the kind of profile identification
+#: /xml/SkinSettings.xml
+msgctxt "#31165"
+msgid "Profile name"
+msgstr ""
+
+#. Label for the kind of profile identification
+#: /xml/SkinSettings.xml
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr ""
+
+#. Label of a setting
+#: /xml/SkinSettings.xml
+msgctxt "#31167"
+msgid "Animate background"
 msgstr ""

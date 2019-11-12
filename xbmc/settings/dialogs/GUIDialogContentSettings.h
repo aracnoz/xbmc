@@ -1,30 +1,17 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
+#pragma once
 
-#include "addons/Addon.h"
 #include "addons/Scraper.h"
 #include "settings/dialogs/GUIDialogSettingsManualBase.h"
+
+#include <map>
 
 namespace VIDEO
 {
@@ -62,8 +49,8 @@ protected:
   void OnInitWindow() override;
 
   // implementations of ISettingCallback
-  void OnSettingChanged(const CSetting *setting) override;
-  void OnSettingAction(const CSetting *setting) override;
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingAction(std::shared_ptr<const CSetting> setting) override;
 
   // specialization of CGUIDialogSettingsBase
   bool AllowResettingSettings() const override { return false; }
@@ -76,25 +63,26 @@ protected:
 private:
   void SetLabel2(const std::string &settingid, const std::string &label);
   void ToggleState(const std::string &settingid, bool enabled);
+  using CGUIDialogSettingsManualBase::SetFocus;
   void SetFocus(const std::string &settingid);
 
   /*!
   * @brief The currently selected content type
   */
-  CONTENT_TYPE m_content;
+  CONTENT_TYPE m_content = CONTENT_NONE;
   /*!
   * @brief The selected content type at dialog creation
   */
-  CONTENT_TYPE m_originalContent;
+  CONTENT_TYPE m_originalContent = CONTENT_NONE;
   /*!
   * @brief The currently selected scraper
   */
   ADDON::ScraperPtr m_scraper;
 
-  bool m_showScanSettings;
-  bool m_scanRecursive;
-  bool m_useDirectoryNames;
-  bool m_containsSingleItem;
-  bool m_exclude;
-  bool m_noUpdating;
+  bool m_showScanSettings = false;
+  bool m_scanRecursive = false;
+  bool m_useDirectoryNames = false;
+  bool m_containsSingleItem = false;
+  bool m_exclude = false;
+  bool m_noUpdating = false;
 };

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ISO9660Directory.h"
@@ -26,16 +14,17 @@
 #include "URL.h"
 #include "FileItem.h"
 #ifdef TARGET_POSIX
-#include "linux/XTimeUtils.h"
+#include "platform/posix/XTimeUtils.h"
+#endif
+#ifdef TARGET_WINDOWS
+#include "platform/win32/CharsetConverter.h"
 #endif
 
 using namespace XFILE;
 
-CISO9660Directory::CISO9660Directory(void)
-{}
+CISO9660Directory::CISO9660Directory(void) = default;
 
-CISO9660Directory::~CISO9660Directory(void)
-{}
+CISO9660Directory::~CISO9660Directory(void) = default;
 
 bool CISO9660Directory::GetDirectory(const CURL& url, CFileItemList &items)
 {
@@ -66,7 +55,7 @@ bool CISO9660Directory::GetDirectory(const CURL& url, CFileItemList &items)
     if (strSearchMask[i] == '/') strSearchMask[i] = '\\';
   }
 
-  hFind = m_isoReader.FindFirstFile((char*)strSearchMask.c_str(), &wfd);
+  hFind = m_isoReader.FindFirstFile9660(strSearchMask.c_str(), &wfd);
   if (hFind == NULL)
     return false;
 
@@ -76,11 +65,15 @@ bool CISO9660Directory::GetDirectory(const CURL& url, CFileItemList &items)
     {
       if ( (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) )
       {
+#ifdef TARGET_WINDOWS
+        auto strDir = KODI::PLATFORM::WINDOWS::FromW(wfd.cFileName);
+#else
         std::string strDir = wfd.cFileName;
+#endif
         if (strDir != "." && strDir != "..")
         {
-          CFileItemPtr pItem(new CFileItem(wfd.cFileName));
-          std::string path = strRoot + wfd.cFileName;
+          CFileItemPtr pItem(new CFileItem(strDir));
+          std::string path = strRoot + strDir;
           URIUtils::AddSlashAtEnd(path);
           pItem->SetPath(path);
           pItem->m_bIsFolder = true;
@@ -92,8 +85,13 @@ bool CISO9660Directory::GetDirectory(const CURL& url, CFileItemList &items)
       }
       else
       {
-        CFileItemPtr pItem(new CFileItem(wfd.cFileName));
-        pItem->SetPath(strRoot + wfd.cFileName);
+#ifdef TARGET_WINDOWS
+        auto strDir = KODI::PLATFORM::WINDOWS::FromW(wfd.cFileName);
+#else
+        std::string strDir = wfd.cFileName;
+#endif
+        CFileItemPtr pItem(new CFileItem(strDir));
+        pItem->SetPath(strRoot + strDir);
         pItem->m_bIsFolder = false;
         pItem->m_dwSize = CUtil::ToInt64(wfd.nFileSizeHigh, wfd.nFileSizeLow);
         FILETIME localTime;

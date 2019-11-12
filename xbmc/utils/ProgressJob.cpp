@@ -1,46 +1,29 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <math.h>
-
 #include "ProgressJob.h"
-#include "dialogs/GUIDialogProgress.h"
+
+#include "ServiceBroker.h"
 #include "dialogs/GUIDialogExtendedProgressBar.h"
+#include "dialogs/GUIDialogProgress.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "utils/Variant.h"
 
+#include <math.h>
+
 CProgressJob::CProgressJob()
-  : m_modal(false),
-    m_autoClose(true),
-    m_updateProgress(true),
-    m_updateInformation(true),
-    m_progress(NULL),
+  : m_progress(NULL),
     m_progressDialog(NULL)
 { }
 
 CProgressJob::CProgressJob(CGUIDialogProgressBarHandle* progressBar)
-  : m_modal(false),
-    m_autoClose(true),
-    m_updateProgress(true),
-    m_updateInformation(true),
-    m_progress(progressBar),
+  : m_progress(progressBar),
     m_progressDialog(NULL)
 { }
 
@@ -69,7 +52,7 @@ bool CProgressJob::DoModal()
   // get a progress dialog if we don't already have one
   if (m_progressDialog == NULL)
   {
-    m_progressDialog = (CGUIDialogProgress *)g_windowManager.GetWindow(WINDOW_DIALOG_PROGRESS);
+    m_progressDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogProgress>(WINDOW_DIALOG_PROGRESS);
 
     if (m_progressDialog == NULL)
       return false;

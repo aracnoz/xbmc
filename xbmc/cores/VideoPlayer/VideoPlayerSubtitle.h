@@ -1,30 +1,18 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "DVDOverlayContainer.h"
-#include "DVDSubtitles/DVDFactorySubtitle.h"
-#include "DVDStreamInfo.h"
-#include "DVDMessageQueue.h"
+#pragma once
+
 #include "DVDDemuxSPU.h"
+#include "DVDMessageQueue.h"
+#include "DVDOverlayContainer.h"
+#include "DVDStreamInfo.h"
+#include "DVDSubtitles/DVDFactorySubtitle.h"
 #include "IVideoPlayer.h"
 
 class CDVDInputStream;
@@ -37,24 +25,24 @@ class CVideoPlayerSubtitle : public IDVDStreamPlayer
 {
 public:
   CVideoPlayerSubtitle(CDVDOverlayContainer* pOverlayContainer, CProcessInfo &processInfo);
-  ~CVideoPlayerSubtitle();
+  ~CVideoPlayerSubtitle() override;
 
   void Process(double pts, double offset);
   void Flush();
   void FindSubtitles(const char* strFilename);
   int GetSubtitleCount();
 
-  void UpdateOverlayInfo(CDVDInputStreamNavigator* pStream, int iAction) { m_pOverlayContainer->UpdateOverlayInfo(pStream, &m_dvdspus, iAction); }
+  void UpdateOverlayInfo(std::shared_ptr<CDVDInputStreamNavigator> pStream, int iAction) { m_pOverlayContainer->UpdateOverlayInfo(pStream, &m_dvdspus, iAction); }
 
-  bool AcceptsData() const;
-  void SendMessage(CDVDMsg* pMsg, int priority = 0);
-  void FlushMessages() {}
-  bool OpenStream(CDVDStreamInfo &hints) { return OpenStream(hints, hints.filename); }
+  bool AcceptsData() const override;
+  void SendMessage(CDVDMsg* pMsg, int priority = 0) override;
+  void FlushMessages() override {}
+  bool OpenStream(CDVDStreamInfo hints) override { return OpenStream(hints, hints.filename); }
   bool OpenStream(CDVDStreamInfo &hints, std::string& filename);
-  void CloseStream(bool bWaitForBuffers);
+  void CloseStream(bool bWaitForBuffers) override;
 
-  bool IsInited() const { return true; }
-  bool IsStalled() const { return m_pOverlayContainer->GetSize() == 0; }
+  bool IsInited() const override { return true; }
+  bool IsStalled() const override { return m_pOverlayContainer->GetSize() == 0; }
 private:
   CDVDOverlayContainer* m_pOverlayContainer;
 

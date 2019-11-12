@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2007-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 //
 // C++ Interface: CKeyboard
@@ -27,17 +15,17 @@
 // platform specific low level keyboard classes.
 // Here it must be done only once. Within the other mentioned classes it would have to be done several times.
 //
-// Keyboards alyways deliver printable characters, logical keys for functional behaviour, modifiers ... alongside
+// Keyboards always deliver printable characters, logical keys for functional behaviour, modifiers ... alongside
 // Based on the same hardware with the same scancodes (also alongside) but delivered with different labels to customers
 // the software must solve the mapping to the real labels. This is done here.
 // The mapping must be specified by an xml configuration that should be able to access everything available,
 // but this allows for double/redundant or ambiguous mapping definition, e.g.
 // ASCII/unicode could be derived from scancodes, virtual keys, modifiers and/or other ASCII/unicode.
 
-#include <string>
-
 #include "input/Key.h"
 #include "input/XBMC_keyboard.h"
+
+#include <string>
 
 class CKeyboardStat
 {

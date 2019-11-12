@@ -1,26 +1,14 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
- 
-#include <stdio.h>
 
 #include "HttpResponse.h"
+
+#include <stdio.h>
 
 #define SPACE     " "
 #define SEPARATOR ": "
@@ -45,7 +33,7 @@ void CHttpResponse::AddHeader(const std::string &field, const std::string &value
   if (field.empty())
     return;
 
-  m_headers.push_back(std::pair<std::string, std::string>(field, value));
+  m_headers.emplace_back(field, value);
 }
 
 void CHttpResponse::SetContent(const char* data, unsigned int length)
@@ -58,7 +46,7 @@ void CHttpResponse::SetContent(const char* data, unsigned int length)
     m_contentLength = length;
 }
 
-unsigned int CHttpResponse::Create(char *&response)
+std::string CHttpResponse::Create()
 {
   m_buffer.clear();
 
@@ -112,8 +100,7 @@ unsigned int CHttpResponse::Create(char *&response)
   if (m_content != NULL && m_contentLength > 0)
     m_buffer.append(m_content, m_contentLength);
 
-  response = (char *)m_buffer.c_str();
-  return m_buffer.size();
+  return m_buffer;
 }
 
 std::map<HTTP::StatusCode, std::string> CHttpResponse::createStatusCodes()

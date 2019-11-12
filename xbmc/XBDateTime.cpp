@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <cstdlib>
@@ -27,8 +15,8 @@
 #include "utils/StringUtils.h"
 #include "utils/Archive.h"
 #ifdef TARGET_POSIX
-#include "XTimeUtils.h"
-#include "XFileUtils.h"
+#include "platform/posix/XTimeUtils.h"
+#include "platform/posix/XFileUtils.h"
 #else
 #include <Windows.h>
 #endif
@@ -174,10 +162,10 @@ void CDateTimeSpan::SetDateTimeSpan(int day, int hour, int minute, int second)
   ULARGE_INTEGER time;
   ToULargeInt(time);
 
-  time.QuadPart=(LONGLONG)day*SECONDS_PER_DAY*SECONDS_TO_FILETIME;
-  time.QuadPart+=(LONGLONG)hour*SECONDS_PER_HOUR*SECONDS_TO_FILETIME;
-  time.QuadPart+=(LONGLONG)minute*SECONDS_PER_MINUTE*SECONDS_TO_FILETIME;
-  time.QuadPart+=(LONGLONG)second*SECONDS_TO_FILETIME;
+  time.QuadPart= static_cast<long long>(day) *SECONDS_PER_DAY*SECONDS_TO_FILETIME;
+  time.QuadPart+= static_cast<long long>(hour) *SECONDS_PER_HOUR*SECONDS_TO_FILETIME;
+  time.QuadPart+= static_cast<long long>(minute) *SECONDS_PER_MINUTE*SECONDS_TO_FILETIME;
+  time.QuadPart+= static_cast<long long>(second) *SECONDS_TO_FILETIME;
 
   FromULargeInt(time);
 }
@@ -228,7 +216,7 @@ int CDateTimeSpan::GetSecondsTotal() const
 {
   ULARGE_INTEGER time;
   ToULargeInt(time);
-  
+
   return (int)(time.QuadPart/SECONDS_TO_FILETIME);
 }
 
@@ -619,7 +607,7 @@ void CDateTime::Archive(CArchive& ar)
   {
     Reset();
     int state;
-    ar >> (int &)state;
+    ar >> state;
     m_state = CDateTime::STATE(state);
     if (m_state==valid)
     {
@@ -648,13 +636,15 @@ bool CDateTime::IsValid() const
 
 bool CDateTime::ToFileTime(const SYSTEMTIME& time, FILETIME& fileTime) const
 {
-  return SystemTimeToFileTime(&time, &fileTime) == TRUE &&
+  return SystemTimeToFileTime(&time, &fileTime) == 1 &&
          (fileTime.dwLowDateTime > 0 || fileTime.dwHighDateTime > 0);
 }
 
 bool CDateTime::ToFileTime(const time_t& time, FILETIME& fileTime) const
 {
-  LONGLONG ll = Int32x32To64(time, 10000000)+0x19DB1DED53E8000LL;
+  long long ll = time;
+  ll *= 10000000ll;
+  ll += 0x19DB1DED53E8000LL;
 
   fileTime.dwLowDateTime  = (DWORD)(ll & 0xFFFFFFFF);
   fileTime.dwHighDateTime = (DWORD)(ll >> 32);
@@ -664,8 +654,7 @@ bool CDateTime::ToFileTime(const time_t& time, FILETIME& fileTime) const
 
 bool CDateTime::ToFileTime(const tm& time, FILETIME& fileTime) const
 {
-  SYSTEMTIME st;
-  ZeroMemory(&st, sizeof(SYSTEMTIME));
+  SYSTEMTIME st = { 0 };
 
   st.wYear=time.tm_year+1900;
   st.wMonth=time.tm_mon+1;
@@ -675,7 +664,7 @@ bool CDateTime::ToFileTime(const tm& time, FILETIME& fileTime) const
   st.wMinute=time.tm_min;
   st.wSecond=time.tm_sec;
 
-  return SystemTimeToFileTime(&st, &fileTime)==TRUE;
+  return SystemTimeToFileTime(&st, &fileTime) == 1;
 }
 
 void CDateTime::ToULargeInt(ULARGE_INTEGER& time) const
@@ -794,8 +783,7 @@ int CDateTime::GetMinuteOfDay() const
 
 bool CDateTime::SetDateTime(int year, int month, int day, int hour, int minute, int second)
 {
-  SYSTEMTIME st;
-  ZeroMemory(&st, sizeof(SYSTEMTIME));
+  SYSTEMTIME st = { 0 };
 
   st.wYear=year;
   st.wMonth=month;
@@ -827,8 +815,7 @@ void CDateTime::GetAsSystemTime(SYSTEMTIME& time) const
 #define UNIX_BASE_TIME 116444736000000000LL /* nanoseconds since epoch */
 void CDateTime::GetAsTime(time_t& time) const
 {
-  LONGLONG ll;
-  ll = ((LONGLONG)m_time.dwHighDateTime << 32) + m_time.dwLowDateTime;
+  long long ll = (static_cast<long long>(m_time.dwHighDateTime) << 32) + m_time.dwLowDateTime;
   time=(time_t)((ll - UNIX_BASE_TIME) / 10000000);
 }
 
@@ -859,6 +846,14 @@ std::string CDateTime::GetAsDBDate() const
   GetAsSystemTime(st);
 
   return StringUtils::Format("%04i-%02i-%02i", st.wYear, st.wMonth, st.wDay);
+}
+
+std::string CDateTime::GetAsDBTime() const
+{
+  SYSTEMTIME st;
+  GetAsSystemTime(st);
+
+  return StringUtils::Format("%02i:%02i:%02i", st.wHour, st.wMinute, st.wSecond);
 }
 
 std::string CDateTime::GetAsDBDateTime() const
@@ -1061,15 +1056,19 @@ bool CDateTime::SetFromDBDate(const std::string &date)
 
 bool CDateTime::SetFromDBTime(const std::string &time)
 {
-  if (time.size() < 8)
+  if (time.size() < 5)
     return false;
-  // assumes format:
-  // HH:MM:SS
-  int hour, minute, second;
 
+  int hour;
+  int minute;
+  
+  int second = 0;
+  // HH:MM or HH:MM:SS
   hour   = atoi(time.substr(0, 2).c_str());
   minute = atoi(time.substr(3, 2).c_str());
-  second = atoi(time.substr(6, 2).c_str());
+  // HH:MM:SS
+  if (time.size() == 8)
+    second = atoi(time.substr(6, 2).c_str());
 
   return SetTime(hour, minute, second);
 }
@@ -1466,6 +1465,46 @@ std::string CDateTime::GetAsLocalizedDate(const std::string &strFormat) const
 std::string CDateTime::GetAsLocalizedDateTime(bool longDate/*=false*/, bool withSeconds/*=true*/) const
 {
   return GetAsLocalizedDate(longDate) + ' ' + GetAsLocalizedTime("", withSeconds);
+}
+
+std::string CDateTime::GetAsLocalizedTime(TIME_FORMAT format, bool withSeconds /* = false */) const
+{
+  const std::string timeFormat = g_langInfo.GetTimeFormat();
+  bool use12hourclock = timeFormat.find('h') != std::string::npos;
+  switch (format)
+  {
+    case TIME_FORMAT_GUESS:
+      return GetAsLocalizedTime("", withSeconds);
+    case TIME_FORMAT_SS:
+      return GetAsLocalizedTime("ss", true);
+    case TIME_FORMAT_MM:
+      return GetAsLocalizedTime("mm", true);
+    case TIME_FORMAT_MM_SS:
+      return GetAsLocalizedTime("mm:ss", true);
+    case TIME_FORMAT_HH:  // this forces it to a 12 hour clock
+      return GetAsLocalizedTime(use12hourclock ? "h" : "HH", false);
+    case TIME_FORMAT_HH_MM:
+      return GetAsLocalizedTime(use12hourclock ? "h:mm" : "HH:mm", false);
+    case TIME_FORMAT_HH_MM_XX:
+      return GetAsLocalizedTime(use12hourclock ? "h:mm xx" : "HH:mm", false);
+    case TIME_FORMAT_HH_MM_SS:
+      return GetAsLocalizedTime(use12hourclock ? "hh:mm:ss" : "HH:mm:ss", true);
+    case TIME_FORMAT_HH_MM_SS_XX:
+      return GetAsLocalizedTime(use12hourclock ? "hh:mm:ss xx" : "HH:mm:ss", true);
+    case TIME_FORMAT_H:
+      return GetAsLocalizedTime("h", false);
+    case TIME_FORMAT_M:
+      return GetAsLocalizedTime("m", false);
+    case TIME_FORMAT_H_MM_SS:
+      return GetAsLocalizedTime("h:mm:ss", true);
+    case TIME_FORMAT_H_MM_SS_XX:
+      return GetAsLocalizedTime("h:mm:ss xx", true);
+    case TIME_FORMAT_XX:
+      return use12hourclock ? GetAsLocalizedTime("xx", false) : "";
+    default:
+      break;
+  }
+  return GetAsLocalizedTime("", false);
 }
 
 CDateTime CDateTime::GetAsUTCDateTime() const

@@ -1,24 +1,14 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h"
 #include "cores/AudioEngine/Interfaces/AESound.h"
 #include "filesystem/File.h"
 
@@ -27,20 +17,22 @@ class DllAvUtil;
 namespace ActiveAE
 {
 
+class CActiveAE;
+
 class CActiveAESound : public IAESound
 {
 public:
-  CActiveAESound (const std::string &filename);
-  virtual ~CActiveAESound();
+  CActiveAESound (const std::string &filename, CActiveAE *ae);
+  ~CActiveAESound() override;
 
-  virtual void Play();
-  virtual void Stop();
-  virtual bool IsPlaying();
+  void Play() override;
+  void Stop() override;
+  bool IsPlaying() override;
 
-  virtual void SetChannel(AEChannel channel) { m_channel = channel; }
-  virtual AEChannel GetChannel() { return m_channel; }
-  virtual void SetVolume(float volume) { m_volume = std::max(0.0f, std::min(1.0f, volume)); }
-  virtual float GetVolume() { return m_volume; }
+  void SetChannel(AEChannel channel) override { m_channel = channel; }
+  AEChannel GetChannel() override { return m_channel; }
+  void SetVolume(float volume) override { m_volume = std::max(0.0f, std::min(1.0f, volume)); }
+  float GetVolume() override { return m_volume; }
 
   uint8_t** InitSound(bool orig, SampleConfig config, int nb_samples);
   bool StoreSound(bool orig, uint8_t **buffer, int samples, int linesize);
@@ -59,6 +51,7 @@ public:
   static int64_t Seek(void *h, int64_t pos, int whence);
 
 protected:
+  CActiveAE *m_activeAE;
   std::string m_filename;
   XFILE::CFile *m_pFile;
   bool m_isSeekPossible;

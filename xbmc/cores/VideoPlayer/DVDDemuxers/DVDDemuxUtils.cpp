@@ -1,95 +1,80 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#endif
 #include "DVDDemuxUtils.h"
-#include "DVDClock.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxCrypto.h"
 #include "utils/log.h"
-#include "system.h"
-
-#ifdef TARGET_POSIX
-#include "linux/XMemUtils.h"
-#endif
+#include "utils/MemUtils.h"
 
 extern "C" {
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
 }
 
 void CDVDDemuxUtils::FreeDemuxPacket(DemuxPacket* pPacket)
 {
   if (pPacket)
   {
-    try {
-      if (pPacket->pData) _aligned_free(pPacket->pData);
-      delete pPacket;
+    if (pPacket->pData)
+      KODI::MEMORY::AlignedFree(pPacket->pData);
+    if (pPacket->iSideDataElems)
+    {
+      AVPacket avPkt;
+      av_init_packet(&avPkt);
+      avPkt.side_data = static_cast<AVPacketSideData*>(pPacket->pSideData);
+      avPkt.side_data_elems = pPacket->iSideDataElems;
+      av_packet_free_side_data(&avPkt);
     }
-    catch(...) {
-      CLog::Log(LOGERROR, "%s - Exception thrown while freeing packet", __FUNCTION__);
-    }
+    delete pPacket;
   }
 }
 
 DemuxPacket* CDVDDemuxUtils::AllocateDemuxPacket(int iDataSize)
 {
-  DemuxPacket* pPacket = new DemuxPacket;
-  if (!pPacket) return NULL;
+  DemuxPacket* pPacket = new DemuxPacket();
 
-  try
+  if (iDataSize > 0)
   {
-    memset(pPacket, 0, sizeof(DemuxPacket));
-
-    if (iDataSize > 0)
+    // need to allocate a few bytes more.
+    // From avcodec.h (ffmpeg)
+    /**
+     * Required number of additionally allocated bytes at the end of the input bitstream for decoding.
+     * this is mainly needed because some optimized bitstream readers read
+     * 32 or 64 bit at once and could read over the end<br>
+     * Note, if the first 23 bits of the additional bytes are not 0 then damaged
+     * MPEG bitstreams could cause overread and segfault
+     */
+    pPacket->pData = static_cast<uint8_t*>(KODI::MEMORY::AlignedMalloc(iDataSize + AV_INPUT_BUFFER_PADDING_SIZE, 16));
+    if (!pPacket->pData)
     {
-      // need to allocate a few bytes more.
-      // From avcodec.h (ffmpeg)
-      /**
-        * Required number of additionally allocated bytes at the end of the input bitstream for decoding.
-        * this is mainly needed because some optimized bitstream readers read
-        * 32 or 64 bit at once and could read over the end<br>
-        * Note, if the first 23 bits of the additional bytes are not 0 then damaged
-        * MPEG bitstreams could cause overread and segfault
-        */
-      pPacket->pData =(uint8_t*)_aligned_malloc(iDataSize + FF_INPUT_BUFFER_PADDING_SIZE, 16);
-      if (!pPacket->pData)
-      {
-        FreeDemuxPacket(pPacket);
-        return NULL;
-      }
-
-      // reset the last 8 bytes to 0;
-      memset(pPacket->pData + iDataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+      FreeDemuxPacket(pPacket);
+      return NULL;
     }
 
-    // setup defaults
-    pPacket->dts       = DVD_NOPTS_VALUE;
-    pPacket->pts       = DVD_NOPTS_VALUE;
-    pPacket->iStreamId = -1;
-    pPacket->dispTime = 0;
+    // reset the last 8 bytes to 0;
+    memset(pPacket->pData + iDataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
   }
-  catch(...)
-  {
-    CLog::Log(LOGERROR, "%s - Exception thrown", __FUNCTION__);
-    FreeDemuxPacket(pPacket);
-    pPacket = NULL;
-  }
+
   return pPacket;
+}
+
+DemuxPacket* CDVDDemuxUtils::AllocateDemuxPacket(unsigned int iDataSize, unsigned int encryptedSubsampleCount)
+{
+  DemuxPacket *ret(AllocateDemuxPacket(iDataSize));
+  if (ret && encryptedSubsampleCount > 0)
+    ret->cryptoInfo = std::shared_ptr<DemuxCryptoInfo>(new DemuxCryptoInfo(encryptedSubsampleCount));
+  return ret;
+}
+
+void CDVDDemuxUtils::StoreSideData(DemuxPacket *pkt, AVPacket *src)
+{
+  AVPacket avPkt;
+  av_init_packet(&avPkt);
+  av_packet_copy_props(&avPkt, src);
+  pkt->pSideData = avPkt.side_data;
+  pkt->iSideDataElems = avPkt.side_data_elems;
 }

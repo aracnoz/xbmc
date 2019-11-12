@@ -1,26 +1,14 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/Variant.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 TEST(TestVariant, VariantTypeInteger)
 {
@@ -110,10 +98,10 @@ TEST(TestVariant, VariantTypeDouble)
 TEST(TestVariant, VariantTypeArray)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string1");
-  strarray.push_back("string2");
-  strarray.push_back("string3");
-  strarray.push_back("string4");
+  strarray.emplace_back("string1");
+  strarray.emplace_back("string2");
+  strarray.emplace_back("string3");
+  strarray.emplace_back("string4");
   CVariant a(strarray);
 
   EXPECT_TRUE(a.isArray());
@@ -142,18 +130,18 @@ TEST(TestVariant, VariantFromMap)
   std::map<std::string, std::string> strMap;
   strMap["key"] = "value";
   CVariant a = strMap;
-  
+
   EXPECT_TRUE(a.isObject());
   EXPECT_TRUE(a.size() == 1);
   EXPECT_EQ(CVariant::VariantTypeObject, a.type());
   EXPECT_TRUE(a.isMember("key"));
   EXPECT_TRUE(a["key"].isString());
   EXPECT_STREQ(a["key"].asString().c_str(), "value");
-  
+
   std::map<std::string, CVariant> variantMap;
   variantMap["key"] = CVariant("value");
   CVariant b = variantMap;
-  
+
   EXPECT_TRUE(b.isObject());
   EXPECT_TRUE(b.size() == 1);
   EXPECT_EQ(CVariant::VariantTypeObject, b.type());
@@ -165,7 +153,7 @@ TEST(TestVariant, VariantFromMap)
 TEST(TestVariant, operatorTest)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string1");
+  strarray.emplace_back("string1");
   CVariant a, b, c(strarray), d;
   a["key"] = "value";
   b = a;
@@ -236,26 +224,24 @@ TEST(TestVariant, swap)
   EXPECT_TRUE(a.isString());
 }
 
-TEST(TestVariant, interator_array)
+TEST(TestVariant, iterator_array)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
   CVariant a(strarray);
 
   EXPECT_TRUE(a.isArray());
   EXPECT_EQ(CVariant::VariantTypeArray, a.type());
 
-  CVariant::iterator_array it;
-  for (it = a.begin_array(); it < a.end_array(); it++)
+  for (auto it = a.begin_array(); it != a.end_array(); it++)
   {
     EXPECT_STREQ("string", it->c_str());
   }
 
-  CVariant::const_iterator_array const_it;
-  for (const_it = a.begin_array(); const_it < a.end_array(); const_it++)
+  for (auto const_it = a.begin_array(); const_it != a.end_array(); const_it++)
   {
     EXPECT_STREQ("string", const_it->c_str());
   }
@@ -272,14 +258,12 @@ TEST(TestVariant, iterator_map)
   EXPECT_TRUE(a.isObject());
   EXPECT_EQ(CVariant::VariantTypeObject, a.type());
 
-  CVariant::iterator_map it;
-  for (it = a.begin_map(); it != a.end_map(); it++)
+  for (auto it = a.begin_map(); it != a.end_map(); it++)
   {
     EXPECT_STREQ("string", it->second.c_str());
   }
 
-  CVariant::const_iterator_map const_it;
-  for (const_it = a.begin_map(); const_it != a.end_map(); const_it++)
+  for (auto const_it = a.begin_map(); const_it != a.end_map(); const_it++)
   {
     EXPECT_STREQ("string", const_it->second.c_str());
   }
@@ -288,10 +272,10 @@ TEST(TestVariant, iterator_map)
 TEST(TestVariant, size)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
   CVariant a(strarray);
 
   EXPECT_EQ((unsigned int)4, a.size());
@@ -308,10 +292,10 @@ TEST(TestVariant, empty)
 TEST(TestVariant, clear)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
-  strarray.push_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
+  strarray.emplace_back("string");
   CVariant a(strarray);
 
   EXPECT_FALSE(a.empty());
@@ -322,10 +306,10 @@ TEST(TestVariant, clear)
 TEST(TestVariant, erase)
 {
   std::vector<std::string> strarray;
-  strarray.push_back("string1");
-  strarray.push_back("string2");
-  strarray.push_back("string3");
-  strarray.push_back("string4");
+  strarray.emplace_back("string1");
+  strarray.emplace_back("string2");
+  strarray.emplace_back("string3");
+  strarray.emplace_back("string4");
   CVariant a, b(strarray);
   a["key1"] = "string1";
   a["key2"] = "string2";

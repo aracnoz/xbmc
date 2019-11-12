@@ -1,33 +1,18 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 // Fanart.h
 //////////////////////////////////////////////////////////////////////
 
-#if !defined(FANART_H_)
-#define FANART_H_
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
-
 #include <string>
 #include <vector>
-
-#pragma once
 
 ///
 /// /brief CFanart is the core of fanart support and contains all fanart data for a specific show
@@ -74,7 +59,7 @@ public:
   ///
   /// Sets a particular fanart to be the "primary" fanart, or in other words, sets which fanart is actually used by XBMC
   ///
-  /// This is the one of the only instances in the public interface where there is any hint that more than one fanart exists, but its by neccesity.
+  /// This is the one of the only instances in the public interface where there is any hint that more than one fanart exists, but its by necessity.
   /// \param index: 0 based index of which fanart to set as the primary fanart
   /// \return A boolean value indicating success or failure.  This should only return false if the specified index is not a valid fanart
   bool SetPrimaryFanart(unsigned int index);
@@ -82,11 +67,15 @@ public:
   /// Returns how many fanarts are stored
   /// \return An integer indicating how many fanarts are stored in the class.  Fanart indices are 0 to (GetNumFanarts() - 1)
   unsigned int GetNumFanarts() const;
+  /// Adds an image to internal fanart data
+  void AddFanart(const std::string& image, const std::string& preview, const std::string& colors);
+  /// Clear all internal fanart data
+  void Clear();
   ///
   /// m_xml contains an XML formatted string which is all fanart packed into one string.
   ///
   /// This string is the "interface" as it were to the XBMC database, and MUST be kept in sync with the rest of the class.  Therefore
-  /// anytime this string is changed, the change should be followed up by a call to CFanart::UnPack().  This XML formaytted string is
+  /// anytime this string is changed, the change should be followed up by a call to CFanart::UnPack().  This XML formatted string is
   /// also the interface used to pass the fanart data from the scraper to CFanart.
   std::string m_xml;
 private:
@@ -96,18 +85,17 @@ private:
   ///
   /// Supported Formats:
   ///
-  /// * The TVDB RGB Int Triplets, pipe seperate with leading/trailing pipes "|68,69,59|69,70,58|78,78,68|"
-  /// * XBMC ARGB Hexadecimal string comma seperated "FFFFFFFF,DDDDDDDD,AAAAAAAA"
+  /// * The TVDB RGB Int Triplets, pipe separate with leading/trailing pipes "|68,69,59|69,70,58|78,78,68|"
+  /// * XBMC ARGB Hexadecimal string comma separated "FFFFFFFF,DDDDDDDD,AAAAAAAA"
   ///
   /// \param colorsIn: string containing colors in some format to be converted
-  /// \param colorsOut: XBMC ARGB Hexadecimal string comma seperated "FFFFFFFF,DDDDDDDD,AAAAAAAA"
+  /// \param colorsOut: XBMC ARGB Hexadecimal string comma separated "FFFFFFFF,DDDDDDDD,AAAAAAAA"
   /// \return boolean indicating success or failure.
   static bool ParseColors(const std::string&colorsIn, std::string&colorsOut);
 
   struct SFanartData
   {
     std::string strImage;
-    std::string strResolution;
     std::string strColors;
     std::string strPreview;
   };
@@ -117,4 +105,3 @@ private:
   std::vector<SFanartData> m_fanart;
 };
 
-#endif

@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #define AE_RING_BUFFER_OK 0;
 #define AE_RING_BUFFER_EMPTY 1;
@@ -26,11 +15,10 @@
 
 //#define AE_RING_BUFFER_DEBUG
 
-#include "utils/log.h"  //CLog
-#include <string.h>     //memset, memcpy
-#ifdef TARGET_POSIX
-#include "linux/XMemUtils.h"
-#endif
+#include "utils/log.h"
+#include "utils/MemUtils.h"
+
+#include <string.h>
 
 /**
  * This buffer can be used by one read and one write thread at any one time
@@ -70,7 +58,7 @@ public:
     CLog::Log(LOGDEBUG, "AERingBuffer::~AERingBuffer: Deleting buffer.");
 #endif
     for (unsigned int i = 0; i < m_planes; i++)
-      _aligned_free(m_Buffer[i]);
+      KODI::MEMORY::AlignedFree(m_Buffer[i]);
     delete[] m_Buffer;
   }
 
@@ -84,7 +72,7 @@ public:
     m_Buffer = new unsigned char*[planes];
     for (unsigned int i = 0; i < planes; i++)
     {
-      m_Buffer[i] = (unsigned char*)_aligned_malloc(size,16);
+      m_Buffer[i] = static_cast<unsigned char*>(KODI::MEMORY::AlignedMalloc(size, 16));
       if (!m_Buffer[i])
         return false;
       memset(m_Buffer[i], 0, size);
@@ -216,7 +204,7 @@ public:
    */
   void Dump()
   {
-    unsigned char *bufferContents =  (unsigned char *)_aligned_malloc(m_iSize*m_planes + 1,16);
+    unsigned char *bufferContents = static_cast<unsigned char*>(KODI::MEMORY::AlignedMalloc(m_iSize * m_planes + 1, 16));
     unsigned char *dest = bufferContents;
     for (unsigned int j = 0; j < m_planes; j++)
     {
@@ -230,7 +218,7 @@ public:
     }
     bufferContents[m_iSize*m_planes] = '\0';
     CLog::Log(LOGDEBUG, "AERingBuffer::Dump()\n%s",bufferContents);
-    _aligned_free(bufferContents);
+    KODI::MEMORY::AlignedFree(bufferContents);
   }
 
   /**

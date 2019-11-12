@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIMessage.h"
+
 #include "LocalizeStrings.h"
 
 std::string CGUIMessage::empty_string;
@@ -54,13 +43,9 @@ CGUIMessage::CGUIMessage(int msg, int senderID, int controlID, int param1, int p
   m_item = item;
 }
 
-CGUIMessage::CGUIMessage(const CGUIMessage& msg)
-{
-  *this = msg;
-}
+CGUIMessage::CGUIMessage(const CGUIMessage& msg) = default;
 
-CGUIMessage::~CGUIMessage(void)
-{}
+CGUIMessage::~CGUIMessage(void) = default;
 
 
 int CGUIMessage::GetControlId() const
@@ -98,23 +83,7 @@ int CGUIMessage::GetSenderId() const
   return m_senderID;
 }
 
-
-CGUIMessage& CGUIMessage::operator = (const CGUIMessage& msg)
-{
-  if (this == &msg) return * this;
-
-  m_message = msg.m_message;
-  m_controlID = msg.m_controlID;
-  m_param1 = msg.m_param1;
-  m_param2 = msg.m_param2;
-  m_pointer = msg.m_pointer;
-  m_strLabel = msg.m_strLabel;
-  m_senderID = msg.m_senderID;
-  m_params = msg.m_params;
-  m_item = msg.m_item;
-  return *this;
-}
-
+CGUIMessage& CGUIMessage::operator = (const CGUIMessage& msg) = default;
 
 void CGUIMessage::SetParam1(int param1)
 {

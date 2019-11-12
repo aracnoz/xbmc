@@ -2,15 +2,15 @@ abs_top_srcdir=@abs_top_srcdir@
 
 DEBUG_BUILD=@use_debug@
 TOOLCHAIN=@use_toolchain@
-NDKROOT=@use_ndk@
+NDKROOT=@use_ndk_path@
 SDKROOT=@use_sdk_path@
-CORE_SOURCE_DIR=$(abspath $(abs_top_srcdir)/../../)
+CMAKE_SOURCE_DIR=$(abspath $(abs_top_srcdir)/../../)
 TARBALLS_LOCATION=@use_tarballs@
 PLATFORM=@deps_dir@
 HOST=@use_host@
 CPU=@use_cpu@
 NATIVEPLATFORM=@build_cpu@-@build_os@-native
-SDK_PLATFORM=@use_sdk@
+NDK_LEVEL=@use_ndk_api@
 RETRIEVE_TOOL=@CURL@
 ARCHIVE_TOOL=@TAR@
 PREFIX=@prefix@/@deps_dir@
@@ -22,7 +22,6 @@ CROSS_COMPILING=@cross_compiling@
 ARCH_DEFINES=@ARCH_DEFINES@
 NATIVE_ARCH_DEFINES=@NATIVE_ARCH_DEFINES@
 TARGET_PLATFORM=@target_platform@
-XCODE_VERSION=@use_xcode@
 AAPT=@AAPT@
 DX=@DX@
 ZIPALIGN=@ZIPALIGN@
@@ -31,7 +30,6 @@ HAS_ZLIB=@has_zlib@
 NEED_LIBICONV=@need_libiconv@
 LINK_ICONV=@link_iconv@
 ENABLE_GPLV3=@use_gplv3@
-HAS_LIBCRYSTAX=@has_libcrystax@
 
 BASE_URL=http://mirrors.kodi.tv/build-deps/sources
 ifneq ($(KODI_MIRROR),)
@@ -39,15 +37,21 @@ BASE_URL=$(KODI_MIRROR)/build-deps/sources
 endif
 RETRIEVE_TOOL_FLAGS=-Ls --create-dirs -f -O
 ARCHIVE_TOOL_FLAGS=--strip-components=1 -xf
-CONFIG_SUB=@prefix@/@tool_dir@/share/automake-1.15/config.sub
-CONFIG_GUESS=@prefix@/@tool_dir@/share/automake-1.15/config.guess
+CONFIG_SUB=@prefix@/@tool_dir@/share/automake-1.16/config.sub
+CONFIG_GUESS=@prefix@/@tool_dir@/share/automake-1.16/config.guess
 
-RPL=@prefix@/@tool_dir@/bin/python @prefix@/@tool_dir@/bin/rpl
+USE_CCACHE=@use_ccache@
 
 LD=@LD@
-CC=@CC@
-CXX=@CXX@
-CPP=@CPP@
+ifneq (@use_ccache@,yes)
+  CC=@CC@
+  CXX=@CXX@
+  CPP=@CPP@
+else
+  CC=@CCACHE@ @CC@
+  CXX=@CCACHE@ @CXX@
+  CPP=@CCACHE@ @CPP@
+endif
 AR=@AR@
 RANLIB=@RANLIB@
 AS=@AS@
@@ -61,14 +65,24 @@ CFLAGS=@platform_cflags@ @platform_includes@ -isystem @prefix@/@deps_dir@/includ
 LDFLAGS=-L@prefix@/@deps_dir@/lib -L@prefix@/@deps_dir@/lib64 @platform_ldflags@
 CXXFLAGS=@platform_cxxflags@ @platform_includes@ -isystem @prefix@/@deps_dir@/include
 CPPFLAGS=@platform_cflags@ @platform_includes@ -isystem @prefix@/@deps_dir@/include
+# set configured FFmpeg configure options
+FFMPEG_CONFIGURE_OPTIONS=@ffmpeg_options@
+
 
 PATH:=@prefix@/@tool_dir@/bin:$(PATH)
 ifneq (@use_build_toolchain@,)
   PATH:=@use_build_toolchain@/bin:@use_build_toolchain@/usr/bin:$(PATH)
 endif
 LD_FOR_BUILD=@LD_FOR_BUILD@
-CC_FOR_BUILD=@CC_FOR_BUILD@
-CXX_FOR_BUILD=@CXX_FOR_BUILD@
+ifneq (@use_ccache@,yes)
+  CC_FOR_BUILD=@CC_FOR_BUILD@
+  CXX_FOR_BUILD=@CXX_FOR_BUILD@
+else
+  CC_FOR_BUILD=@CCACHE@ @CC_FOR_BUILD@
+  CXX_FOR_BUILD=@CCACHE@ @CXX_FOR_BUILD@
+endif
+CC_BINARY_FOR_BUILD=@CC_FOR_BUILD@
+CXX_BINARY_FOR_BUILD=@CXX_FOR_BUILD@
 AR_FOR_BUILD=@AR_FOR_BUILD@
 RANLIB_FOR_BUILD=@RANLIB_FOR_BUILD@
 AS_FOR_BUILD=@AS_FOR_BUILD@
@@ -77,10 +91,10 @@ STRIP_FOR_BUILD=@STRIP_FOR_BUILD@
 READELF_FOR_BUILD=@READELF_FOR_BUILD@
 OBJDUMP_FOR_BUILD=@OBJDUMP_FOR_BUILD@
 
-NATIVE_CFLAGS=-I@prefix@/@tool_dir@/include
-NATIVE_LDFLAGS=-L@prefix@/@tool_dir@/lib
-NATIVE_CPPFLAGS=-I@prefix@/@tool_dir@/include
-NATIVE_CXXFLAGS=-I@prefix@/@tool_dir@/include
+NATIVE_CFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
+NATIVE_LDFLAGS=@native_platform_min_version@ -L@prefix@/@tool_dir@/lib
+NATIVE_CPPFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
+NATIVE_CXXFLAGS=@native_platform_min_version@ -I@prefix@/@tool_dir@/include
 
 
 ifeq ($(CPU), arm64)

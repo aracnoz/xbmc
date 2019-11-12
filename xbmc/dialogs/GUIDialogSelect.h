@@ -1,30 +1,18 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
-#include <vector>
+#pragma once
 
 #include "GUIDialogBoxBase.h"
 #include "view/GUIViewControl.h"
+
+#include <string>
+#include <vector>
 
 class CFileItem;
 class CFileItemList;
@@ -33,9 +21,9 @@ class CGUIDialogSelect : public CGUIDialogBoxBase
 {
 public:
   CGUIDialogSelect();
-  virtual ~CGUIDialogSelect(void);
-  virtual bool OnMessage(CGUIMessage& message) override;
-  virtual bool OnBack(int actionID) override;
+  ~CGUIDialogSelect(void) override;
+  bool OnMessage(CGUIMessage& message) override;
+  bool OnBack(int actionID) override;
 
   void Reset();
   int  Add(const std::string& strLabel);
@@ -55,12 +43,12 @@ public:
   void SetMultiSelection(bool multiSelection);
 
 protected:
-  CGUIDialogSelect(int windowid);
-  virtual CGUIControl *GetFirstFocusableControl(int id) override;
-  virtual void OnWindowLoaded() override;
-  virtual void OnInitWindow() override;
-  virtual void OnDeinitWindow(int nextWindowID) override;
-  virtual void OnWindowUnload() override;
+  explicit CGUIDialogSelect(int windowid);
+  CGUIControl *GetFirstFocusableControl(int id) override;
+  void OnWindowLoaded() override;
+  void OnInitWindow() override;
+  void OnDeinitWindow(int nextWindowID) override;
+  void OnWindowUnload() override;
 
   virtual void OnSelect(int idx);
 

@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#include "threads/Event.h"
+#include "threads/IRunnable.h"
 #include "threads/SharedSection.h"
 #include "threads/SingleLock.h"
-#include "threads/Event.h"
-#include "threads/Atomics.h"
 #include "threads/test/TestHelpers.h"
 
 #include <stdio.h>
@@ -36,18 +24,18 @@ class locker : public IRunnable
   CSharedSection& sec;
   CEvent* wait;
 
-  volatile long* mutex;
+  std::atomic<long>* mutex;
 public:
   volatile bool haslock;
   volatile bool obtainedlock;
 
-  inline locker(CSharedSection& o, volatile long* mutex_ = NULL, CEvent* wait_ = NULL) : 
+  inline locker(CSharedSection& o, std::atomic<long>* mutex_ = NULL, CEvent* wait_ = NULL) :
     sec(o), wait(wait_), mutex(mutex_), haslock(false), obtainedlock(false) {}
-  
-  inline locker(CSharedSection& o, CEvent* wait_ = NULL) : 
+
+  inline locker(CSharedSection& o, CEvent* wait_ = NULL) :
     sec(o), wait(wait_), mutex(NULL), haslock(false), obtainedlock(false) {}
-  
-  void Run()
+
+  void Run() override
   {
     AtomicGuard g(mutex);
     L lock(sec);
@@ -77,7 +65,7 @@ TEST(TestSharedSection, General)
 
 TEST(TestSharedSection, GetSharedLockWhileTryingExclusiveLock)
 {
-  volatile long mutex = 0;
+  std::atomic<long> mutex(0L);
   CEvent event;
 
   CSharedSection sec;
@@ -124,7 +112,7 @@ TEST(TestSharedSection, TwoCase)
   CSharedSection sec;
 
   CEvent event;
-  volatile long mutex = 0;
+  std::atomic<long> mutex(0L);
 
   locker<CSharedLock> l1(sec,&mutex,&event);
 
@@ -157,7 +145,7 @@ TEST(TestSharedSection, TwoCase)
     EXPECT_TRUE(l2.haslock);
 
     event.Set();
-    
+
     EXPECT_TRUE(waitThread2.timed_join(MILLIS(10000)));
   }
 }
@@ -167,7 +155,7 @@ TEST(TestMultipleSharedSection, General)
   CSharedSection sec;
 
   CEvent event;
-  volatile long mutex = 0;
+  std::atomic<long> mutex(0L);
 
   locker<CSharedLock> l1(sec,&mutex, &event);
 
@@ -214,7 +202,7 @@ TEST(TestMultipleSharedSection, General)
     EXPECT_TRUE(l5.haslock);
 
     event.Set();
-    
+
     EXPECT_TRUE(waitThread1.timed_join(MILLIS(10000)));
     EXPECT_TRUE(waitThread2.timed_join(MILLIS(10000)));
     EXPECT_TRUE(waitThread3.timed_join(MILLIS(10000)));

@@ -1,31 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "Addon.h"
+#include "utils/Digest.h"
+#include "utils/ProgressJob.h"
 
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "Addon.h"
-#include "utils/Job.h"
-#include "utils/ProgressJob.h"
 
 namespace ADDON
 {
@@ -34,25 +23,18 @@ namespace ADDON
   public:
     struct DirInfo
     {
-      DirInfo() : version("0.0.0"), hashes(false) {}
-      AddonVersion version;
+      AddonVersion version{""};
       std::string info;
       std::string checksum;
+      KODI::UTILITY::CDigest::Type checksumType{KODI::UTILITY::CDigest::Type::INVALID};
       std::string datadir;
-      bool hashes;
+      std::string artdir;
+      KODI::UTILITY::CDigest::Type hashType{KODI::UTILITY::CDigest::Type::INVALID};
     };
 
     typedef std::vector<DirInfo> DirList;
 
-    static std::unique_ptr<CRepository> FromExtension(AddonProps props, const cp_extension_t* ext);
-
-    explicit CRepository(AddonProps props) : CAddon(std::move(props)) {};
-    CRepository(AddonProps props, DirList dirs);
-
-    /*! \brief Get the md5 hash for an addon.
-     \param the addon in question.
-     */
-    bool GetAddonHash(const AddonPtr& addon, std::string& checksum) const;
+    explicit CRepository(const AddonInfoPtr& addonInfo);
 
     enum FetchStatus
     {
@@ -63,9 +45,18 @@ namespace ADDON
 
     FetchStatus FetchIfChanged(const std::string& oldChecksum, std::string& checksum, VECADDONS& addons) const;
 
+    struct ResolveResult
+    {
+      std::string location;
+      KODI::UTILITY::TypedDigest digest;
+    };
+    ResolveResult ResolvePathAndHash(AddonPtr const& addon) const;
+
   private:
     static bool FetchChecksum(const std::string& url, std::string& checksum) noexcept;
-    static bool FetchIndex(const DirInfo& repo, VECADDONS& addons) noexcept;
+    static bool FetchIndex(const DirInfo& repo, std::string const& digest, VECADDONS& addons) noexcept;
+
+    static DirInfo ParseDirConfiguration(const CAddonExtensions& configuration);
 
     DirList m_dirs;
   };
@@ -76,9 +67,9 @@ namespace ADDON
   class CRepositoryUpdateJob : public CProgressJob
   {
   public:
-    CRepositoryUpdateJob(const RepositoryPtr& repo);
-    virtual ~CRepositoryUpdateJob() {}
-    virtual bool DoWork();
+    explicit CRepositoryUpdateJob(const RepositoryPtr& repo);
+    ~CRepositoryUpdateJob() override = default;
+    bool DoWork() override;
     const RepositoryPtr& GetAddon() const { return m_repo; };
 
   private:

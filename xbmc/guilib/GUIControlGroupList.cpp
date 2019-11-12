@@ -1,29 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIControlGroupList.h"
-#include "input/Key.h"
-#include "guiinfo/GUIInfoLabels.h"
+
+#include "GUIAction.h"
 #include "GUIControlProfiler.h"
-#include "utils/StringUtils.h"
 #include "GUIFont.h" // for XBFONT_* definitions
+#include "GUIMessage.h"
+#include "guilib/guiinfo/GUIInfoLabels.h"
+#include "input/Key.h"
+#include "utils/StringUtils.h"
 
 CGUIControlGroupList::CGUIControlGroupList(int parentID, int controlID, float posX, float posY, float width, float height, float itemGap, int pageControl, ORIENTATION orientation, bool useControlPositions, uint32_t alignment, const CScroller& scroller)
 : CGUIControlGroup(parentID, controlID, posX, posY, width, height)
@@ -35,14 +26,13 @@ CGUIControlGroupList::CGUIControlGroupList(int parentID, int controlID, float po
   m_totalSize = 0;
   m_orientation = orientation;
   m_alignment = alignment;
+  m_lastScrollerValue = -1;
   m_useControlPositions = useControlPositions;
   ControlType = GUICONTROL_GROUPLIST;
   m_minSize = 0;
 }
 
-CGUIControlGroupList::~CGUIControlGroupList(void)
-{
-}
+CGUIControlGroupList::~CGUIControlGroupList(void) = default;
 
 void CGUIControlGroupList::Process(unsigned int currentTime, CDirtyRegionList &dirtyregions)
 {
@@ -55,17 +45,18 @@ void CGUIControlGroupList::Process(unsigned int currentTime, CDirtyRegionList &d
   {
     CGUIControl *control = *it;
     GUIPROFILER_VISIBILITY_BEGIN(control);
-    control->UpdateVisibility();
+    control->UpdateVisibility(nullptr);
     GUIPROFILER_VISIBILITY_END(control);
   }
 
   ValidateOffset();
-  if (m_pageControl)
+  if (m_pageControl && m_lastScrollerValue != m_scroller.GetValue())
   {
     CGUIMessage message(GUI_MSG_LABEL_RESET, GetParentID(), m_pageControl, (int)Size(), (int)m_totalSize);
     SendWindowMessage(message);
     CGUIMessage message2(GUI_MSG_ITEM_SELECT, GetParentID(), m_pageControl, (int)m_scroller.GetValue());
     SendWindowMessage(message2);
+    m_lastScrollerValue = static_cast<int>(m_scroller.GetValue());
   }
   // we run through the controls, rendering as we go
   int index = 0;
@@ -76,9 +67,9 @@ void CGUIControlGroupList::Process(unsigned int currentTime, CDirtyRegionList &d
     // with respect to animations
     CGUIControl *control = *it;
     if (m_orientation == VERTICAL)
-      g_graphicsContext.SetOrigin(m_posX, m_posY + pos - m_scroller.GetValue());
+      CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX, m_posY + pos - m_scroller.GetValue());
     else
-      g_graphicsContext.SetOrigin(m_posX + pos - m_scroller.GetValue(), m_posY);
+      CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX + pos - m_scroller.GetValue(), m_posY);
     control->DoProcess(currentTime, dirtyregions);
 
     if (control->IsVisible())
@@ -92,7 +83,7 @@ void CGUIControlGroupList::Process(unsigned int currentTime, CDirtyRegionList &d
 
       pos += Size(control) + m_itemGap;
     }
-    g_graphicsContext.RestoreOrigin();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
   }
   CGUIControl::Process(currentTime, dirtyregions);
 }
@@ -100,7 +91,7 @@ void CGUIControlGroupList::Process(unsigned int currentTime, CDirtyRegionList &d
 void CGUIControlGroupList::Render()
 {
   // we run through the controls, rendering as we go
-  bool render(g_graphicsContext.SetClipRegion(m_posX, m_posY, m_width, m_height));
+  bool render(CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height));
   float pos = GetAlignOffset();
   float focusedPos = 0;
   CGUIControl *focusedControl = NULL;
@@ -117,24 +108,24 @@ void CGUIControlGroupList::Render()
     else
     {
       if (m_orientation == VERTICAL)
-        g_graphicsContext.SetOrigin(m_posX, m_posY + pos - m_scroller.GetValue());
+        CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX, m_posY + pos - m_scroller.GetValue());
       else
-        g_graphicsContext.SetOrigin(m_posX + pos - m_scroller.GetValue(), m_posY);
+        CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX + pos - m_scroller.GetValue(), m_posY);
       control->DoRender();
     }
     if (control->IsVisible())
       pos += Size(control) + m_itemGap;
-    g_graphicsContext.RestoreOrigin();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
   }
   if (focusedControl)
   {
     if (m_orientation == VERTICAL)
-      g_graphicsContext.SetOrigin(m_posX, m_posY + focusedPos - m_scroller.GetValue());
+      CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX, m_posY + focusedPos - m_scroller.GetValue());
     else
-      g_graphicsContext.SetOrigin(m_posX + focusedPos - m_scroller.GetValue(), m_posY);
+      CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(m_posX + focusedPos - m_scroller.GetValue(), m_posY);
     focusedControl->DoRender();
   }
-  if (render) g_graphicsContext.RestoreClipRegion();
+  if (render) CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
   CGUIControl::Render();
 }
 
@@ -152,7 +143,7 @@ bool CGUIControlGroupList::OnMessage(CGUIMessage& message)
         CGUIControl *control = *it;
         if (!control->IsVisible())
           continue;
-        if (control->HasID(message.GetControlId()))
+        if (control->GetControl(message.GetControlId()))
         {
           // find out whether this is the first or last control
           if (IsFirstFocusableControl(control))
@@ -181,7 +172,7 @@ bool CGUIControlGroupList::OnMessage(CGUIMessage& message)
         CGUIControl *control = *it;
         if (!control->IsVisible())
           continue;
-        if (control->HasID(m_focusedControl))
+        if (control->GetControl(m_focusedControl))
         {
           if (IsControlOnScreen(offset, control))
             return CGUIControlGroup::OnMessage(message);
@@ -356,11 +347,19 @@ inline float CGUIControlGroupList::Size() const
   return (m_orientation == VERTICAL) ? m_height : m_width;
 }
 
+void CGUIControlGroupList::SetInvalid()
+{
+  CGUIControl::SetInvalid();
+  // Force a message to the scrollbar
+  m_lastScrollerValue = -1;
+}
+
 void CGUIControlGroupList::ScrollTo(float offset)
 {
   m_scroller.ScrollTo(offset);
   if (m_scroller.IsScrolling())
     SetInvalid();
+  MarkDirtyRegion();
 }
 
 EVENT_RESULT CGUIControlGroupList::SendMouseEvent(const CPoint &point, const CMouseEvent &event)
@@ -567,7 +566,7 @@ EVENT_RESULT CGUIControlGroupList::OnMouseEvent(const CPoint &point, const CMous
     SendWindowMessage(msg);
     return EVENT_RESULT_HANDLED;
   }
-  else if (event.m_id == ACTION_GESTURE_END)
+  else if (event.m_id == ACTION_GESTURE_END || event.m_id == ACTION_GESTURE_ABORT)
   { // release exclusive access
     CGUIMessage msg(GUI_MSG_EXCLUSIVE_MOUSE, 0, GetParentID());
     SendWindowMessage(msg);

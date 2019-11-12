@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/SortUtils.h"
 #include "utils/Variant.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 TEST(TestSortUtils, Sort_SortBy)
 {
@@ -125,9 +113,11 @@ TEST(TestSortUtils, GetFieldsForSorting)
   EXPECT_EQ(FieldAlbum, *it);
   it = fields.find(FieldArtist);
   EXPECT_EQ(FieldArtist, *it);
+  it = fields.find(FieldArtistSort);
+  EXPECT_EQ(FieldArtistSort, *it);
   it = fields.find(FieldYear);
   EXPECT_EQ(FieldYear, *it);
   it = fields.find(FieldTrackNumber);
   EXPECT_EQ(FieldTrackNumber, *it);
-  EXPECT_EQ((unsigned int)4, fields.size());
+  EXPECT_EQ((unsigned int)5, fields.size());
 }

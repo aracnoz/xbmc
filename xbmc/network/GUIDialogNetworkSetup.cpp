@@ -1,36 +1,36 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogNetworkSetup.h"
 
-#include <utility>
-
+#include "ServiceBroker.h"
+#include "URL.h"
+#include "addons/AddonManager.h"
+#include "addons/VFSEntry.h"
+#include "addons/binary-addons/BinaryAddonBase.h"
 #include "dialogs/GUIDialogFileBrowser.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIEditControl.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
+#include "messaging/helpers/DialogOKHelper.h"
+#include "settings/lib/Setting.h"
 #include "settings/windows/GUIControlSettings.h"
-#include "URL.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
+
+#include <utility>
+
+
+using namespace ADDON;
+using namespace KODI::MESSAGING;
+
 
 #define CONTROL_OK              28
 #define CONTROL_CANCEL          29
@@ -46,14 +46,12 @@
 CGUIDialogNetworkSetup::CGUIDialogNetworkSetup(void)
     : CGUIDialogSettingsManualBase(WINDOW_DIALOG_NETWORK_SETUP, "DialogSettings.xml")
 {
-  m_protocol = NET_PROTOCOL_SMB;
+  m_protocol = 0;
   m_confirmed = false;
   m_loadType = KEEP_IN_MEMORY;
 }
 
-CGUIDialogNetworkSetup::~CGUIDialogNetworkSetup()
-{
-}
+CGUIDialogNetworkSetup::~CGUIDialogNetworkSetup() = default;
 
 bool CGUIDialogNetworkSetup::OnBack(int actionID)
 {
@@ -84,7 +82,7 @@ bool CGUIDialogNetworkSetup::OnMessage(CGUIMessage& message)
   return CGUIDialogSettingsManualBase::OnMessage(message);
 }
 
-void CGUIDialogNetworkSetup::OnSettingChanged(const CSetting *setting)
+void CGUIDialogNetworkSetup::OnSettingChanged(std::shared_ptr<const CSetting> setting)
 {
   if (setting == NULL)
     return;
@@ -102,18 +100,18 @@ void CGUIDialogNetworkSetup::OnSettingChanged(const CSetting *setting)
     OnProtocolChange();
   }
   else if (settingId == SETTING_SERVER_ADDRESS)
-    m_server = static_cast<const CSettingString*>(setting)->GetValue();
+    m_server = std::static_pointer_cast<const CSettingString>(setting)->GetValue();
   else if (settingId == SETTING_REMOTE_PATH)
-    m_path = static_cast<const CSettingString*>(setting)->GetValue();
+    m_path = std::static_pointer_cast<const CSettingString>(setting)->GetValue();
   else if (settingId == SETTING_PORT_NUMBER)
-    m_port = static_cast<const CSettingString*>(setting)->GetValue();
+    m_port = std::static_pointer_cast<const CSettingString>(setting)->GetValue();
   else if (settingId == SETTING_USERNAME)
-    m_username = static_cast<const CSettingString*>(setting)->GetValue();
+    m_username = std::static_pointer_cast<const CSettingString>(setting)->GetValue();
   else if (settingId == SETTING_PASSWORD)
-    m_password = static_cast<const CSettingString*>(setting)->GetValue();
+    m_password = std::static_pointer_cast<const CSettingString>(setting)->GetValue();
 }
 
-void CGUIDialogNetworkSetup::OnSettingAction(const CSetting *setting)
+void CGUIDialogNetworkSetup::OnSettingAction(std::shared_ptr<const CSetting> setting)
 {
   if (setting == NULL)
     return;
@@ -130,10 +128,15 @@ void CGUIDialogNetworkSetup::OnSettingAction(const CSetting *setting)
 // \return True if the network address is valid, false otherwise.
 bool CGUIDialogNetworkSetup::ShowAndGetNetworkAddress(std::string &path)
 {
-  CGUIDialogNetworkSetup *dialog = (CGUIDialogNetworkSetup *)g_windowManager.GetWindow(WINDOW_DIALOG_NETWORK_SETUP);
+  CGUIDialogNetworkSetup *dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogNetworkSetup>(WINDOW_DIALOG_NETWORK_SETUP);
   if (!dialog) return false;
   dialog->Initialize();
-  dialog->SetPath(path);
+  if (!dialog->SetPath(path))
+  {
+    HELPERS::ShowOKDialogText(CVariant{ 10218 }, CVariant{ 39103 });
+    return false;
+  }
+
   dialog->Open();
   path = dialog->ConstructPath();
   return dialog->IsConfirmed();
@@ -176,14 +179,14 @@ void CGUIDialogNetworkSetup::InitializeSettings()
 {
   CGUIDialogSettingsManualBase::InitializeSettings();
 
-  CSettingCategory *category = AddCategory("networksetupsettings", -1);
+  const std::shared_ptr<CSettingCategory> category = AddCategory("networksetupsettings", -1);
   if (category == NULL)
   {
     CLog::Log(LOGERROR, "CGUIDialogNetworkSetup: unable to setup settings");
     return;
   }
 
-  CSettingGroup *group = AddGroup(category);
+  const std::shared_ptr<CSettingGroup> group = AddGroup(category);
   if (group == NULL)
   {
     CLog::Log(LOGERROR, "CGUIDialogNetworkSetup: unable to setup settings");
@@ -191,34 +194,20 @@ void CGUIDialogNetworkSetup::InitializeSettings()
   }
 
   // Add our protocols
-  StaticIntegerSettingOptions labels;
-#ifdef HAS_FILESYSTEM_SMB
-  labels.push_back(std::make_pair(20171, NET_PROTOCOL_SMB));
-#endif
-  labels.push_back(std::make_pair(20301, NET_PROTOCOL_HTTPS));
-  labels.push_back(std::make_pair(20300, NET_PROTOCOL_HTTP));
-  labels.push_back(std::make_pair(20254, NET_PROTOCOL_DAVS));
-  labels.push_back(std::make_pair(20253, NET_PROTOCOL_DAV));
-  labels.push_back(std::make_pair(20173, NET_PROTOCOL_FTP));
-  labels.push_back(std::make_pair(20175, NET_PROTOCOL_UPNP));
-  labels.push_back(std::make_pair(20304, NET_PROTOCOL_RSS));
-#ifdef HAS_FILESYSTEM_NFS
-  labels.push_back(std::make_pair(20259, NET_PROTOCOL_NFS));
-#endif
-#ifdef HAS_FILESYSTEM_SFTP
-  labels.push_back(std::make_pair(20260, NET_PROTOCOL_SFTP));
-#endif
+  TranslatableIntegerSettingOptions labels;
+  for (size_t idx = 0; idx < m_protocols.size(); ++idx)
+    labels.push_back(std::make_pair(m_protocols[idx].label, idx));
 
-  AddSpinner(group, SETTING_PROTOCOL, 1008, 0, m_protocol, labels);
-  AddEdit(group, SETTING_SERVER_ADDRESS, 1010, 0, m_server, true);
-  CSettingAction *subsetting = AddButton(group, SETTING_SERVER_BROWSE, 1024, 0, false);
+  AddSpinner(group, SETTING_PROTOCOL, 1008, SettingLevel::Basic, m_protocol, labels);
+  AddEdit(group, SETTING_SERVER_ADDRESS, 1010, SettingLevel::Basic, m_server, true);
+  std::shared_ptr<CSettingAction> subsetting = AddButton(group, SETTING_SERVER_BROWSE, 1024, SettingLevel::Basic, "", false);
   if (subsetting != NULL)
     subsetting->SetParent(SETTING_SERVER_ADDRESS);
 
-  AddEdit(group, SETTING_REMOTE_PATH, 1012, 0, m_path, true);
-  AddEdit(group, SETTING_PORT_NUMBER, 1013, 0, m_port, true);
-  AddEdit(group, SETTING_USERNAME, 1014, 0, m_username, true);
-  AddEdit(group, SETTING_PASSWORD, 15052, 0, m_password, true, true);
+  AddEdit(group, SETTING_REMOTE_PATH, 1012, SettingLevel::Basic, m_path, true);
+  AddEdit(group, SETTING_PORT_NUMBER, 1013, SettingLevel::Basic, m_port, true);
+  AddEdit(group, SETTING_USERNAME, 1014, SettingLevel::Basic, m_username, true);
+  AddEdit(group, SETTING_PASSWORD, 15052, SettingLevel::Basic, m_password, true, true);
 }
 
 void CGUIDialogNetworkSetup::OnServerBrowse()
@@ -264,20 +253,9 @@ void CGUIDialogNetworkSetup::OnProtocolChange()
     CGUIMessage msg(GUI_MSG_ITEM_SELECTED, GetID(), settingControl->GetID());
     if (!OnMessage(msg))
       return;
-    m_protocol = (NET_PROTOCOL)msg.GetParam1();
+    m_protocol = msg.GetParam1();
     // set defaults for the port
-    if (m_protocol == NET_PROTOCOL_FTP)
-      m_port = "21";
-    else if (m_protocol == NET_PROTOCOL_HTTP || 
-       m_protocol == NET_PROTOCOL_RSS || 
-       m_protocol == NET_PROTOCOL_DAV)
-      m_port = "80";
-    else if (m_protocol == NET_PROTOCOL_HTTPS || m_protocol == NET_PROTOCOL_DAVS)
-      m_port = "443";
-    else if (m_protocol == NET_PROTOCOL_SFTP)
-      m_port = "22";
-    else
-      m_port = "0";
+    m_port = StringUtils::Format("%i", m_protocols[m_protocol].defaultPort);
 
     UpdateButtons();
   }
@@ -291,7 +269,7 @@ void CGUIDialogNetworkSetup::UpdateButtons()
   {
     int addressControlID = addressControl->GetID();
     SET_CONTROL_LABEL2(addressControlID, m_server);
-    if (m_protocol == NET_PROTOCOL_SMB)
+    if (m_protocols[m_protocol].type == "smb")
     {
       SET_CONTROL_LABEL(addressControlID, 1010);  // Server name
     }
@@ -308,15 +286,8 @@ void CGUIDialogNetworkSetup::UpdateButtons()
   {
     int pathControlID = pathControl->GetID();
     SET_CONTROL_LABEL2(pathControlID, m_path);
-    CONTROL_ENABLE_ON_CONDITION(pathControlID, m_protocol != NET_PROTOCOL_UPNP);
-    if (m_protocol == NET_PROTOCOL_FTP ||
-        m_protocol == NET_PROTOCOL_HTTP ||
-        m_protocol == NET_PROTOCOL_HTTPS ||
-        m_protocol == NET_PROTOCOL_RSS ||
-        m_protocol == NET_PROTOCOL_DAV ||
-        m_protocol == NET_PROTOCOL_DAVS||
-        m_protocol == NET_PROTOCOL_SFTP||
-        m_protocol == NET_PROTOCOL_NFS)
+    CONTROL_ENABLE_ON_CONDITION(pathControlID, m_protocols[m_protocol].supportPath);
+    if (m_protocols[m_protocol].type != "smb")
     {
       SET_CONTROL_LABEL(pathControlID, 1011);  // Remote Path
     }
@@ -333,8 +304,8 @@ void CGUIDialogNetworkSetup::UpdateButtons()
   {
     int userControlID = userControl->GetID();
     SET_CONTROL_LABEL2(userControlID, m_username);
-    CONTROL_ENABLE_ON_CONDITION(userControlID, m_protocol != NET_PROTOCOL_UPNP &&
-                                               m_protocol != NET_PROTOCOL_NFS);
+    CONTROL_ENABLE_ON_CONDITION(userControlID,
+                                m_protocols[m_protocol].supportUsername);
 
     SendMessage(GUI_MSG_SET_TYPE, userControlID, CGUIEditControl::INPUT_TYPE_TEXT, 1019);
   }
@@ -345,13 +316,7 @@ void CGUIDialogNetworkSetup::UpdateButtons()
   {
     int portControlID = portControl->GetID();
     SET_CONTROL_LABEL2(portControlID, m_port);
-    CONTROL_ENABLE_ON_CONDITION(portControlID, m_protocol == NET_PROTOCOL_FTP ||
-                                               m_protocol == NET_PROTOCOL_HTTP ||
-                                               m_protocol == NET_PROTOCOL_HTTPS ||
-                                               m_protocol == NET_PROTOCOL_DAV ||
-                                               m_protocol == NET_PROTOCOL_DAVS ||
-                                               m_protocol == NET_PROTOCOL_RSS ||
-                                               m_protocol == NET_PROTOCOL_SFTP);
+    CONTROL_ENABLE_ON_CONDITION(portControlID, m_protocols[m_protocol].supportPort);
 
     SendMessage(GUI_MSG_SET_TYPE, portControlID, CGUIEditControl::INPUT_TYPE_NUMBER, 1018);
   }
@@ -362,105 +327,148 @@ void CGUIDialogNetworkSetup::UpdateButtons()
   {
     int passControlID = passControl->GetID();
     SET_CONTROL_LABEL2(passControlID, m_password);
-    CONTROL_ENABLE_ON_CONDITION(passControlID, m_protocol != NET_PROTOCOL_UPNP &&
-                                                  m_protocol != NET_PROTOCOL_NFS);
+    CONTROL_ENABLE_ON_CONDITION(passControlID,
+                                m_protocols[m_protocol].supportPassword);
 
     SendMessage(GUI_MSG_SET_TYPE, passControlID, CGUIEditControl::INPUT_TYPE_PASSWORD, 12326);
   }
 
-  // server browse should be disabled if we are in FTP, HTTP, HTTPS, RSS, DAV or DAVS
+  // server browse should be disabled if we are in FTP, FTPS, HTTP, HTTPS, RSS, RSSS, DAV or DAVS
   BaseSettingControlPtr browseControl = GetSettingControl(SETTING_SERVER_BROWSE);
   if (browseControl != NULL && browseControl->GetControl() != NULL)
   {
     int browseControlID = browseControl->GetID();
-    CONTROL_ENABLE_ON_CONDITION(browseControlID, !m_server.empty() || !(m_protocol == NET_PROTOCOL_FTP ||
-                                                                        m_protocol == NET_PROTOCOL_HTTP ||
-                                                                        m_protocol == NET_PROTOCOL_HTTPS ||
-                                                                        m_protocol == NET_PROTOCOL_DAV ||
-                                                                        m_protocol == NET_PROTOCOL_DAVS ||
-                                                                        m_protocol == NET_PROTOCOL_RSS ||
-                                                                        m_protocol == NET_PROTOCOL_SFTP));
+    CONTROL_ENABLE_ON_CONDITION(browseControlID,
+                                m_protocols[m_protocol].supportBrowsing);
   }
 }
 
 std::string CGUIDialogNetworkSetup::ConstructPath() const
 {
   CURL url;
-  if (m_protocol == NET_PROTOCOL_SMB)
-    url.SetProtocol("smb");
-  else if (m_protocol == NET_PROTOCOL_FTP)
-    url.SetProtocol("ftp");
-  else if (m_protocol == NET_PROTOCOL_HTTP)
-    url.SetProtocol("http");
-  else if (m_protocol == NET_PROTOCOL_HTTPS)
-    url.SetProtocol("https");
-  else if (m_protocol == NET_PROTOCOL_DAV)
-    url.SetProtocol("dav");
-  else if (m_protocol == NET_PROTOCOL_DAVS)
-    url.SetProtocol("davs");
-  else if (m_protocol == NET_PROTOCOL_UPNP)
-    url.SetProtocol("upnp");
-  else if (m_protocol == NET_PROTOCOL_RSS)
-    url.SetProtocol("rss");
-  else if (m_protocol == NET_PROTOCOL_NFS)
-    url.SetProtocol("nfs");
-  else if (m_protocol == NET_PROTOCOL_SFTP)
-    url.SetProtocol("sftp");
-    
+  url.SetProtocol(m_protocols[m_protocol].type);
+
   if (!m_username.empty())
   {
-    url.SetUserName(m_username);
+    // domain/name to domain\name
+    std::string username = m_username;
+    std::replace(username.begin(), username.end(), '/', '\\');
+
+    if (url.IsProtocol("smb") && username.find('\\') != std::string::npos)
+    {
+      auto pair = StringUtils::Split(username, "\\", 2);
+      url.SetDomain(pair[0]);
+      url.SetUserName(pair[1]);
+    }
+    else
+      url.SetUserName(m_username);
     if (!m_password.empty())
       url.SetPassword(m_password);
   }
-  if(!m_server.empty())
+
+  if (!m_server.empty())
     url.SetHostName(m_server);
-  if (((m_protocol == NET_PROTOCOL_FTP) ||
-       (m_protocol == NET_PROTOCOL_HTTP) ||
-       (m_protocol == NET_PROTOCOL_HTTPS) ||
-       (m_protocol == NET_PROTOCOL_DAV) ||
-       (m_protocol == NET_PROTOCOL_DAVS) ||
-       (m_protocol == NET_PROTOCOL_RSS) ||
-       (m_protocol == NET_PROTOCOL_SFTP) ||
-       (m_protocol == NET_PROTOCOL_NFS))
-      && !m_port.empty() && atoi(m_port.c_str()) > 0)
+
+  if (m_protocols[m_protocol].supportPort &&
+      !m_port.empty() && atoi(m_port.c_str()) > 0)
   {
     url.SetPort(atoi(m_port.c_str()));
   }
+
   if (!m_path.empty())
     url.SetFileName(m_path);
+
   return url.Get();
 }
 
-void CGUIDialogNetworkSetup::SetPath(const std::string &path)
+bool CGUIDialogNetworkSetup::SetPath(const std::string &path)
 {
+  UpdateAvailableProtocols();
+
+  if (path.empty())
+  {
+    Reset();
+    return true;
+  }
+
   CURL url(path);
-  if (url.IsProtocol("smb"))
-    m_protocol = NET_PROTOCOL_SMB;
-  else if (url.IsProtocol("ftp"))
-    m_protocol = NET_PROTOCOL_FTP;
-  else if (url.IsProtocol("http"))
-    m_protocol = NET_PROTOCOL_HTTP;
-  else if (url.IsProtocol("https"))
-    m_protocol = NET_PROTOCOL_HTTPS;
-  else if (url.IsProtocol("dav"))
-    m_protocol = NET_PROTOCOL_DAV;
-  else if (url.IsProtocol("davs"))
-    m_protocol = NET_PROTOCOL_DAVS;
-  else if (url.IsProtocol("upnp"))
-    m_protocol = NET_PROTOCOL_UPNP;
-  else if (url.IsProtocol("rss"))
-    m_protocol = NET_PROTOCOL_RSS;
-  else if (url.IsProtocol("nfs"))
-    m_protocol = NET_PROTOCOL_NFS;
-  else if (url.IsProtocol("sftp") || url.IsProtocol("ssh"))
-    m_protocol = NET_PROTOCOL_SFTP;
+  m_protocol = -1;
+  for (size_t i = 0; i < m_protocols.size(); ++i)
+  {
+    if (m_protocols[i].type == url.GetProtocol())
+    {
+      m_protocol = i;
+      break;
+    }
+  }
+  if (m_protocol == -1)
+  {
+    CLog::Log(LOGERROR, "__PRETTY_FUNCTION__: Asked to initialize for unknown path %s", path.c_str());
+    Reset();
+    return false;
+  }
+
+  if (!url.GetDomain().empty())
+    m_username = url.GetDomain() + "\\" + url.GetUserName();
   else
-    m_protocol = NET_PROTOCOL_SMB;  // default to smb
-  m_username = url.GetUserName();
+    m_username = url.GetUserName();
   m_password = url.GetPassWord();
   m_port = StringUtils::Format("%i", url.GetPort());
   m_server = url.GetHostName();
   m_path = url.GetFileName();
   URIUtils::RemoveSlashAtEnd(m_path);
+
+  return true;
+}
+
+void CGUIDialogNetworkSetup::Reset()
+{
+  m_username.clear();
+  m_password.clear();
+  m_port.clear();
+  m_server.clear();
+  m_path.clear();
+  m_protocol = 0;
+}
+
+void CGUIDialogNetworkSetup::UpdateAvailableProtocols()
+{
+  m_protocols.clear();
+#ifdef HAS_FILESYSTEM_SMB
+  // most popular protocol at the first place
+  m_protocols.emplace_back(Protocol{ true, true, true, false, true, 0, "smb", 20171 });
+#endif
+  // protocols from vfs addon next
+  if (CServiceBroker::IsBinaryAddonCacheUp())
+  {
+    for (const auto& addon : CServiceBroker::GetVFSAddonCache().GetAddonInstances())
+    {
+      const auto& info = addon->GetProtocolInfo();
+      if (!addon->GetProtocolInfo().type.empty())
+      {
+        // only use first protocol
+        auto prots = StringUtils::Split(info.type, "|");
+        m_protocols.emplace_back(Protocol{ info.supportPath, info.supportUsername,
+          info.supportPassword, info.supportPort,
+          info.supportBrowsing, info.defaultPort,
+          prots.front(), info.label });
+      }
+    }
+  }
+  // internals
+  const std::vector<Protocol> defaults =
+        {{ true,  true,  true,  true, false, 443, "https", 20301},
+         { true,  true,  true,  true, false,  80,  "http", 20300},
+         { true,  true,  true,  true, false, 443,  "davs", 20254},
+         { true,  true,  true,  true, false,  80,   "dav", 20253},
+         { true,  true,  true,  true, false,  21,   "ftp", 20173},
+         { true,  true,  true,  true, false, 990,  "ftps", 20174},
+         {false, false, false, false,  true,   0,  "upnp", 20175},
+         { true,  true,  true,  true, false,  80,   "rss", 20304},
+         { true,  true,  true,  true, false, 443,  "rsss", 20305}};
+
+  m_protocols.insert(m_protocols.end(), defaults.begin(), defaults.end());
+#ifdef HAS_FILESYSTEM_NFS
+  m_protocols.emplace_back(Protocol{true, false, false, false, true, 0, "nfs", 20259});
+#endif
 }

@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "HTTPJsonRpcHandler.h"
+
 #include "URL.h"
 #include "filesystem/File.h"
 #include "interfaces/json-rpc/JSONRPC.h"
@@ -27,19 +16,19 @@
 #include "network/WebServer.h"
 #include "network/httprequesthandler/HTTPRequestHandlerUtils.h"
 #include "utils/JSONVariantWriter.h"
-#include "utils/log.h"
 #include "utils/Variant.h"
+#include "utils/log.h"
 
 #define MAX_HTTP_POST_SIZE 65536
 
-bool CHTTPJsonRpcHandler::CanHandleRequest(const HTTPRequest &request)
+bool CHTTPJsonRpcHandler::CanHandleRequest(const HTTPRequest &request) const
 {
   return (request.pathUrl.compare("/jsonrpc") == 0);
 }
 
 int CHTTPJsonRpcHandler::HandleRequest()
 {
-  CHTTPClient client;
+  CHTTPClient client(m_request.method);
   bool isRequest = false;
   std::string jsonpCallback;
 
@@ -94,7 +83,13 @@ int CHTTPJsonRpcHandler::HandleRequest()
     // get the whole output of JSONRPC.Introspect
     CVariant result;
     JSONRPC::CJSONServiceDescription::Print(result, &m_transportLayer, &client);
-    m_responseData = CJSONVariantWriter::Write(result, false);
+    if (!CJSONVariantWriter::Write(result, m_responseData, false))
+    {
+      m_response.type = HTTPError;
+      m_response.status = MHD_HTTP_INTERNAL_SERVER_ERROR;
+
+      return MHD_YES;
+    }
   }
   else
   {
@@ -124,11 +119,7 @@ HttpResponseRanges CHTTPJsonRpcHandler::GetResponseData() const
   return ranges;
 }
 
-#if (MHD_VERSION >= 0x00040001)
 bool CHTTPJsonRpcHandler::appendPostData(const char *data, size_t size)
-#else
-bool CHTTPJsonRpcHandler::appendPostData(const char *data, unsigned int size)
-#endif
 {
   if (m_requestData.size() + size > MAX_HTTP_POST_SIZE)
   {
@@ -170,9 +161,12 @@ int CHTTPJsonRpcHandler::CHTTPTransportLayer::GetCapabilities()
   return JSONRPC::Response | JSONRPC::FileDownloadRedirect;
 }
 
-int CHTTPJsonRpcHandler::CHTTPClient::GetPermissionFlags()
+CHTTPJsonRpcHandler::CHTTPClient::CHTTPClient(HTTPMethod method)
+  : m_permissionFlags(JSONRPC::ReadData)
 {
-  return JSONRPC::OPERATION_PERMISSION_ALL;
+  // with a HTTP POST request everything is allowed
+  if (method == POST)
+    m_permissionFlags = JSONRPC::OPERATION_PERMISSION_ALL;
 }
 
 int CHTTPJsonRpcHandler::CHTTPClient::GetAnnouncementFlags()

@@ -1,47 +1,27 @@
-/*****************************************************************
-|
-|   Neptune - Files :: XBMC Implementation
-|
-| Copyright (c) 2002-2008, Axiomatic Systems, LLC.
-| All rights reserved.
-|
-| Redistribution and use in source and binary forms, with or without
-| modification, are permitted provided that the following conditions are met:
-|     * Redistributions of source code must retain the above copyright
-|       notice, this list of conditions and the following disclaimer.
-|     * Redistributions in binary form must reproduce the above copyright
-|       notice, this list of conditions and the following disclaimer in the
-|       documentation and/or other materials provided with the distribution.
-|     * Neither the name of Axiomatic Systems nor the
-|       names of its contributors may be used to endorse or promote products
-|       derived from this software without specific prior written permission.
-|
-| THIS SOFTWARE IS PROVIDED BY AXIOMATIC SYSTEMS ''AS IS'' AND ANY
-| EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-| WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-| DISCLAIMED. IN NO EVENT SHALL AXIOMATIC SYSTEMS BE LIABLE FOR ANY
-| DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-| (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-| LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-| ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-| (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-| SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-|
- ****************************************************************/
+/*
+ *  Neptune - Files :: XBMC Implementation
+ *
+ *  Copyright (c) 2002-2008, Axiomatic Systems, LLC.
+ *  All rights reserved.
+ *
+ *  SPDX-License-Identifier: BSD-3-Clause
+ *  See LICENSES/README.md for more information.
+ */
 
 /*----------------------------------------------------------------------
 |   includes
 +---------------------------------------------------------------------*/
+#include "File.h"
+#include "FileFactory.h"
+#include "URL.h"
+#include "Util.h"
+
 #include <limits>
+
 #include <Neptune/Source/Core/NptDebug.h>
 #include <Neptune/Source/Core/NptFile.h>
 #include <Neptune/Source/Core/NptStrings.h>
 #include <Neptune/Source/Core/NptUtils.h>
-
-#include "File.h"
-#include "FileFactory.h"
-#include "Util.h"
-#include "URL.h"
 
 #ifdef TARGET_WINDOWS
 #define S_IWUSR _S_IWRITE
@@ -60,7 +40,7 @@ class NPT_XbmcFileStream
 {
 public:
     // constructors and destructor
-    NPT_XbmcFileStream(NPT_XbmcFileReference file) :
+    explicit NPT_XbmcFileStream(NPT_XbmcFileReference file) :
       m_FileReference(file) {}
 
     // NPT_FileInterface methods
@@ -70,7 +50,7 @@ public:
 
 protected:
     // constructors and destructors
-    virtual ~NPT_XbmcFileStream() {}
+    virtual ~NPT_XbmcFileStream() = default;
 
     // members
     NPT_XbmcFileReference m_FileReference;
@@ -122,33 +102,33 @@ NPT_XbmcFileStream::Flush()
 +---------------------------------------------------------------------*/
 class NPT_XbmcFileInputStream : public NPT_InputStream,
                                 private NPT_XbmcFileStream
-                                
+
 {
 public:
     // constructors and destructor
-    NPT_XbmcFileInputStream(NPT_XbmcFileReference& file) :
+    explicit NPT_XbmcFileInputStream(NPT_XbmcFileReference& file) :
         NPT_XbmcFileStream(file) {}
 
     // NPT_InputStream methods
-    NPT_Result Read(void*     buffer, 
-                    NPT_Size  bytes_to_read, 
-                    NPT_Size* bytes_read);
-    NPT_Result Seek(NPT_Position offset) {
+    NPT_Result Read(void*     buffer,
+                    NPT_Size  bytes_to_read,
+                    NPT_Size* bytes_read) override;
+    NPT_Result Seek(NPT_Position offset) override {
         return NPT_XbmcFileStream::Seek(offset);
     }
-    NPT_Result Tell(NPT_Position& offset) {
+    NPT_Result Tell(NPT_Position& offset) override {
         return NPT_XbmcFileStream::Tell(offset);
     }
-    NPT_Result GetSize(NPT_LargeSize& size);
-    NPT_Result GetAvailable(NPT_LargeSize& available);
+    NPT_Result GetSize(NPT_LargeSize& size) override;
+    NPT_Result GetAvailable(NPT_LargeSize& available) override;
 };
 
 /*----------------------------------------------------------------------
 |   NPT_XbmcFileInputStream::Read
 +---------------------------------------------------------------------*/
 NPT_Result
-NPT_XbmcFileInputStream::Read(void*     buffer, 
-                              NPT_Size  bytes_to_read, 
+NPT_XbmcFileInputStream::Read(void*     buffer,
+                              NPT_Size  bytes_to_read,
                               NPT_Size* bytes_read)
 {
     unsigned int nb_read;
@@ -159,7 +139,7 @@ NPT_XbmcFileInputStream::Read(void*     buffer,
     }
 
     // read from the file
-    nb_read = m_FileReference->Read(buffer, bytes_to_read);    
+    nb_read = m_FileReference->Read(buffer, bytes_to_read);
     if (nb_read > 0) {
         if (bytes_read) *bytes_read = (NPT_Size)nb_read;
         return NPT_SUCCESS;
@@ -208,20 +188,20 @@ class NPT_XbmcFileOutputStream : public NPT_OutputStream,
 {
 public:
     // constructors and destructor
-    NPT_XbmcFileOutputStream(NPT_XbmcFileReference& file) :
+    explicit NPT_XbmcFileOutputStream(NPT_XbmcFileReference& file) :
         NPT_XbmcFileStream(file) {}
 
     // NPT_OutputStream methods
-    NPT_Result Write(const void* buffer, 
-                     NPT_Size    bytes_to_write, 
-                     NPT_Size*   bytes_written);
-    NPT_Result Seek(NPT_Position offset) {
+    NPT_Result Write(const void* buffer,
+                     NPT_Size    bytes_to_write,
+                     NPT_Size*   bytes_written) override;
+    NPT_Result Seek(NPT_Position offset) override {
         return NPT_XbmcFileStream::Seek(offset);
     }
-    NPT_Result Tell(NPT_Position& offset) {
+    NPT_Result Tell(NPT_Position& offset) override {
         return NPT_XbmcFileStream::Tell(offset);
     }
-    NPT_Result Flush() {
+    NPT_Result Flush() override {
         return NPT_XbmcFileStream::Flush();
     }
 };
@@ -230,12 +210,12 @@ public:
 |   NPT_XbmcFileOutputStream::Write
 +---------------------------------------------------------------------*/
 NPT_Result
-NPT_XbmcFileOutputStream::Write(const void* buffer, 
-                                NPT_Size    bytes_to_write, 
+NPT_XbmcFileOutputStream::Write(const void* buffer,
+                                NPT_Size    bytes_to_write,
                                 NPT_Size*   bytes_written)
 {
     int nb_written;
-    nb_written = m_FileReference->Write(buffer, bytes_to_write);    
+    nb_written = m_FileReference->Write(buffer, bytes_to_write);
 
     if (nb_written > 0) {
         if (bytes_written) *bytes_written = (NPT_Size)nb_written;
@@ -253,14 +233,14 @@ class NPT_XbmcFile: public NPT_FileInterface
 {
 public:
     // constructors and destructor
-    NPT_XbmcFile(NPT_File& delegator);
-   ~NPT_XbmcFile();
+    explicit NPT_XbmcFile(NPT_File& delegator);
+   ~NPT_XbmcFile() override;
 
     // NPT_FileInterface methods
-    NPT_Result Open(OpenMode mode);
-    NPT_Result Close();
-    NPT_Result GetInputStream(NPT_InputStreamReference& stream);
-    NPT_Result GetOutputStream(NPT_OutputStreamReference& stream);
+    NPT_Result Open(OpenMode mode) override;
+    NPT_Result Close() override;
+    NPT_Result GetInputStream(NPT_InputStreamReference& stream) override;
+    NPT_Result GetOutputStream(NPT_OutputStreamReference& stream) override;
 
 private:
     // members
@@ -355,7 +335,7 @@ NPT_XbmcFile::Close()
 /*----------------------------------------------------------------------
 |   NPT_XbmcFile::GetInputStream
 +---------------------------------------------------------------------*/
-NPT_Result 
+NPT_Result
 NPT_XbmcFile::GetInputStream(NPT_InputStreamReference& stream)
 {
     // default value
@@ -378,7 +358,7 @@ NPT_XbmcFile::GetInputStream(NPT_InputStreamReference& stream)
 /*----------------------------------------------------------------------
 |   NPT_XbmcFile::GetOutputStream
 +---------------------------------------------------------------------*/
-NPT_Result 
+NPT_Result
 NPT_XbmcFile::GetOutputStream(NPT_OutputStreamReference& stream)
 {
     // default value
@@ -391,7 +371,7 @@ NPT_XbmcFile::GetOutputStream(NPT_OutputStreamReference& stream)
     if (!(m_Mode & NPT_FILE_OPEN_MODE_WRITE)) {
         return NPT_ERROR_FILE_NOT_WRITABLE;
     }
-    
+
     // create a stream
     stream = new NPT_XbmcFileOutputStream(m_FileReference);
 
@@ -430,7 +410,7 @@ NPT_File::NPT_File(const char* path) : m_Path(path)
 /*----------------------------------------------------------------------
 |   NPT_File::operator=
 +---------------------------------------------------------------------*/
-NPT_File& 
+NPT_File&
 NPT_File::operator=(const NPT_File& file)
 {
     if (this != &file) {

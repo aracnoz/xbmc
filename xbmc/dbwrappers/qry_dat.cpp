@@ -1,40 +1,26 @@
-/**********************************************************************
- * Copyright (c) 2004, Leo Seib, Hannover
+/*
+ *  Copyright (C) 2004, Leo Seib, Hannover
  *
- * Project: C++ Dynamic Library
- * Module: FieldValue class realisation file
- * Author: Leo Seib      E-Mail: leoseib@web.de
- * Begin: 5/04/2002
+ *  Project: C++ Dynamic Library
+ *  Module: FieldValue class realisation file
+ *  Author: Leo Seib      E-Mail: leoseib@web.de
+ *  Begin: 5/04/2002
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- **********************************************************************/
+ *  SPDX-License-Identifier: MIT
+ *  See LICENSES/README.md for more information.
+ */
+
 /**********************************************************************
  * 2005-03-29 - Minor modifications to allow get_asBool to function on
  *              on string values that are 1 or 0
  **********************************************************************/
 
 #include "qry_dat.h"
-#include "system.h" // for PRId64
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "PlatformDefs.h" // for PRId64
 
 #ifndef __GNUC__
 #pragma warning (disable:4800)
@@ -43,7 +29,7 @@
 
 namespace dbiplus {
 
-//Constructors 
+//Constructors
 field_value::field_value()
 {
   field_type = ft_String;
@@ -56,57 +42,57 @@ field_value::field_value(const char *s):
   field_type = ft_String;
   is_null = false;
 }
-  
+
 field_value::field_value(const bool b) {
-  bool_value = b; 
+  bool_value = b;
   field_type = ft_Boolean;
   is_null = false;
 }
 
 field_value::field_value(const char c) {
-  char_value = c; 
+  char_value = c;
   field_type = ft_Char;
   is_null = false;
 }
-  
+
 field_value::field_value(const short s) {
-  short_value = s; 
+  short_value = s;
   field_type = ft_Short;
   is_null = false;
 }
-  
+
 field_value::field_value(const unsigned short us) {
-  ushort_value = us; 
+  ushort_value = us;
   field_type = ft_UShort;
   is_null = false;
 }
-  
+
 field_value::field_value(const int i) {
-  int_value = i; 
+  int_value = i;
   field_type = ft_Int;
   is_null = false;
 }
-  
+
 field_value::field_value(const unsigned int ui) {
-  uint_value = ui; 
+  uint_value = ui;
   field_type = ft_UInt;
   is_null = false;
 }
-  
+
 field_value::field_value(const float f) {
-  float_value = f; 
+  float_value = f;
   field_type = ft_Float;
   is_null = false;
 }
-  
+
 field_value::field_value(const double d) {
-  double_value = d; 
+  double_value = d;
   field_type = ft_Double;
   is_null = false;
 }
-  
+
 field_value::field_value(const int64_t i) {
-  int64_value = i; 
+  int64_value = i;
   field_type = ft_Int64;
   is_null = false;
 }
@@ -119,7 +105,7 @@ field_value::field_value (const field_value & fv) {
     }
     case ft_Boolean:{
       set_asBool(fv.get_asBool());
-      break;     
+      break;
     }
     case ft_Char: {
       set_asChar(fv.get_asChar());
@@ -161,11 +147,9 @@ field_value::field_value (const field_value & fv) {
 
 
 //empty destructor
-field_value::~field_value(){
+field_value::~field_value() = default;
 
-  }
 
-  
 //Conversations functions
 std::string field_value::get_asString() const {
     std::string tmp;
@@ -175,7 +159,7 @@ std::string field_value::get_asString() const {
       return tmp;
     }
     case ft_Boolean:{
-      if (bool_value) 
+      if (bool_value)
 	return tmp = "True";
       else
 	return tmp = "False";
@@ -267,7 +251,7 @@ bool field_value::get_asBool() const {
       return false;
     }
   }
-  
+
 
 char field_value::get_asChar() const {
   switch (field_type) {
@@ -275,7 +259,7 @@ char field_value::get_asChar() const {
       return str_value[0];
     }
     case ft_Boolean:{
-      if (bool_value) 
+      if (bool_value)
 	return 'T';
       else
 	return 'F';
@@ -402,7 +386,7 @@ unsigned short field_value::get_asUShort() const {
 int field_value::get_asInt() const {
     switch (field_type) {
     case ft_String: {
-      return (int)atoi(str_value.c_str());
+      return atoi(str_value.c_str());
     }
     case ft_Boolean:{
       return (int)bool_value;
@@ -587,7 +571,7 @@ int64_t field_value::get_asInt64() const {
 
 field_value& field_value::operator= (const field_value & fv) {
   if ( this == &fv ) return *this;
-  
+
   is_null = fv.get_isNull();
 
   switch (fv.get_fType()) {
@@ -599,7 +583,7 @@ field_value& field_value::operator= (const field_value & fv) {
     case ft_Boolean:{
       set_asBool(fv.get_asBool());
       return *this;
-      break;     
+      break;
     }
     case ft_Char: {
       set_asChar(fv.get_asChar());
@@ -656,50 +640,50 @@ void field_value::set_asString(const char *s) {
 void field_value::set_asString(const std::string & s) {
   str_value = s;
   field_type = ft_String;}
-  
+
 void field_value::set_asBool(const bool b) {
-  bool_value = b; 
+  bool_value = b;
   field_type = ft_Boolean;}
-  
+
 void field_value::set_asChar(const char c) {
-  char_value = c; 
+  char_value = c;
   field_type = ft_Char;}
-  
+
 void field_value::set_asShort(const short s) {
-  short_value = s; 
+  short_value = s;
   field_type = ft_Short;}
-  
+
 void field_value::set_asUShort(const unsigned short us) {
-  ushort_value = us; 
+  ushort_value = us;
   field_type = ft_UShort;
 }
 
 void field_value::set_asInt(const int i) {
-  int_value = i; 
+  int_value = i;
   field_type = ft_Int;
 }
-  
+
 void field_value::set_asUInt(const unsigned int ui) {
-  int_value = ui; 
+  int_value = ui;
   field_type = ft_UInt;
 }
-  
+
 void field_value::set_asFloat(const float f) {
-  float_value = f; 
+  float_value = f;
   field_type = ft_Float;}
-  
+
 void field_value::set_asDouble(const double d) {
-  double_value = d; 
+  double_value = d;
   field_type = ft_Double;}
 
 void field_value::set_asInt64(const int64_t i) {
-  int64_value = i; 
+  int64_value = i;
   field_type = ft_Int64;}
-  
+
 fType field_value::get_field_type() {
   return field_type;}
 
-  
+
 std::string field_value::gft() {
     std::string tmp;
     switch (field_type) {
@@ -742,4 +726,4 @@ std::string field_value::gft() {
   return tmp;
   }
 
-} //namespace 
+} //namespace

@@ -1,29 +1,18 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "RumbleGenerator.h"
-#include "games/controllers/Controller.h"
-#include "games/controllers/ControllerFeature.h"
-#include "games/GameServices.h"
-#include "input/joysticks/IInputReceiver.h"
+
 #include "ServiceBroker.h"
+#include "games/controllers/Controller.h"
+#include "games/controllers/ControllerIDs.h"
+#include "games/controllers/ControllerManager.h"
+#include "input/joysticks/interfaces/IInputReceiver.h"
 
 #include <algorithm>
 
@@ -33,14 +22,18 @@
  // From game.controller.default profile
 #define WEAK_MOTOR_NAME        "rightmotor"
 
+using namespace KODI;
 using namespace JOYSTICK;
 
-CRumbleGenerator::CRumbleGenerator(const std::string& controllerId) :
+CRumbleGenerator::CRumbleGenerator() :
   CThread("RumbleGenerator"),
-  m_motors(GetMotors(controllerId)),
-  m_receiver(nullptr),
-  m_type(RUMBLE_UNKNOWN)
+  m_motors(GetMotors(ControllerID()))
 {
+}
+
+std::string CRumbleGenerator::ControllerID() const
+{
+  return DEFAULT_CONTROLLER_ID;
 }
 
 void CRumbleGenerator::NotifyUser(IInputReceiver* receiver)
@@ -81,7 +74,7 @@ void CRumbleGenerator::Process(void)
     std::vector<std::string> motors;
 
     if (std::find(m_motors.begin(), m_motors.end(), WEAK_MOTOR_NAME) != m_motors.end())
-      motors.push_back(WEAK_MOTOR_NAME);
+      motors.emplace_back(WEAK_MOTOR_NAME);
     else
       motors = m_motors; // Not using default profile? Just rumble all motors
 
@@ -124,16 +117,10 @@ std::vector<std::string> CRumbleGenerator::GetMotors(const std::string& controll
 
   std::vector<std::string> motors;
 
-  CGameServices& gameServices = CServiceBroker::GetGameServices();
-  ControllerPtr controller = gameServices.GetController(controllerId);
+  CControllerManager& controllerManager = CServiceBroker::GetGameControllerManager();
+  ControllerPtr controller = controllerManager.GetController(controllerId);
   if (controller)
-  {
-    for (const CControllerFeature& feature : controller->Layout().Features())
-    {
-      if (feature.Type() == JOYSTICK::FEATURE_TYPE::MOTOR)
-        motors.push_back(feature.Name());
-    }
-  }
+    controller->GetFeatures(motors, FEATURE_TYPE::MOTOR);
 
   return motors;
 }

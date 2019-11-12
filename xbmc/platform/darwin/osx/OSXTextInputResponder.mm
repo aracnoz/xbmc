@@ -1,35 +1,18 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- *
- *  OSXTextInputResponder is modified from SDLTranslatorResponder in SDL_cocoakeyboard.m
- *  Copyright (C) 1997-2010 Sam Lantinga, LGPLV2.1 or later.
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #import "OSXTextInputResponder.h"
 
-#define BOOL XBMC_BOOL
-#include "guilib/GUIWindowManager.h"
 #include "GUIUserMessages.h"
-#include "utils/log.h"
-#include "messaging/ApplicationMessenger.h"
+#include "guilib/GUIWindowManager.h"
 #include "input/Key.h"
-#undef BOOL
+#include "messaging/ApplicationMessenger.h"
+#include "utils/log.h"
 
 using namespace KODI::MESSAGING;
 
@@ -48,10 +31,11 @@ void SendKeyboardText(const char *text)
 
 void SendEditingText(const char *text, unsigned int location, unsigned int length)
 {
+  //@todo fix this hack
 //  CLog::Log(LOGDEBUG, "SendEditingText(%s, %u, %u)", text, location, length);
-  CGUIMessage msg(GUI_MSG_INPUT_TEXT_EDIT, 0, 0, location, length);
-  msg.SetLabel(text);
-  g_windowManager.SendThreadMessage(msg, g_windowManager.GetFocusedWindow());
+//  CGUIMessage msg(GUI_MSG_INPUT_TEXT_EDIT, 0, 0, location, length);
+//  msg.SetLabel(text);
+//  CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(msg, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindowOrDialog());
 }
 
 @implementation OSXTextInputResponder
@@ -140,12 +124,7 @@ void SendEditingText(const char *text, unsigned int location, unsigned int lengt
     return;
   }
 
-  if (_markedText != aString)
-  {
-    [_markedText release];
-    _markedText = [aString retain];
-  }
-
+  _markedText = aString;
   _selectedRange = selRange;
 //  _markedRange = NSMakeRange(0, [aString length]);
   _markedRange = NSMakeRange(replacementRange.location, [aString length]);
@@ -155,7 +134,6 @@ void SendEditingText(const char *text, unsigned int location, unsigned int lengt
 
 - (void) unmarkText
 {
-  [_markedText release];
   _markedText = nil;
   _markedRange = NSMakeRange(NSNotFound, 0);
 

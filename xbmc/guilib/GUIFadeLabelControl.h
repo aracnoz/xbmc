@@ -1,37 +1,23 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIFadeLabelControl.h
 \brief
 */
 
-#ifndef GUILIB_GUIFADELABELCONTROL_H
-#define GUILIB_GUIFADELABELCONTROL_H
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
-
-#include <vector>
-
 #include "GUIControl.h"
 #include "GUILabel.h"
+#include "guilib/guiinfo/GUIInfoLabel.h"
+
+#include <vector>
 
 /*!
  \ingroup controls
@@ -42,20 +28,20 @@ class CGUIFadeLabelControl : public CGUIControl
 public:
   CGUIFadeLabelControl(int parentID, int controlID, float posX, float posY, float width, float height, const CLabelInfo& labelInfo, bool scrollOut, unsigned int timeToDelayAtEnd, bool resetOnLabelChange, bool randomized);
   CGUIFadeLabelControl(const CGUIFadeLabelControl &from);
-  virtual ~CGUIFadeLabelControl(void);
-  virtual CGUIFadeLabelControl *Clone() const { return new CGUIFadeLabelControl(*this); };
+  ~CGUIFadeLabelControl(void) override;
+  CGUIFadeLabelControl *Clone() const override { return new CGUIFadeLabelControl(*this); };
 
-  virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
-  virtual void Render();
-  virtual bool CanFocus() const;
-  virtual bool OnMessage(CGUIMessage& message);
+  void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
+  void Render() override;
+  bool CanFocus() const override;
+  bool OnMessage(CGUIMessage& message) override;
 
-  void SetInfo(const std::vector<CGUIInfoLabel> &vecInfo);
+  void SetInfo(const std::vector<KODI::GUILIB::GUIINFO::CGUIInfoLabel> &vecInfo);
   void SetScrolling(bool scroll) { m_scroll = scroll; }
 
 protected:
-  virtual bool UpdateColors();
-  virtual std::string GetDescription() const;
+  bool UpdateColors() override;
+  std::string GetDescription() const override;
   void AddLabel(const std::string &label);
 
   /*! \brief retrieve the current label for display
@@ -68,7 +54,7 @@ protected:
    */
   std::string GetLabel();
 
-  std::vector< CGUIInfoLabel > m_infoLabels;
+  std::vector<KODI::GUILIB::GUIINFO::CGUIInfoLabel> m_infoLabels;
   unsigned int m_currentLabel;
   unsigned int m_lastLabel;
 
@@ -86,4 +72,4 @@ protected:
   bool m_resetOnLabelChange;
   bool m_randomized;
 };
-#endif
+

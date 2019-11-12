@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/POUtils.h"
+
 #include "URL.h"
 #include "filesystem/File.h"
 #include "utils/log.h"
+
 #include <stdlib.h>
 
 CPODocument::CPODocument()
@@ -33,7 +23,7 @@ CPODocument::CPODocument()
   m_Entry.msgStrPlural.resize(1);
 }
 
-CPODocument::~CPODocument() {}
+CPODocument::~CPODocument() = default;
 
 bool CPODocument::LoadFile(const std::string &pofilename)
 {
@@ -48,7 +38,7 @@ bool CPODocument::LoadFile(const std::string &pofilename)
     CLog::Log(LOGERROR, "%s: can't load file \"%s\" or file is too small", __FUNCTION__,  pofilename.c_str());
     return false;
   }
-  
+
   m_strBuffer = '\n';
   m_strBuffer.append(buf.get(), buf.size());
   buf.clear();
@@ -169,8 +159,6 @@ void CPODocument::ParseEntry(bool bisSourceLang)
                         "Failed entry: %s", m_Entry.Content.c_str());
     m_Entry.msgStrPlural.resize(1); // Put 1 element with an empty string into the vector
   }
-
-  return;
 }
 
 const std::string& CPODocument::GetPlurMsgstr(size_t plural) const
@@ -221,7 +209,7 @@ std::string CPODocument::UnescapeString(const std::string &strInput)
         case '\'': oescchar = '\''; break;
         case '\\': oescchar = '\\'; break;
 
-        default: 
+        default:
         {
           CLog::Log(LOGERROR,
                     "POParser: warning, unhandled escape character. Problematic entry: %s",

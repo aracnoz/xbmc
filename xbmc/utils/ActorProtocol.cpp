@@ -1,34 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2.1 of the License, or (at your option) any later version.
- *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  SPDX-License-Identifier: LGPL-2.1-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ActorProtocol.h"
+
+#include "threads/Event.h"
+
+#include <cstring>
 
 using namespace Actor;
 
 void Message::Release()
 {
   bool skip;
-  origin->Lock();
+  origin.Lock();
   skip = isSync ? !isSyncFini : false;
   isSyncFini = true;
-  origin->Unlock();
+  origin.Unlock();
 
   if (skip)
     return;
@@ -37,34 +29,35 @@ void Message::Release()
   if (data != buffer)
     delete [] data;
 
-  // delete event in case of sync message
-  if (event)
-    delete event;
+  payloadObj.reset();
 
-  origin->ReturnMessage(this);
+  // delete event in case of sync message
+  delete event;
+
+  origin.ReturnMessage(this);
 }
 
-bool Message::Reply(int sig, void *data /* = NULL*/, int size /* = 0 */)
+bool Message::Reply(int sig, void *data /* = NULL*/, size_t size /* = 0 */)
 {
   if (!isSync)
   {
     if (isOut)
-      return origin->SendInMessage(sig, data, size);
+      return origin.SendInMessage(sig, data, size);
     else
-      return origin->SendOutMessage(sig, data, size);
+      return origin.SendOutMessage(sig, data, size);
   }
 
-  origin->Lock();
+  origin.Lock();
 
   if (!isSyncTimeout)
   {
-    Message *msg = origin->GetMessage();
+    Message *msg = origin.GetMessage();
     msg->signal = sig;
     msg->isOut = !isOut;
     replyMessage = msg;
     if (data)
     {
-      if (size > MSG_INTERNAL_BUFFER_SIZE)
+      if (size > sizeof(msg->buffer))
         msg->data = new uint8_t[size];
       else
         msg->data = msg->buffer;
@@ -72,7 +65,7 @@ bool Message::Reply(int sig, void *data /* = NULL*/, int size /* = 0 */)
     }
   }
 
-  origin->Unlock();
+  origin.Unlock();
 
   if (event)
     event->Set();
@@ -104,7 +97,7 @@ Message *Protocol::GetMessage()
     freeMessageQueue.pop();
   }
   else
-    msg = new Message();
+    msg = new Message(*this);
 
   msg->isSync = false;
   msg->isSyncFini = false;
@@ -113,7 +106,6 @@ Message *Protocol::GetMessage()
   msg->data = NULL;
   msg->payloadSize = 0;
   msg->replyMessage = NULL;
-  msg->origin = this;
 
   return msg;
 }
@@ -125,7 +117,7 @@ void Protocol::ReturnMessage(Message *msg)
   freeMessageQueue.push(msg);
 }
 
-bool Protocol::SendOutMessage(int signal, void *data /* = NULL */, int size /* = 0 */, Message *outMsg /* = NULL */)
+bool Protocol::SendOutMessage(int signal, void *data /* = NULL */, size_t size /* = 0 */, Message *outMsg /* = NULL */)
 {
   Message *msg;
   if (outMsg)
@@ -138,7 +130,7 @@ bool Protocol::SendOutMessage(int signal, void *data /* = NULL */, int size /* =
 
   if (data)
   {
-    if (size > MSG_INTERNAL_BUFFER_SIZE)
+    if (size > sizeof(msg->buffer))
       msg->data = new uint8_t[size];
     else
       msg->data = msg->buffer;
@@ -148,12 +140,35 @@ bool Protocol::SendOutMessage(int signal, void *data /* = NULL */, int size /* =
   { CSingleLock lock(criticalSection);
     outMessages.push(msg);
   }
-  containerOutEvent->Set();
+  if (containerOutEvent)
+    containerOutEvent->Set();
 
   return true;
 }
 
-bool Protocol::SendInMessage(int signal, void *data /* = NULL */, int size /* = 0 */, Message *outMsg /* = NULL */)
+bool Protocol::SendOutMessage(int signal, CPayloadWrapBase *payload, Message *outMsg)
+{
+  Message *msg;
+  if (outMsg)
+    msg = outMsg;
+  else
+    msg = GetMessage();
+
+  msg->signal = signal;
+  msg->isOut = true;
+
+  msg->payloadObj.reset(payload);
+
+  { CSingleLock lock(criticalSection);
+    outMessages.push(msg);
+  }
+  if (containerOutEvent)
+    containerOutEvent->Set();
+
+  return true;
+}
+
+bool Protocol::SendInMessage(int signal, void *data /* = NULL */, size_t size /* = 0 */, Message *outMsg /* = NULL */)
 {
   Message *msg;
   if (outMsg)
@@ -166,7 +181,7 @@ bool Protocol::SendInMessage(int signal, void *data /* = NULL */, int size /* = 
 
   if (data)
   {
-    if (size > MSG_INTERNAL_BUFFER_SIZE)
+    if (size > sizeof(msg->data))
       msg->data = new uint8_t[size];
     else
       msg->data = msg->buffer;
@@ -176,13 +191,35 @@ bool Protocol::SendInMessage(int signal, void *data /* = NULL */, int size /* = 
   { CSingleLock lock(criticalSection);
     inMessages.push(msg);
   }
-  containerInEvent->Set();
+  if (containerInEvent)
+    containerInEvent->Set();
 
   return true;
 }
 
+bool Protocol::SendInMessage(int signal, CPayloadWrapBase *payload, Message *outMsg)
+{
+  Message *msg;
+  if (outMsg)
+    msg = outMsg;
+  else
+    msg = GetMessage();
 
-bool Protocol::SendOutMessageSync(int signal, Message **retMsg, int timeout, void *data /* = NULL */, int size /* = 0 */)
+  msg->signal = signal;
+  msg->isOut = false;
+
+  msg->payloadObj.reset(payload);
+
+  { CSingleLock lock(criticalSection);
+    inMessages.push(msg);
+  }
+  if (containerInEvent)
+    containerInEvent->Set();
+
+  return true;
+}
+
+bool Protocol::SendOutMessageSync(int signal, Message **retMsg, int timeout, void *data /* = NULL */, size_t size /* = 0 */)
 {
   Message *msg = GetMessage();
   msg->isOut = true;
@@ -193,7 +230,7 @@ bool Protocol::SendOutMessageSync(int signal, Message **retMsg, int timeout, voi
 
   if (!msg->event->WaitMSec(timeout))
   {
-    msg->origin->Lock();
+    const CSingleLock lock(criticalSection);
     if (msg->replyMessage)
       *retMsg = msg->replyMessage;
     else
@@ -201,7 +238,37 @@ bool Protocol::SendOutMessageSync(int signal, Message **retMsg, int timeout, voi
       *retMsg = NULL;
       msg->isSyncTimeout = true;
     }
-    msg->origin->Unlock();
+  }
+  else
+    *retMsg = msg->replyMessage;
+
+  msg->Release();
+
+  if (*retMsg)
+    return true;
+  else
+    return false;
+}
+
+bool Protocol::SendOutMessageSync(int signal, Message **retMsg, int timeout, CPayloadWrapBase *payload)
+{
+  Message *msg = GetMessage();
+  msg->isOut = true;
+  msg->isSync = true;
+  msg->event = new CEvent;
+  msg->event->Reset();
+  SendOutMessage(signal, payload, msg);
+
+  if (!msg->event->WaitMSec(timeout))
+  {
+    const CSingleLock lock(criticalSection);
+    if (msg->replyMessage)
+      *retMsg = msg->replyMessage;
+    else
+    {
+      *retMsg = NULL;
+      msg->isSyncTimeout = true;
+    }
   }
   else
     *retMsg = msg->replyMessage;

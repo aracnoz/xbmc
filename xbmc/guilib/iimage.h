@@ -1,31 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
 #include <string>
 
 class IImage
 {
 public:
 
-  IImage():m_width(0), m_height(0), m_originalWidth(0), m_originalHeight(0), m_orientation(0), m_hasAlpha(false) {};
-  virtual ~IImage() {};
+  virtual ~IImage() = default;
 
   /*!
    \brief Load an image from memory with the format m_strMimeType to determine it's size and orientation
@@ -59,12 +48,12 @@ public:
    \param bufferoutSize The output buffer size
    \return true if the thumbnail was successfully created
    */
-  virtual bool CreateThumbnailFromSurface(unsigned char* bufferin, unsigned int width, unsigned int height, unsigned int format, unsigned int pitch, const std::string& destFile, 
+  virtual bool CreateThumbnailFromSurface(unsigned char* bufferin, unsigned int width, unsigned int height, unsigned int format, unsigned int pitch, const std::string& destFile,
                                           unsigned char* &bufferout, unsigned int &bufferoutSize)=0;
   /*!
    \brief Frees the output buffer allocated by CreateThumbnailFromSurface
    */
-  virtual void ReleaseThumbnailBuffer() {return;}
+  virtual void ReleaseThumbnailBuffer() {}
 
   unsigned int Width() const              { return m_width; }
   unsigned int Height() const             { return m_height; }
@@ -75,11 +64,11 @@ public:
 
 protected:
 
-  unsigned int m_width;
-  unsigned int m_height;
-  unsigned int m_originalWidth;   ///< original image width before scaling or cropping
-  unsigned int m_originalHeight;  ///< original image height before scaling or cropping
-  unsigned int m_orientation;
-  bool m_hasAlpha;
- 
+  unsigned int m_width = 0;
+  unsigned int m_height = 0;
+  unsigned int m_originalWidth = 0;   ///< original image width before scaling or cropping
+  unsigned int m_originalHeight = 0;  ///< original image height before scaling or cropping
+  unsigned int m_orientation = 0;
+  bool m_hasAlpha = false;
+
 };

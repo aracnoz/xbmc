@@ -1,27 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string>
+#pragma once
 
 #include "utils/Job.h"
+
+#include <string>
 
 class CGUIDialogProgress;
 class CGUIDialogProgressBarHandle;
@@ -33,12 +22,12 @@ class CGUIDialogProgressBarHandle;
 class CProgressJob : public CJob
 {
 public:
-  virtual ~CProgressJob();
+  ~CProgressJob() override;
 
   // implementation of CJob
-  virtual const char *GetType() const { return "ProgressJob"; }
-  virtual bool operator==(const CJob* job) const { return false; }
-  virtual bool ShouldCancel(unsigned int progress, unsigned int total) const;
+  const char *GetType() const override { return "ProgressJob"; }
+  bool operator==(const CJob* job) const override { return false; }
+  bool ShouldCancel(unsigned int progress, unsigned int total) const override;
 
   /*!
    \brief Executes the job showing a modal progress dialog.
@@ -63,7 +52,7 @@ public:
 
 protected:
   CProgressJob();
-  CProgressJob(CGUIDialogProgressBarHandle* progressBar);
+  explicit CProgressJob(CGUIDialogProgressBarHandle* progressBar);
 
   /*!
    \brief Whether the job is being run modally or in the background.
@@ -165,10 +154,10 @@ protected:
   bool IsCancelled() const;
 
 private:
-  bool m_modal;
-  bool m_autoClose;
-  bool m_updateProgress;
-  bool m_updateInformation;
+  bool m_modal = false;
+  bool m_autoClose = true;
+  bool m_updateProgress = true;
+  bool m_updateInformation = true;
   mutable CGUIDialogProgressBarHandle* m_progress;
   mutable CGUIDialogProgress* m_progressDialog;
 };

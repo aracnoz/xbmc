@@ -1,54 +1,45 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
+#pragma once
 
 #include "cores/AudioEngine/Interfaces/AESink.h"
-#include "cores/AudioEngine/AEFactory.h"
-#include "Utils/AEDeviceInfo.h"
-#include "Utils/AEUtil.h"
-#include <pulse/pulseaudio.h>
+#include "cores/AudioEngine/Utils/AEDeviceInfo.h"
+#include "cores/AudioEngine/Utils/AEUtil.h"
 #include "threads/CriticalSection.h"
+
+#include <pulse/pulseaudio.h>
+#include <pulse/simple.h>
 
 class CAESinkPULSE : public IAESink
 {
 public:
-  virtual const char *GetName() { return "PULSE"; }
+  const char *GetName() override { return "PULSE"; }
 
   CAESinkPULSE();
-  virtual ~CAESinkPULSE();
+  ~CAESinkPULSE() override;
 
-  virtual bool Initialize(AEAudioFormat &format, std::string &device);
-  virtual void Deinitialize();
-
-  virtual double       GetDelay        () { return 0.0; }
-  virtual void         GetDelay        (AEDelayStatus& status);
-  virtual double       GetCacheTotal   ();
-  virtual unsigned int AddPackets      (uint8_t **data, unsigned int frames, unsigned int offset);
-  virtual void         Drain           ();
-
-  virtual bool HasVolume() { return true; };
-  virtual void SetVolume(float volume);
-
+  static bool Register();
+  static IAESink* Create(std::string &device, AEAudioFormat &desiredFormat);
   static void EnumerateDevicesEx(AEDeviceInfoList &list, bool force = false);
+
+  bool Initialize(AEAudioFormat &format, std::string &device) override;
+  void Deinitialize() override;
+
+  virtual double GetDelay() { return 0.0; }
+  void GetDelay(AEDelayStatus& status) override;
+  double GetCacheTotal() override;
+  unsigned int AddPackets(uint8_t **data, unsigned int frames, unsigned int offset) override;
+  void Drain() override;
+
+  bool HasVolume() override { return true; };
+  void SetVolume(float volume) override;
+
   bool IsInitialized();
   void UpdateInternalVolume(const pa_cvolume* nVol);
   pa_stream* GetInternalStream();
@@ -67,12 +58,10 @@ private:
   unsigned int m_BufferSize;
   unsigned int m_Channels;
 
-  pa_stream *m_Stream; 
+  pa_stream *m_Stream;
   pa_cvolume m_Volume;
   bool m_volume_needs_update;
   uint32_t m_periodSize;
-  uint64_t m_lastPackageStamp;
-  uint64_t m_filled_bytes;
 
   pa_context *m_Context;
   pa_threaded_mainloop *m_MainLoop;

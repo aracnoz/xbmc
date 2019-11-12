@@ -1,45 +1,36 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "cores/FFmpeg.h"
-#include "utils/log.h"
-#include "threads/CriticalSection.h"
-#include "utils/StringUtils.h"
-#include "threads/Thread.h"
+
+#include "ServiceBroker.h"
 #include "settings/AdvancedSettings.h"
-#include "URL.h"
+#include "settings/SettingsComponent.h"
+#include "threads/CriticalSection.h"
+#include "threads/Thread.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+
 #include <map>
 
-static XbmcThreads::ThreadLocal<CFFmpegLog> CFFmpegLogTls;
+static thread_local CFFmpegLog* CFFmpegLogTls;
 
 void CFFmpegLog::SetLogLevel(int level)
 {
   CFFmpegLog::ClearLogLevel();
   CFFmpegLog *log = new CFFmpegLog();
   log->level = level;
-  CFFmpegLogTls.set(log);
+  CFFmpegLogTls = log;
 }
 
 int CFFmpegLog::GetLogLevel()
 {
-  CFFmpegLog* log = CFFmpegLogTls.get();
+  CFFmpegLog* log = CFFmpegLogTls;
   if (!log)
     return -1;
   return log->level;
@@ -47,50 +38,14 @@ int CFFmpegLog::GetLogLevel()
 
 void CFFmpegLog::ClearLogLevel()
 {
-  CFFmpegLog* log = CFFmpegLogTls.get();
-  CFFmpegLogTls.set(nullptr);
+  CFFmpegLog* log = CFFmpegLogTls;
+  CFFmpegLogTls = nullptr;
   if (log)
     delete log;
 }
 
-/* callback for the ffmpeg lock manager */
-int ffmpeg_lockmgr_cb(void **mutex, enum AVLockOp operation)
-{
-  CCriticalSection **lock = (CCriticalSection **)mutex;
-
-  switch (operation)
-  {
-    case AV_LOCK_CREATE:
-    {
-      *lock = NULL;
-      *lock = new CCriticalSection();
-      if (*lock == NULL)
-        return 1;
-      break;
-    }
-    case AV_LOCK_OBTAIN:
-      (*lock)->lock();
-      break;
-
-    case AV_LOCK_RELEASE:
-      (*lock)->unlock();
-      break;
-
-    case AV_LOCK_DESTROY:
-    {
-      delete *lock;
-      *lock = NULL;
-      break;
-    }
-
-    default:
-      return 1;
-  }
-  return 0;
-}
-
 static CCriticalSection m_logSection;
-std::map<uintptr_t, std::string> g_logbuffer;
+std::map<const CThread*, std::string> g_logbuffer;
 
 void ff_flush_avutil_log_buffers(void)
 {
@@ -98,7 +53,7 @@ void ff_flush_avutil_log_buffers(void)
   /* Loop through the logbuffer list and remove any blank buffers
      If the thread using the buffer is still active, it will just
      add a new buffer next time it writes to the log */
-  std::map<uintptr_t, std::string>::iterator it;
+  std::map<const CThread*, std::string>::iterator it;
   for (it = g_logbuffer.begin(); it != g_logbuffer.end(); )
     if ((*it).second.empty())
       g_logbuffer.erase(it++);
@@ -109,7 +64,7 @@ void ff_flush_avutil_log_buffers(void)
 void ff_avutil_log(void* ptr, int level, const char* format, va_list va)
 {
   CSingleLock lock(m_logSection);
-  uintptr_t threadId = (uintptr_t)CThread::GetCurrentThreadId();
+  const CThread* threadId = CThread::GetCurrentThread();
   std::string &buffer = g_logbuffer[threadId];
 
   AVClass* avc= ptr ? *(AVClass**)ptr : NULL;
@@ -119,9 +74,9 @@ void ff_avutil_log(void* ptr, int level, const char* format, va_list va)
     maxLevel = AV_LOG_INFO;
 
   if (level > maxLevel &&
-     !g_advancedSettings.CanLogComponent(LOGFFMPEG))
+     !CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->CanLogComponent(LOGFFMPEG))
     return;
-  else if (g_advancedSettings.m_logLevel <= LOG_LEVEL_NORMAL)
+  else if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_logLevel <= LOG_LEVEL_NORMAL)
     return;
 
   int type;
@@ -142,7 +97,7 @@ void ff_avutil_log(void* ptr, int level, const char* format, va_list va)
   }
 
   std::string message = StringUtils::FormatV(format, va);
-  std::string prefix = StringUtils::Format("ffmpeg[%lX]: ", threadId);
+  std::string prefix = StringUtils::Format("ffmpeg[%pX]: ", static_cast<const void*>(threadId));
   if (avc)
   {
     if (avc->item_name)
@@ -155,18 +110,8 @@ void ff_avutil_log(void* ptr, int level, const char* format, va_list va)
   int pos, start = 0;
   while ((pos = buffer.find_first_of('\n', start)) >= 0)
   {
-    if(pos > start)
-    {
-      std::vector<std::string> toLog = StringUtils::Split(buffer.substr(start, pos - start), "from '");
-      if (toLog.size() > 1)
-      {
-       size_t pos = toLog[1].find_first_of('\'');
-       std::string url = CURL::GetRedacted(toLog[1].substr(0, pos - 1));
-       toLog[0] += url + toLog[1].substr(pos);
-      }
-
-      CLog::Log(type, "%s%s", prefix.c_str(), toLog[0].c_str());
-    }
+    if (pos > start)
+      CLog::Log(type, "%s%s", prefix.c_str(), buffer.substr(start, pos - start).c_str());
     start = pos+1;
   }
   buffer.erase(0, start);

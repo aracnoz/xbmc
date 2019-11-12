@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogSelect.h"
+
 #include "FileItem.h"
-#include "input/Key.h"
+#include "guilib/GUIMessage.h"
 #include "guilib/LocalizeStrings.h"
+#include "input/Key.h"
 #include "utils/StringUtils.h"
 
 #define CONTROL_HEADING         1
@@ -48,9 +38,7 @@ CGUIDialogSelect::CGUIDialogSelect(int windowId)
   m_loadType = KEEP_IN_MEMORY;
 }
 
-CGUIDialogSelect::~CGUIDialogSelect(void)
-{
-}
+CGUIDialogSelect::~CGUIDialogSelect(void) = default;
 
 bool CGUIDialogSelect::OnMessage(CGUIMessage& message)
 {
@@ -127,6 +115,8 @@ bool CGUIDialogSelect::OnMessage(CGUIMessage& message)
       else if (iControl == CONTROL_CANCEL_BUTTON)
       {
         m_selectedItem = nullptr;
+        m_vecList->Clear();
+        m_selectedItems.clear();
         m_bConfirmed = false;
         Close();
       }
@@ -166,6 +156,7 @@ void CGUIDialogSelect::OnSelect(int idx)
 bool CGUIDialogSelect::OnBack(int actionID)
 {
   m_selectedItem = nullptr;
+  m_vecList->Clear();
   m_selectedItems.clear();
   m_bConfirmed = false;
   return CGUIDialogBoxBase::OnBack(actionID);
@@ -200,6 +191,8 @@ void CGUIDialogSelect::SetItems(const CFileItemList& pList)
   // need to make internal copy of list to be sure dialog is owner of it
   m_vecList->Clear();
   m_vecList->Copy(pList);
+
+  m_viewControl.SetItems(*m_vecList);
 }
 
 int CGUIDialogSelect::GetSelectedItem() const
@@ -237,8 +230,8 @@ void CGUIDialogSelect::Sort(bool bSortOrder /*=true*/)
 
 void CGUIDialogSelect::SetSelected(int iSelected)
 {
-  if (iSelected < 0 || iSelected >= (int)m_vecList->Size() ||
-      m_vecList->Get(iSelected).get() == NULL) 
+  if (iSelected < 0 || iSelected >= m_vecList->Size() ||
+      m_vecList->Get(iSelected).get() == NULL)
     return;
 
   // only set m_iSelected if there is no multi-select
@@ -320,7 +313,7 @@ void CGUIDialogSelect::OnInitWindow()
 
   SET_CONTROL_LABEL(CONTROL_NUMBER_OF_ITEMS, StringUtils::Format("%i %s",
       m_vecList->Size(), g_localizeStrings.Get(127).c_str()));
-  
+
   if (m_multiSelection)
     EnableButton(true, 186);
 

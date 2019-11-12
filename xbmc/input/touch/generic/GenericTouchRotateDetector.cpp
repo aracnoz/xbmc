@@ -1,26 +1,14 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <math.h>
-
 #include "GenericTouchRotateDetector.h"
+
+#include <math.h>
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795028842
@@ -33,7 +21,7 @@ CGenericTouchRotateDetector::CGenericTouchRotateDetector(ITouchActionHandler *ha
 
 bool CGenericTouchRotateDetector::OnTouchDown(unsigned int index, const Pointer &pointer)
 {
-  if (index >= TOUCH_MAX_POINTERS)
+  if (index >= MAX_POINTERS)
     return false;
 
   if (m_done)
@@ -46,7 +34,7 @@ bool CGenericTouchRotateDetector::OnTouchDown(unsigned int index, const Pointer 
 
 bool CGenericTouchRotateDetector::OnTouchUp(unsigned int index, const Pointer &pointer)
 {
-  if (index >= TOUCH_MAX_POINTERS)
+  if (index >= MAX_POINTERS)
     return false;
 
   if (m_done)
@@ -70,7 +58,7 @@ bool CGenericTouchRotateDetector::OnTouchUp(unsigned int index, const Pointer &p
 
 bool CGenericTouchRotateDetector::OnTouchMove(unsigned int index, const Pointer &pointer)
 {
-  if (index >= TOUCH_MAX_POINTERS)
+  if (index >= MAX_POINTERS)
     return false;
 
   if (m_done)
@@ -95,7 +83,7 @@ bool CGenericTouchRotateDetector::OnTouchMove(unsigned int index, const Pointer 
     float centerX = (primaryPointer.current.x + secondaryPointer.current.x) / 2;
     float centerY = (primaryPointer.current.y + secondaryPointer.current.y) / 2;
     float scalar = last.scalar(current);
-    float angle = acos(scalar / length) * 180.0f / M_PI;
+    float angle = acos(scalar / length) * 180.0f / static_cast<float>(M_PI);
 
     // make sure the result of acos is a valid number
     if (angle == angle)
@@ -111,18 +99,18 @@ bool CGenericTouchRotateDetector::OnTouchMove(unsigned int index, const Pointer 
       OnRotate(centerX, centerY, m_angle);
     }
   }
-  
+
   return true;
 }
 
 bool CGenericTouchRotateDetector::OnTouchUpdate(unsigned int index, const Pointer &pointer)
 {
-  if (index >= TOUCH_MAX_POINTERS)
+  if (index >= MAX_POINTERS)
     return false;
-  
+
   if (m_done)
     return true;
-  
+
   // update the internal pointers
   m_pointers[index] = pointer;
   return true;

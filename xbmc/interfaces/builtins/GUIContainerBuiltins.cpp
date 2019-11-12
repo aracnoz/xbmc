@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIContainerBuiltins.h"
 
-#include "guilib/GUIWindowManager.h"
 #include "GUIUserMessages.h"
+#include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
 #include "utils/StringUtils.h"
 
 /*! \brief Change sort method.
@@ -33,8 +23,8 @@
   template<int Dir>
 static int ChangeSortMethod(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_CHANGE_SORT_METHOD, g_windowManager.GetActiveWindow(), 0, 0, Dir);
-  g_windowManager.SendMessage(message);
+  CGUIMessage message(GUI_MSG_CHANGE_SORT_METHOD, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, 0, Dir);
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -48,8 +38,8 @@ static int ChangeSortMethod(const std::vector<std::string>& params)
   template<int Dir>
 static int ChangeViewMode(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_CHANGE_VIEW_MODE, g_windowManager.GetActiveWindow(), 0, 0, Dir);
-  g_windowManager.SendMessage(message);
+  CGUIMessage message(GUI_MSG_CHANGE_VIEW_MODE, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, 0, Dir);
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -61,9 +51,9 @@ static int ChangeViewMode(const std::vector<std::string>& params)
 static int Refresh(const std::vector<std::string>& params)
 { // NOTE: These messages require a media window, thus they're sent to the current activewindow.
   //       This shouldn't stop a dialog intercepting it though.
-  CGUIMessage message(GUI_MSG_NOTIFY_ALL, g_windowManager.GetActiveWindow(), 0, GUI_MSG_UPDATE, 1); // 1 to reset the history
+  CGUIMessage message(GUI_MSG_NOTIFY_ALL, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, GUI_MSG_UPDATE, 1); // 1 to reset the history
   message.SetStringParam(!params.empty() ? params[0] : "");
-  g_windowManager.SendMessage(message);
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -74,8 +64,8 @@ static int Refresh(const std::vector<std::string>& params)
  */
 static int SetSortMethod(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_CHANGE_SORT_METHOD, g_windowManager.GetActiveWindow(), 0, atoi(params[0].c_str()));
-  g_windowManager.SendMessage(message);
+  CGUIMessage message(GUI_MSG_CHANGE_SORT_METHOD, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, atoi(params[0].c_str()));
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -86,8 +76,8 @@ static int SetSortMethod(const std::vector<std::string>& params)
  */
 static int SetViewMode(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_CHANGE_VIEW_MODE, g_windowManager.GetActiveWindow(), 0, atoi(params[0].c_str()));
-  g_windowManager.SendMessage(message);
+  CGUIMessage message(GUI_MSG_CHANGE_VIEW_MODE, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, atoi(params[0].c_str()));
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -97,8 +87,8 @@ static int SetViewMode(const std::vector<std::string>& params)
  */
 static int ToggleSortDirection(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_CHANGE_SORT_DIRECTION, g_windowManager.GetActiveWindow(), 0, 0);
-  g_windowManager.SendMessage(message);
+  CGUIMessage message(GUI_MSG_CHANGE_SORT_DIRECTION, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, 0);
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }
@@ -110,11 +100,11 @@ static int ToggleSortDirection(const std::vector<std::string>& params)
  */
 static int Update(const std::vector<std::string>& params)
 {
-  CGUIMessage message(GUI_MSG_NOTIFY_ALL, g_windowManager.GetActiveWindow(), 0, GUI_MSG_UPDATE, 0);
+  CGUIMessage message(GUI_MSG_NOTIFY_ALL, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow(), 0, GUI_MSG_UPDATE, 0);
   message.SetStringParam(params[0]);
   if (params.size() > 1 && StringUtils::EqualsNoCase(params[1], "replace"))
     message.SetParam2(1); // reset the history
-  g_windowManager.SendMessage(message);
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 
   return 0;
 }

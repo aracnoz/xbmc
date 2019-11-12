@@ -1,35 +1,20 @@
 /*
- *      Copyright (C) 2014-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "system.h"
-#ifdef HAS_ALSA
 
 #include "ALSAHControlMonitor.h"
 
-#include "AEFactory.h"
-#include "linux/FDEventMonitor.h"
+#include "ServiceBroker.h"
+#include "cores/AudioEngine/Engines/ActiveAE/ActiveAE.h"
 #include "utils/log.h"
 
-CALSAHControlMonitor::CALSAHControlMonitor()
-{
-}
+#include "platform/linux/FDEventMonitor.h"
+
+CALSAHControlMonitor::CALSAHControlMonitor() = default;
 
 CALSAHControlMonitor::~CALSAHControlMonitor()
 {
@@ -96,10 +81,7 @@ void CALSAHControlMonitor::Start()
 
     for (int j = 0; j < fdcount; ++j)
     {
-      monitoredFDs.push_back(CFDEventMonitor::MonitoredFD(pollfds[j].fd,
-                                                          pollfds[j].events,
-                                                          FDEventCallback,
-                                                          it->second.handle));
+      monitoredFDs.emplace_back(pollfds[j].fd, pollfds[j].events, FDEventCallback, it->second.handle);
     }
   }
 
@@ -131,7 +113,7 @@ int CALSAHControlMonitor::HCTLCallback(snd_hctl_elem_t *elem, unsigned int mask)
      * Currently we just re-enumerate on any change.
      * Custom callbacks for handling other control monitoring may be implemented when needed.
      */
-    CAEFactory::DeviceChange();
+    CServiceBroker::GetActiveAE()->DeviceChange();
   }
 
   return 0;
@@ -179,6 +161,3 @@ void CALSAHControlMonitor::PutHandle(const std::string& ctlHandleName)
     m_ctlHandles.erase(ctlHandleName);
   }
 }
-
-
-#endif

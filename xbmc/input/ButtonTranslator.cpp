@@ -1,49 +1,35 @@
 /*
- *      Copyright (C) 2005-2015 Team XBMC
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ButtonTranslator.h"
 
-#include <algorithm>
-#include <utility>
-
+#include "AppTranslator.h"
+#include "CustomControllerTranslator.h"
 #include "FileItem.h"
-#include "filesystem/Directory.h"
-#include "filesystem/File.h"
-#include "guilib/WindowIDs.h"
-#include "input/Key.h"
-#include "input/MouseStat.h"
-#include "input/XBMC_keytable.h"
-#include "interfaces/builtins/Builtins.h"
-#include "profiles/ProfilesManager.h"
-#include "system.h"
+#include "GamepadTranslator.h"
+#include "IButtonMapper.h"
+#include "IRTranslator.h"
+#include "Key.h"
+#include "KeyboardTranslator.h"
 #include "Util.h"
-#include "utils/log.h"
-#include "utils/RegExp.h"
-#include "utils/StringUtils.h"
-#include "utils/URIUtils.h"
+#include "WindowTranslator.h"
+#include "filesystem/Directory.h"
+#include "guilib/WindowIDs.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
+#include "input/mouse/MouseTranslator.h"
 #include "utils/XBMCTinyXML.h"
-#include "XBIRRemote.h"
+// KRYPTON #include "XBIRRemote.h"
 
 #ifdef HAS_DS_PLAYER
 #include "settings/AdvancedSettings.h"
 #endif
+/* KRYPTON
 
 using namespace XFILE;
 
@@ -94,16 +80,18 @@ static const ActionMapping actions[] =
     { "playerdebug"              , ACTION_PLAYER_DEBUG },
     { "codecinfo"                , ACTION_PLAYER_PROCESS_INFO },
     { "playerprocessinfo"        , ACTION_PLAYER_PROCESS_INFO },
+    */
 #ifdef HAS_DS_PLAYER
     { "loaddsplayersettings1"       , ACTION_DSPLAYER_USERSETTINGS_1 },
     { "loaddsplayersettings2"       , ACTION_DSPLAYER_USERSETTINGS_2 },
-    { "loaddsplayersettings3"       , ACTION_DSPLAYER_USERSETTINGS_3 },  
+    { "loaddsplayersettings3"       , ACTION_DSPLAYER_USERSETTINGS_3 },
     { "loaddsplayersettingssd"       , ACTION_DSPLAYER_USERSETTINGS_SD },
     { "loaddsplayersettings720"      , ACTION_DSPLAYER_USERSETTINGS_720 },
     { "loaddsplayersettings1080"     , ACTION_DSPLAYER_USERSETTINGS_1080 },
     { "loaddsplayersettings2160"     , ACTION_DSPLAYER_USERSETTINGS_2160 },
     { "loaddsplayersettingsatstart" , ACTION_DSPLAYER_USERSETTINGS_ATSTART },
 #endif
+/* KRYPTON
     { "nextpicture"              , ACTION_NEXT_PICTURE },
     { "previouspicture"          , ACTION_PREV_PICTURE },
     { "zoomout"                  , ACTION_ZOOM_OUT },
@@ -406,7 +394,7 @@ static const ActionMapping windows[] =
     { "fullscreenlivetv"         , WINDOW_FULLSCREEN_LIVETV },         // virtual window/keymap section for PVR specific bindings in fullscreen playback (which internally uses WINDOW_FULLSCREEN_VIDEO)
     { "fullscreenradio"          , WINDOW_FULLSCREEN_RADIO },          // virtual window for fullscreen radio, uses WINDOW_VISUALISATION as fallback
     { "visualisation"            , WINDOW_VISUALISATION },
-    { "slideshow"                , WINDOW_SLIDESHOW },
+    { "slideshow"                , WINDOW_SLIDESHOW },*/
 #ifdef HAS_DS_PLAYER
     { "dsrulesettings"           , WINDOW_DIALOG_DSRULES },
     { "dsfiltersettings"         , WINDOW_DIALOG_DSFILTERS },
@@ -417,6 +405,7 @@ static const ActionMapping windows[] =
     { "dsplayersanear"           , WINDOW_DIALOG_SANEAR },
     { "dsplayerprocessinfo"      , WINDOW_DIALOG_DSPLAYER_PROCESS_INFO },
 #endif
+/* KRYPTON
     { "weather"                  , WINDOW_WEATHER },
     { "screensaver"              , WINDOW_SCREENSAVER },
     { "videoosd"                 , WINDOW_DIALOG_VIDEO_OSD },
@@ -505,88 +494,68 @@ CButtonTranslator& CButtonTranslator::GetInstance()
 {
   static CButtonTranslator sl_instance;
   return sl_instance;
-}
+}*/
 
-CButtonTranslator::CButtonTranslator()
-{
-  m_deviceList.clear();
-  m_Loaded = false;
-}
 
-#if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
-void CButtonTranslator::ClearLircButtonMapEntries()
-{
-  std::vector<lircButtonMap*> maps;
-  for (std::map<std::string,lircButtonMap*>::iterator it  = lircRemotesMap.begin();
-                                                 it != lircRemotesMap.end();++it)
-    maps.push_back(it->second);
-  sort(maps.begin(),maps.end());
-  std::vector<lircButtonMap*>::iterator itend = unique(maps.begin(),maps.end());
-  for (std::vector<lircButtonMap*>::iterator it = maps.begin(); it != itend;++it)
-    delete *it;
-}
-#endif
+#include "utils/log.h"
 
-CButtonTranslator::~CButtonTranslator()
-{
-#if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
-  ClearLircButtonMapEntries();
-#endif
-}
+#include <algorithm>
+#include <utility>
+
+using namespace KODI;
 
 // Add the supplied device name to the list of connected devices
-void CButtonTranslator::AddDevice(std::string& strDevice)
+bool CButtonTranslator::AddDevice(const std::string& strDevice)
 {
   // Only add the device if it isn't already in the list
-  std::list<std::string>::iterator it;
-  for (it = m_deviceList.begin(); it != m_deviceList.end(); ++it)
-    if (*it == strDevice)
-      return;
+  if (m_deviceList.find(strDevice) != m_deviceList.end())
+    return false;
 
   // Add the device
-  m_deviceList.push_back(strDevice);
-  m_deviceList.sort();
+  m_deviceList.insert(strDevice);
 
   // New device added so reload the key mappings
   Load();
+
+  return true;
 }
 
-void CButtonTranslator::RemoveDevice(std::string& strDevice)
+bool CButtonTranslator::RemoveDevice(const std::string& strDevice)
 {
   // Find the device
-  std::list<std::string>::iterator it;
-  for (it = m_deviceList.begin(); it != m_deviceList.end(); ++it)
-    if (*it == strDevice)
-      break;
+  auto it = m_deviceList.find(strDevice);
   if (it == m_deviceList.end())
-    return;
+    return false;
 
   // Remove the device
-  m_deviceList.remove(strDevice);
+  m_deviceList.erase(it);
 
   // Device removed so reload the key mappings
   Load();
+
+  return true;
 }
 
-bool CButtonTranslator::Load(bool AlwaysLoad)
+bool CButtonTranslator::Load()
 {
-  m_translatorMap.clear();
+  Clear();
 
   // Directories to search for keymaps. They're applied in this order,
   // so keymaps in profile/keymaps/ override e.g. system/keymaps
-  static const char* DIRS_TO_CHECK[] = {
+  static std::vector<std::string> DIRS_TO_CHECK = {
     "special://xbmc/system/keymaps/",
     "special://masterprofile/keymaps/",
     "special://profile/keymaps/"
   };
+
   bool success = false;
 
-  for (unsigned int dirIndex = 0; dirIndex < ARRAY_SIZE(DIRS_TO_CHECK); ++dirIndex)
+  for (const auto& dir : DIRS_TO_CHECK)
   {
-    if (XFILE::CDirectory::Exists(DIRS_TO_CHECK[dirIndex]))
+    if (XFILE::CDirectory::Exists(dir))
     {
       CFileItemList files;
-      XFILE::CDirectory::GetDirectory(DIRS_TO_CHECK[dirIndex], files, ".xml");
+      XFILE::CDirectory::GetDirectory(dir, files, ".xml", XFILE::DIR_FLAG_DEFAULTS);
       // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
       files.Sort(SortByFile, SortOrderAscending);
       for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
@@ -596,16 +565,15 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
       }
 
       // Load mappings for any HID devices we have connected
-      std::list<std::string>::iterator it;
-      for (it = m_deviceList.begin(); it != m_deviceList.end(); ++it)
+      for (const auto& device : m_deviceList)
       {
-        std::string devicedir = DIRS_TO_CHECK[dirIndex];
-        devicedir.append(*it);
+        std::string devicedir = dir;
+        devicedir.append(device);
         devicedir.append("/");
-        if( XFILE::CDirectory::Exists(devicedir) )
+        if (XFILE::CDirectory::Exists(devicedir))
         {
           CFileItemList files;
-          XFILE::CDirectory::GetDirectory(devicedir, files, ".xml");
+          XFILE::CDirectory::GetDirectory(devicedir, files, ".xml", XFILE::DIR_FLAG_DEFAULTS);
           // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
           files.Sort(SortByFile, SortOrderAscending);
           for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
@@ -620,10 +588,12 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
 
   if (!success)
   {
-    CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s", DIRS_TO_CHECK[0], DIRS_TO_CHECK[1], DIRS_TO_CHECK[2]);
+    CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s",
+      DIRS_TO_CHECK[0].c_str(), DIRS_TO_CHECK[1].c_str(), DIRS_TO_CHECK[2].c_str());
     return false;
   }
 
+/* KRYPTON
 #if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
 #ifdef TARGET_POSIX
 #define REMOTEMAP "Lircmap.xml"
@@ -647,14 +617,13 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
     CLog::Log(LOGERROR, "CButtonTranslator::Load - unable to load remote map %s", REMOTEMAP);
   // don't return false - it is to only indicate a fatal error (which this is not)
 #endif
-
+*/ 
 #ifdef HAS_DS_PLAYER
   if (!m_translatorMap[WINDOW_DIALOG_PLAYER_PROCESS_INFO].empty())
     m_translatorMap[WINDOW_DIALOG_DSPLAYER_PROCESS_INFO] = m_translatorMap[WINDOW_DIALOG_PLAYER_PROCESS_INFO];
 #endif
 
   // Done!
-  m_Loaded = true;
   return true;
 }
 
@@ -678,32 +647,35 @@ bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
     CLog::Log(LOGERROR, "Error loading keymap: %s, Line %d\n%s", keymapPath.c_str(), xmlDoc.ErrorRow(), xmlDoc.ErrorDesc());
     return false;
   }
+
   TiXmlElement* pRoot = xmlDoc.RootElement();
-  if (!pRoot)
+  if (pRoot == nullptr)
   {
     CLog::Log(LOGERROR, "Error getting keymap root: %s", keymapPath.c_str());
     return false;
   }
+
   std::string strValue = pRoot->Value();
-  if ( strValue != "keymap")
+  if (strValue != "keymap")
   {
     CLog::Log(LOGERROR, "%s Doesn't contain <keymap>", keymapPath.c_str());
     return false;
   }
+
   // run through our window groups
   TiXmlNode* pWindow = pRoot->FirstChild();
-  while (pWindow)
+  while (pWindow != nullptr)
   {
     if (pWindow->Type() == TiXmlNode::TINYXML_ELEMENT)
     {
       int windowID = WINDOW_INVALID;
       const char *szWindow = pWindow->Value();
-      if (szWindow)
+      if (szWindow != nullptr)
       {
         if (strcmpi(szWindow, "global") == 0)
           windowID = -1;
         else
-          windowID = TranslateWindow(szWindow);
+          windowID = CWindowTranslator::TranslateWindow(szWindow);
       }
       MapWindowActions(pWindow, windowID);
     }
@@ -713,241 +685,37 @@ bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
   return true;
 }
 
-bool CButtonTranslator::LoadLircMap(const std::string &lircmapPath)
-{
-#ifdef TARGET_POSIX
-#define REMOTEMAPTAG "lircmap"
-#else
-#define REMOTEMAPTAG "irssmap"
-#endif
-  // load our xml file, and fill up our mapping tables
-  CXBMCTinyXML xmlDoc;
-
-  // Load the config file
-  CLog::Log(LOGINFO, "Loading %s", lircmapPath.c_str());
-  if (!xmlDoc.LoadFile(lircmapPath))
-  {
-    CLog::Log(LOGERROR, "%s, Line %d\n%s", lircmapPath.c_str(), xmlDoc.ErrorRow(), xmlDoc.ErrorDesc());
-    return false; // This is so people who don't have the file won't fail, just warn
-  }
-
-  TiXmlElement* pRoot = xmlDoc.RootElement();
-  std::string strValue = pRoot->Value();
-  if (strValue != REMOTEMAPTAG)
-  {
-    CLog::Log(LOGERROR, "%sl Doesn't contain <%s>", lircmapPath.c_str(), REMOTEMAPTAG);
-    return false;
-  }
-
-  // run through our window groups
-  TiXmlNode* pRemote = pRoot->FirstChild();
-  while (pRemote)
-  {
-    if (pRemote->Type() == TiXmlNode::TINYXML_ELEMENT)
-    {
-      const char *szRemote = pRemote->Value();
-      if (szRemote)
-      {
-        TiXmlAttribute* pAttr = pRemote->ToElement()->FirstAttribute();
-        if (pAttr)
-          MapRemote(pRemote, pAttr->Value());
-      }
-    }
-    pRemote = pRemote->NextSibling();
-  }
-
-  return true;
-}
-
-void CButtonTranslator::MapRemote(TiXmlNode *pRemote, const char* szDevice)
-{
-  CLog::Log(LOGINFO, "* Adding remote mapping for device '%s'", szDevice);
-  std::vector<std::string> RemoteNames;
-  std::map<std::string, lircButtonMap*>::iterator it = lircRemotesMap.find(szDevice);
-  if (it == lircRemotesMap.end())
-    lircRemotesMap[szDevice] = new lircButtonMap;
-  lircButtonMap& buttons = *lircRemotesMap[szDevice];
-
-  TiXmlElement *pButton = pRemote->FirstChildElement();
-  while (pButton)
-  {
-    if (!pButton->NoChildren())
-    {
-      if (pButton->ValueStr() == "altname")
-        RemoteNames.push_back(pButton->FirstChild()->ValueStr());
-      else
-        buttons[pButton->FirstChild()->ValueStr()] = pButton->ValueStr();
-    }
-    pButton = pButton->NextSiblingElement();
-  }
-  for (std::vector<std::string>::iterator it  = RemoteNames.begin();
-                                it != RemoteNames.end();++it)
-  {
-    CLog::Log(LOGINFO, "* Linking remote mapping for '%s' to '%s'", szDevice, it->c_str());
-    lircRemotesMap[*it] = &buttons;
-  }
-}
-
-int CButtonTranslator::TranslateLircRemoteString(const char* szDevice, const char *szButton)
-{
-  // Find the device
-  std::map<std::string, lircButtonMap*>::iterator it = lircRemotesMap.find(szDevice);
-  if (it == lircRemotesMap.end())
-    return 0;
-
-  // Find the button
-  lircButtonMap::iterator it2 = (*it).second->find(szButton);
-  if (it2 == (*it).second->end())
-    return 0;
-
-  // Convert the button to code
-  if (strnicmp((*it2).second.c_str(), "obc", 3) == 0)
-    return TranslateUniversalRemoteString((*it2).second.c_str());
-
-  return TranslateRemoteString((*it2).second.c_str());
-}
-
-int CButtonTranslator::GetCustomControllerActionCode(int windowId, int buttonId, const CustomControllerWindowMap *windowMap, std::string& strAction) const
-{
-  int action = 0;
-  
-  auto it = windowMap->find(windowId);
-  if (it != windowMap->end())
-  {
-    const CustomControllerButtonMap &buttonMap = it->second;
-    auto it2 = buttonMap.find(buttonId);
-    if (it2 != buttonMap.end())
-    {
-      strAction = it2->second;
-      TranslateActionString(strAction.c_str(), action);
-    }
-  }
-  
-  return action;
-}
-
-bool CButtonTranslator::TranslateCustomControllerString(int windowId, const std::string& controllerName, int buttonId, int& action, std::string& strAction)
-{
-  // resolve the correct custom controller
-  auto it = m_customControllersMap.find(controllerName);
-  if (it == m_customControllersMap.end())
-  {
-    return false;
-  }
-  
-  const CustomControllerWindowMap *wmap = &it->second;
-  
-  // try to get the action from the current window
-  action = GetCustomControllerActionCode(windowId, buttonId, wmap, strAction);
-  
-  // if it's invalid, try to get it from a fallback window or the global map
-  if (action == 0)
-  {
-    int fallbackWindow = GetFallbackWindow(windowId);
-    if (fallbackWindow > -1)
-      action = GetCustomControllerActionCode(fallbackWindow, buttonId, wmap, strAction);
-    // still no valid action? use global map
-    if (action == 0)
-      action = GetCustomControllerActionCode(-1, buttonId, wmap, strAction);
-  }
-  
-  return (action > 0);
-}
-
-
-bool CButtonTranslator::TranslateTouchAction(int window, int touchAction, int touchPointers, int &action, std::string &actionString)
-{
-  action = 0;
-  if (touchPointers <= 0)
-    touchPointers = 1;
-
-  touchAction += touchPointers - 1;
-  touchAction |= KEY_TOUCH;
-
-  action = GetTouchActionCode(window, touchAction, actionString);
-  if (action <= 0)
-  {
-    int fallbackWindow = GetFallbackWindow(window);
-    if (fallbackWindow > -1)
-      action = GetTouchActionCode(fallbackWindow, touchAction, actionString);
-    if (action <= 0)
-      action = GetTouchActionCode(-1, touchAction, actionString);
-  }
-
-  return action > 0;
-}
-
-int CButtonTranslator::GetActionCode(int window, int action)
-{
-  std::map<int, buttonMap>::const_iterator it = m_translatorMap.find(window);
-  if (it == m_translatorMap.end())
-    return 0;
-
-  buttonMap::const_iterator it2 = it->second.find(action);
-  if (it2 == it->second.end())
-    return 0;
-
-  return it2->second.id;
-}
-
-void CButtonTranslator::GetActions(std::vector<std::string> &actionList)
-{
-  unsigned int size = sizeof(actions) / sizeof(ActionMapping);
-  actionList.clear();
-  actionList.reserve(size);
-  for (unsigned int index = 0; index < size; index++)
-    actionList.push_back(actions[index].name);
-}
-
-void CButtonTranslator::GetWindows(std::vector<std::string> &windowList)
-{
-  unsigned int size = sizeof(windows) / sizeof(ActionMapping);
-  windowList.clear();
-  windowList.reserve(size);
-  for (unsigned int index = 0; index < size; index++)
-    windowList.push_back(windows[index].name);
-}
-
-int CButtonTranslator::GetFallbackWindow(int windowID)
-{
-  for (unsigned int index = 0; index < ARRAY_SIZE(fallbackWindows); ++index)
-  {
-    if (fallbackWindows[index].origin == windowID)
-      return fallbackWindows[index].target;
-  }
-  // for addon windows use WINDOW_ADDON_START because id is dynamic
-  if (windowID > WINDOW_ADDON_START && windowID <= WINDOW_ADDON_END)
-    return WINDOW_ADDON_START;
-
-  return -1;
-}
-
 CAction CButtonTranslator::GetAction(int window, const CKey &key, bool fallback)
 {
   std::string strAction;
+
+  // handle virtual windows
+  window = CWindowTranslator::GetVirtualWindow(window);
+
   // try to get the action from the current window
-  int actionID = GetActionCode(window, key, strAction);
-  // if it's invalid, try to get it from the global map
-  if (actionID == 0 && fallback)
+  unsigned int actionID = GetActionCode(window, key, strAction);
+
+  if (fallback)
   {
-    int fallbackWindow = GetFallbackWindow(window);
-    if (fallbackWindow > -1)
-      actionID = GetActionCode(fallbackWindow, key, strAction);
-    // still no valid action? use global map
-    if (actionID == 0)
-      actionID = GetActionCode( -1, key, strAction);
+    // if it's invalid, try to get it from fallback windows or the global map (window == -1)
+    while (actionID == ACTION_NONE && window > -1)
+    {
+      window = CWindowTranslator::GetFallbackWindow(window);
+      actionID = GetActionCode(window, key, strAction);
+    }
   }
-  // Now fill our action structure
-  CAction action(actionID, strAction, key);
-  return action;
+
+  return CAction(actionID, strAction, key);
 }
 
-CAction CButtonTranslator::GetGlobalAction(const CKey &key)
+bool CButtonTranslator::HasLongpressMapping(int window, const CKey &key)
 {
-  return GetAction(-1, key, true);
+  // handle virtual windows
+  window = CWindowTranslator::GetVirtualWindow(window);
+  return HasLongpressMapping_Internal(window, key);
 }
 
-bool CButtonTranslator::HasLonpressMapping(int window, const CKey &key)
+bool CButtonTranslator::HasLongpressMapping_Internal(int window, const CKey &key)
 {
   std::map<int, buttonMap>::const_iterator it = m_translatorMap.find(window);
   if (it != m_translatorMap.end())
@@ -975,39 +743,42 @@ bool CButtonTranslator::HasLonpressMapping(int window, const CKey &key)
   if (window > -1)
   {
     // first check if we have a fallback for the window
-    int fallbackWindow = GetFallbackWindow(window);
-    if (fallbackWindow > -1 && HasLonpressMapping(fallbackWindow, key))
+    int fallbackWindow = CWindowTranslator::GetFallbackWindow(window);
+    if (fallbackWindow > -1 && HasLongpressMapping_Internal(fallbackWindow, key))
       return true;
 
     // fallback to default section
-    return HasLonpressMapping(-1, key);
+    return HasLongpressMapping_Internal(-1, key);
   }
 
   return false;
 }
 
-int CButtonTranslator::GetActionCode(int window, const CKey &key, std::string &strAction) const
+unsigned int CButtonTranslator::GetActionCode(int window, const CKey &key, std::string &strAction) const
 {
   uint32_t code = key.GetButtonCode();
 
   std::map<int, buttonMap>::const_iterator it = m_translatorMap.find(window);
   if (it == m_translatorMap.end())
-    return 0;
+    return ACTION_NONE;
+
   buttonMap::const_iterator it2 = (*it).second.find(code);
-  int action = 0;
+  unsigned int action = ACTION_NONE;
   if (it2 == (*it).second.end() && code & CKey::MODIFIER_LONG) // If long action not found, try short one
   {
     code &= ~CKey::MODIFIER_LONG;
     it2 = (*it).second.find(code);
   }
+
   if (it2 != (*it).second.end())
   {
     action = (*it2).second.id;
     strAction = (*it2).second.strID;
   }
+
 #ifdef TARGET_POSIX
   // Some buttoncodes changed in Hardy
-  if (action == 0 && (code & KEY_VKEY) == KEY_VKEY && (code & 0x0F00))
+  if (action == ACTION_NONE && (code & KEY_VKEY) == KEY_VKEY && (code & 0x0F00))
   {
     CLog::Log(LOGDEBUG, "%s: Trying Hardy keycode for %#04x", __FUNCTION__, code);
     code &= ~0x0F00;
@@ -1019,13 +790,14 @@ int CButtonTranslator::GetActionCode(int window, const CKey &key, std::string &s
     }
   }
 #endif
+
   return action;
 }
 
-void CButtonTranslator::MapAction(uint32_t buttonCode, const char *szAction, buttonMap &map)
+void CButtonTranslator::MapAction(uint32_t buttonCode, const std::string &szAction, buttonMap &map)
 {
-  int action = ACTION_NONE;
-  if (!TranslateActionString(szAction, action) || !buttonCode)
+  unsigned int action = ACTION_NONE;
+  if (!CActionTranslator::TranslateString(szAction, action) || buttonCode == 0)
     return;   // no valid action, or an invalid buttoncode
 
   // have a valid action, and a valid button - map it.
@@ -1044,99 +816,49 @@ void CButtonTranslator::MapAction(uint32_t buttonCode, const char *szAction, but
   }
 }
 
-void CButtonTranslator::MapCustomControllerActions(int windowID, TiXmlNode *pCustomController)
+void CButtonTranslator::MapWindowActions(const TiXmlNode *pWindow, int windowID)
 {
-  CustomControllerButtonMap buttonMap;
-  std::string controllerName;
-  
-  TiXmlElement *pController = pCustomController->ToElement();
-  if (pController)
-  {
-    // transform loose name to new family, including altnames
-    if(pController->Attribute("name"))
-    {
-      controllerName = pController->Attribute("name");
-    }
-    else
-    {
-      CLog::Log(LOGERROR, "Missing attribute \"name\" for tag \"customcontroller\"");
-      return;
-    }
-  }
-  
-  // parse map
-  TiXmlElement *pButton = pCustomController->FirstChildElement();
-  int id = 0;
-  while (pButton)
-  {
-    std::string action;
-    if (!pButton->NoChildren())
-      action = pButton->FirstChild()->ValueStr();
-    
-    if ((pButton->QueryIntAttribute("id", &id) == TIXML_SUCCESS) && id >= 0)
-    {
-      buttonMap[id] = action;
-    }
-    else
-      CLog::Log(LOGERROR, "Error reading customController map element, Invalid id: %d", id);
-    
-    pButton = pButton->NextSiblingElement();
-  }
-  
-  // add/overwrite button with mapped actions
-  for (auto button : buttonMap)
-    m_customControllersMap[controllerName][windowID][button.first] = button.second;
-}
-
-bool CButtonTranslator::HasDeviceType(TiXmlNode *pWindow, std::string type)
-{
-  return pWindow->FirstChild(type) != NULL;
-}
-
-void CButtonTranslator::MapWindowActions(TiXmlNode *pWindow, int windowID)
-{
-  if (!pWindow || windowID == WINDOW_INVALID) 
+  if (pWindow == nullptr || windowID == WINDOW_INVALID)
     return;
 
-  TiXmlNode* pDevice;
+  const TiXmlNode *pDevice;
 
-  const char* types[] = {"gamepad", "remote", "universalremote", "keyboard", "mouse", "appcommand", "joystick", NULL};
-  for (int i = 0; types[i]; ++i)
+  static const std::vector<std::string> types = {"gamepad", "remote", "universalremote", "keyboard", "mouse", "appcommand"};
+
+  for (const auto& type : types)
   {
-    std::string type(types[i]);
-    if (HasDeviceType(pWindow, type))
+    for (pDevice = pWindow->FirstChild(type);
+         pDevice != nullptr;
+         pDevice = pDevice->NextSiblingElement(type))
     {
       buttonMap map;
       std::map<int, buttonMap>::iterator it = m_translatorMap.find(windowID);
       if (it != m_translatorMap.end())
       {
-        map = it->second;
+        map = std::move(it->second);
         m_translatorMap.erase(it);
       }
 
-      pDevice = pWindow->FirstChild(type);
+      const TiXmlElement *pButton = pDevice->FirstChildElement();
 
-      TiXmlElement *pButton = pDevice->FirstChildElement();
-
-      while (pButton)
+      while (pButton != nullptr)
       {
-        uint32_t buttonCode=0;
-        if (type == "gamepad")
-            buttonCode = TranslateGamepadString(pButton->Value());
-        else if (type == "remote")
-            buttonCode = TranslateRemoteString(pButton->Value());
-        else if (type == "universalremote")
-            buttonCode = TranslateUniversalRemoteString(pButton->Value());
-        else if (type == "keyboard")
-            buttonCode = TranslateKeyboardButton(pButton);
-        else if (type == "mouse")
-            buttonCode = TranslateMouseCommand(pButton);
-        else if (type == "appcommand")
-            buttonCode = TranslateAppCommand(pButton->Value());
-        else if (type == "joystick")
-            buttonCode = TranslateJoystickString(pButton->Value());
+        uint32_t buttonCode = 0;
 
-        if (buttonCode)
+        if (type == "gamepad")
+            buttonCode = CGamepadTranslator::TranslateString(pButton->Value());
+        else if (type == "remote")
+            buttonCode = CIRTranslator::TranslateString(pButton->Value());
+        else if (type == "universalremote")
+            buttonCode = CIRTranslator::TranslateUniversalRemoteString(pButton->Value());
+        else if (type == "keyboard")
+            buttonCode = CKeyboardTranslator::TranslateButton(pButton);
+        else if (type == "mouse")
+            buttonCode = CMouseTranslator::TranslateCommand(pButton);
+        else if (type == "appcommand")
+            buttonCode = CAppTranslator::TranslateAppCommand(pButton->Value());
+
+        if (buttonCode != 0)
         {
           if (pButton->FirstChild() && pButton->FirstChild()->Value()[0])
             MapAction(buttonCode, pButton->FirstChild()->Value(), map);
@@ -1155,518 +877,46 @@ void CButtonTranslator::MapWindowActions(TiXmlNode *pWindow, int windowID)
 
       // add our map to our table
       if (!map.empty())
-        m_translatorMap.insert(std::pair<int, buttonMap>( windowID, map));
+        m_translatorMap.insert(std::make_pair(windowID, std::move(map)));
     }
   }
 
-  if ((pDevice = pWindow->FirstChild("touch")) != NULL)
+  for (auto it : m_buttonMappers)
   {
-    // map touch actions
-    while (pDevice)
+    const std::string &device = it.first;
+    IButtonMapper *mapper = it.second;
+
+    // Map device actions
+    pDevice = pWindow->FirstChild(device);
+    while (pDevice != nullptr)
     {
-      MapTouchActions(windowID, pDevice);
-      pDevice = pDevice->NextSibling("touch");
+      mapper->MapActions(windowID, pDevice);
+      pDevice = pDevice->NextSibling(device);
     }
   }
-  
-  if ((pDevice = pWindow->FirstChild("customcontroller")) != NULL)
-  {
-    // map custom controller actions
-    while (pDevice)
-    {
-      MapCustomControllerActions(windowID, pDevice);
-      pDevice = pDevice->NextSibling("customcontroller");
-    }
-  }
-
-}
-
-bool CButtonTranslator::TranslateActionString(const char *szAction, int &action)
-{
-  action = ACTION_NONE;
-  std::string strAction = szAction;
-  StringUtils::ToLower(strAction);
-  if (CBuiltins::GetInstance().HasCommand(strAction))
-    action = ACTION_BUILT_IN_FUNCTION;
-
-  for (unsigned int index=0;index < ARRAY_SIZE(actions);++index)
-  {
-    if (strAction == actions[index].name)
-    {
-      action = actions[index].action;
-      break;
-    }
-  }
-
-  if (action == ACTION_NONE)
-  {
-    CLog::Log(LOGERROR, "Keymapping error: no such action '%s' defined", strAction.c_str());
-    return false;
-  }
-
-  return true;
-}
-
-std::string CButtonTranslator::TranslateWindow(int windowID)
-{
-  for (unsigned int index = 0; index < ARRAY_SIZE(windows); ++index)
-  {
-    if (windows[index].action == windowID)
-      return windows[index].name;
-  }
-  return "";
-}
-
-int CButtonTranslator::TranslateWindow(const std::string &window)
-{
-  std::string strWindow(window);
-  if (strWindow.empty()) 
-    return WINDOW_INVALID;
-  StringUtils::ToLower(strWindow);
-  // eliminate .xml
-  if (StringUtils::EndsWith(strWindow, ".xml"))
-    strWindow = strWindow.substr(0, strWindow.size() - 4);
-
-  // window12345, for custom window to be keymapped
-  if (strWindow.length() > 6 && StringUtils::StartsWithNoCase(strWindow, "window"))
-    strWindow = strWindow.substr(6);
-  if (StringUtils::StartsWithNoCase(strWindow, "my"))  // drop "my" prefix
-    strWindow = strWindow.substr(2);
-  if (StringUtils::IsNaturalNumber(strWindow))
-  {
-    // allow a full window id or a delta id
-    int iWindow = atoi(strWindow.c_str());
-    if (iWindow > WINDOW_INVALID)
-      return iWindow;
-    return WINDOW_HOME + iWindow;
-  }
-
-  // run through the window structure
-  for (unsigned int index = 0; index < ARRAY_SIZE(windows); ++index)
-  {
-    if (strWindow == windows[index].name)
-      return windows[index].action;
-  }
-
-  CLog::Log(LOGERROR, "Window Translator: Can't find window %s", strWindow.c_str());
-  return WINDOW_INVALID;
-}
-
-uint32_t CButtonTranslator::TranslateGamepadString(const char *szButton)
-{
-  if (!szButton) 
-    return 0;
-  uint32_t buttonCode = 0;
-  std::string strButton = szButton;
-  StringUtils::ToLower(strButton);
-  if (strButton == "a") buttonCode = KEY_BUTTON_A;
-  else if (strButton == "b") buttonCode = KEY_BUTTON_B;
-  else if (strButton == "x") buttonCode = KEY_BUTTON_X;
-  else if (strButton == "y") buttonCode = KEY_BUTTON_Y;
-  else if (strButton == "white") buttonCode = KEY_BUTTON_WHITE;
-  else if (strButton == "black") buttonCode = KEY_BUTTON_BLACK;
-  else if (strButton == "start") buttonCode = KEY_BUTTON_START;
-  else if (strButton == "back") buttonCode = KEY_BUTTON_BACK;
-  else if (strButton == "leftthumbbutton") buttonCode = KEY_BUTTON_LEFT_THUMB_BUTTON;
-  else if (strButton == "rightthumbbutton") buttonCode = KEY_BUTTON_RIGHT_THUMB_BUTTON;
-  else if (strButton == "leftthumbstick") buttonCode = KEY_BUTTON_LEFT_THUMB_STICK;
-  else if (strButton == "leftthumbstickup") buttonCode = KEY_BUTTON_LEFT_THUMB_STICK_UP;
-  else if (strButton == "leftthumbstickdown") buttonCode = KEY_BUTTON_LEFT_THUMB_STICK_DOWN;
-  else if (strButton == "leftthumbstickleft") buttonCode = KEY_BUTTON_LEFT_THUMB_STICK_LEFT;
-  else if (strButton == "leftthumbstickright") buttonCode = KEY_BUTTON_LEFT_THUMB_STICK_RIGHT;
-  else if (strButton == "rightthumbstick") buttonCode = KEY_BUTTON_RIGHT_THUMB_STICK;
-  else if (strButton == "rightthumbstickup") buttonCode = KEY_BUTTON_RIGHT_THUMB_STICK_UP;
-  else if (strButton == "rightthumbstickdown") buttonCode = KEY_BUTTON_RIGHT_THUMB_STICK_DOWN;
-  else if (strButton == "rightthumbstickleft") buttonCode = KEY_BUTTON_RIGHT_THUMB_STICK_LEFT;
-  else if (strButton == "rightthumbstickright") buttonCode = KEY_BUTTON_RIGHT_THUMB_STICK_RIGHT;
-  else if (strButton == "lefttrigger") buttonCode = KEY_BUTTON_LEFT_TRIGGER;
-  else if (strButton == "righttrigger") buttonCode = KEY_BUTTON_RIGHT_TRIGGER;
-  else if (strButton == "leftanalogtrigger") buttonCode = KEY_BUTTON_LEFT_ANALOG_TRIGGER;
-  else if (strButton == "rightanalogtrigger") buttonCode = KEY_BUTTON_RIGHT_ANALOG_TRIGGER;
-  else if (strButton == "dpadleft") buttonCode = KEY_BUTTON_DPAD_LEFT;
-  else if (strButton == "dpadright") buttonCode = KEY_BUTTON_DPAD_RIGHT;
-  else if (strButton == "dpadup") buttonCode = KEY_BUTTON_DPAD_UP;
-  else if (strButton == "dpaddown") buttonCode = KEY_BUTTON_DPAD_DOWN;
-  else CLog::Log(LOGERROR, "Gamepad Translator: Can't find button %s", strButton.c_str());
-  return buttonCode;
-}
-
-uint32_t CButtonTranslator::TranslateRemoteString(const char *szButton)
-{
-  if (!szButton) 
-    return 0;
-  uint32_t buttonCode = 0;
-  std::string strButton = szButton;
-  StringUtils::ToLower(strButton);
-  if (strButton == "left") buttonCode = XINPUT_IR_REMOTE_LEFT;
-  else if (strButton == "right") buttonCode = XINPUT_IR_REMOTE_RIGHT;
-  else if (strButton == "up") buttonCode = XINPUT_IR_REMOTE_UP;
-  else if (strButton == "down") buttonCode = XINPUT_IR_REMOTE_DOWN;
-  else if (strButton == "select") buttonCode = XINPUT_IR_REMOTE_SELECT;
-  else if (strButton == "back") buttonCode = XINPUT_IR_REMOTE_BACK;
-  else if (strButton == "menu") buttonCode = XINPUT_IR_REMOTE_MENU;
-  else if (strButton == "info") buttonCode = XINPUT_IR_REMOTE_INFO;
-  else if (strButton == "display") buttonCode = XINPUT_IR_REMOTE_DISPLAY;
-  else if (strButton == "title") buttonCode = XINPUT_IR_REMOTE_TITLE;
-  else if (strButton == "play") buttonCode = XINPUT_IR_REMOTE_PLAY;
-  else if (strButton == "pause") buttonCode = XINPUT_IR_REMOTE_PAUSE;
-  else if (strButton == "reverse") buttonCode = XINPUT_IR_REMOTE_REVERSE;
-  else if (strButton == "forward") buttonCode = XINPUT_IR_REMOTE_FORWARD;
-  else if (strButton == "skipplus") buttonCode = XINPUT_IR_REMOTE_SKIP_PLUS;
-  else if (strButton == "skipminus") buttonCode = XINPUT_IR_REMOTE_SKIP_MINUS;
-  else if (strButton == "stop") buttonCode = XINPUT_IR_REMOTE_STOP;
-  else if (strButton == "zero") buttonCode = XINPUT_IR_REMOTE_0;
-  else if (strButton == "one") buttonCode = XINPUT_IR_REMOTE_1;
-  else if (strButton == "two") buttonCode = XINPUT_IR_REMOTE_2;
-  else if (strButton == "three") buttonCode = XINPUT_IR_REMOTE_3;
-  else if (strButton == "four") buttonCode = XINPUT_IR_REMOTE_4;
-  else if (strButton == "five") buttonCode = XINPUT_IR_REMOTE_5;
-  else if (strButton == "six") buttonCode = XINPUT_IR_REMOTE_6;
-  else if (strButton == "seven") buttonCode = XINPUT_IR_REMOTE_7;
-  else if (strButton == "eight") buttonCode = XINPUT_IR_REMOTE_8;
-  else if (strButton == "nine") buttonCode = XINPUT_IR_REMOTE_9;
-  // additional keys from the media center extender for xbox remote
-  else if (strButton == "power") buttonCode = XINPUT_IR_REMOTE_POWER;
-  else if (strButton == "mytv") buttonCode = XINPUT_IR_REMOTE_MY_TV;
-  else if (strButton == "mymusic") buttonCode = XINPUT_IR_REMOTE_MY_MUSIC;
-  else if (strButton == "mypictures") buttonCode = XINPUT_IR_REMOTE_MY_PICTURES;
-  else if (strButton == "myvideo") buttonCode = XINPUT_IR_REMOTE_MY_VIDEOS;
-  else if (strButton == "record") buttonCode = XINPUT_IR_REMOTE_RECORD;
-  else if (strButton == "start") buttonCode = XINPUT_IR_REMOTE_START;
-  else if (strButton == "volumeplus") buttonCode = XINPUT_IR_REMOTE_VOLUME_PLUS;
-  else if (strButton == "volumeminus") buttonCode = XINPUT_IR_REMOTE_VOLUME_MINUS;
-  else if (strButton == "channelplus") buttonCode = XINPUT_IR_REMOTE_CHANNEL_PLUS;
-  else if (strButton == "channelminus") buttonCode = XINPUT_IR_REMOTE_CHANNEL_MINUS;
-  else if (strButton == "pageplus") buttonCode = XINPUT_IR_REMOTE_CHANNEL_PLUS;
-  else if (strButton == "pageminus") buttonCode = XINPUT_IR_REMOTE_CHANNEL_MINUS;
-  else if (strButton == "mute") buttonCode = XINPUT_IR_REMOTE_MUTE;
-  else if (strButton == "recordedtv") buttonCode = XINPUT_IR_REMOTE_RECORDED_TV;
-  else if (strButton == "guide") buttonCode = XINPUT_IR_REMOTE_GUIDE;
-  else if (strButton == "livetv") buttonCode = XINPUT_IR_REMOTE_LIVE_TV;
-  else if (strButton == "liveradio") buttonCode = XINPUT_IR_REMOTE_LIVE_RADIO;
-  else if (strButton == "epgsearch") buttonCode = XINPUT_IR_REMOTE_EPG_SEARCH;
-  else if (strButton == "star") buttonCode = XINPUT_IR_REMOTE_STAR;
-  else if (strButton == "hash") buttonCode = XINPUT_IR_REMOTE_HASH;
-  else if (strButton == "clear") buttonCode = XINPUT_IR_REMOTE_CLEAR;
-  else if (strButton == "enter") buttonCode = XINPUT_IR_REMOTE_ENTER;
-  else if (strButton == "xbox") buttonCode = XINPUT_IR_REMOTE_DISPLAY; // same as display
-  else if (strButton == "playlist") buttonCode = XINPUT_IR_REMOTE_PLAYLIST;
-  else if (strButton == "teletext") buttonCode = XINPUT_IR_REMOTE_TELETEXT;
-  else if (strButton == "red") buttonCode = XINPUT_IR_REMOTE_RED;
-  else if (strButton == "green") buttonCode = XINPUT_IR_REMOTE_GREEN;
-  else if (strButton == "yellow") buttonCode = XINPUT_IR_REMOTE_YELLOW;
-  else if (strButton == "blue") buttonCode = XINPUT_IR_REMOTE_BLUE;
-  else if (strButton == "subtitle") buttonCode = XINPUT_IR_REMOTE_SUBTITLE;
-  else if (strButton == "language") buttonCode = XINPUT_IR_REMOTE_LANGUAGE;
-  else if (strButton == "eject") buttonCode = XINPUT_IR_REMOTE_EJECT;
-  else if (strButton == "contentsmenu") buttonCode = XINPUT_IR_REMOTE_CONTENTS_MENU;
-  else if (strButton == "rootmenu") buttonCode = XINPUT_IR_REMOTE_ROOT_MENU;
-  else if (strButton == "topmenu") buttonCode = XINPUT_IR_REMOTE_TOP_MENU;
-  else if (strButton == "dvdmenu") buttonCode = XINPUT_IR_REMOTE_DVD_MENU;
-  else if (strButton == "print") buttonCode = XINPUT_IR_REMOTE_PRINT;
-  else CLog::Log(LOGERROR, "Remote Translator: Can't find button %s", strButton.c_str());
-  return buttonCode;
-}
-
-uint32_t CButtonTranslator::TranslateUniversalRemoteString(const char *szButton)
-{
-  if (!szButton || strlen(szButton) < 4 || strnicmp(szButton, "obc", 3)) 
-    return 0;
-  const char *szCode = szButton + 3;
-  // Button Code is 255 - OBC (Original Button Code) of the button
-  uint32_t buttonCode = 255 - atol(szCode);
-  if (buttonCode > 255) 
-    buttonCode = 0;
-  return buttonCode;
-}
-
-uint32_t CButtonTranslator::TranslateKeyboardString(const char *szButton)
-{
-  uint32_t buttonCode = 0;
-  XBMCKEYTABLE keytable;
-
-  // Look up the key name
-  if (KeyTableLookupName(szButton, &keytable))
-  {
-    buttonCode = keytable.vkey;
-  }
-
-  // The lookup failed i.e. the key name wasn't found
-  else
-  {
-    CLog::Log(LOGERROR, "Keyboard Translator: Can't find button %s", szButton);
-  }
-
-  buttonCode |= KEY_VKEY;
-
-  return buttonCode;
-}
-
-uint32_t CButtonTranslator::TranslateKeyboardButton(TiXmlElement *pButton)
-{
-  uint32_t button_id = 0;
-  const char *szButton = pButton->Value();
-
-  if (!szButton) 
-    return 0;
-  const std::string strKey = szButton;
-  if (strKey == "key")
-  {
-    std::string strID;
-    if (pButton->QueryValueAttribute("id", &strID) == TIXML_SUCCESS)
-    {
-      const char *str = strID.c_str();
-      char *endptr;
-      long int id = strtol(str, &endptr, 0);
-      if (endptr - str != (int)strlen(str) || id <= 0 || id > 0x00FFFFFF)
-        CLog::Log(LOGDEBUG, "%s - invalid key id %s", __FUNCTION__, strID.c_str());
-      else
-        button_id = (uint32_t) id;
-    }
-    else
-      CLog::Log(LOGERROR, "Keyboard Translator: `key' button has no id");
-  }
-  else
-    button_id = TranslateKeyboardString(szButton);
-
-  // Process the ctrl/shift/alt modifiers
-  std::string strMod;
-  if (pButton->QueryValueAttribute("mod", &strMod) == TIXML_SUCCESS)
-  {
-    StringUtils::ToLower(strMod);
-
-    std::vector<std::string> modArray = StringUtils::Split(strMod, ",");
-    for (std::vector<std::string>::const_iterator i = modArray.begin(); i != modArray.end(); ++i)
-    {
-      std::string substr = *i;
-      StringUtils::Trim(substr);
-
-      if (substr == "ctrl" || substr == "control")
-        button_id |= CKey::MODIFIER_CTRL;
-      else if (substr == "shift")
-        button_id |= CKey::MODIFIER_SHIFT;
-      else if (substr == "alt")
-        button_id |= CKey::MODIFIER_ALT;
-      else if (substr == "super" || substr == "win")
-        button_id |= CKey::MODIFIER_SUPER;
-      else if (substr == "meta" || substr == "cmd")
-        button_id |= CKey::MODIFIER_META;
-      else if (substr == "longpress")
-        button_id |= CKey::MODIFIER_LONG;
-      else
-        CLog::Log(LOGERROR, "Keyboard Translator: Unknown key modifier %s in %s", substr.c_str(), strMod.c_str());
-     }
-  }
-
-  return button_id;
-}
-
-uint32_t CButtonTranslator::TranslateAppCommand(const char *szButton)
-{
-#ifdef TARGET_WINDOWS
-  std::string strAppCommand = szButton;
-  StringUtils::ToLower(strAppCommand);
-
-  for (int i = 0; i < ARRAY_SIZE(appcommands); i++)
-    if (strAppCommand == appcommands[i].name)
-      return appcommands[i].action | KEY_APPCOMMAND;
-
-  CLog::Log(LOGERROR, "%s: Can't find appcommand %s", __FUNCTION__, szButton);
-#endif
-
-  return 0;
-}
-
-uint32_t CButtonTranslator::TranslateMouseCommand(TiXmlElement *pButton)
-{
-  uint32_t buttonId = 0;
-
-  if (pButton)
-  {
-    std::string szKey = pButton->ValueStr();
-    if (!szKey.empty())
-    {
-      StringUtils::ToLower(szKey);
-      for (unsigned int i = 0; i < ARRAY_SIZE(mousekeys); i++)
-      {
-        if (szKey == mousekeys[i].name)
-        {
-          buttonId = mousekeys[i].action;
-          break;
-        }
-      }
-      if (!buttonId)
-      {
-        CLog::Log(LOGERROR, "Unknown mouse action (%s), skipping", pButton->Value());
-      }
-      else
-      {
-        int id = 0;
-        if ((pButton->QueryIntAttribute("id", &id) == TIXML_SUCCESS) && id>=0 && id<MOUSE_MAX_BUTTON)
-        {
-          buttonId += id;
-        }
-      }
-    }
-  }
-
-  return buttonId;
 }
 
 void CButtonTranslator::Clear()
 {
   m_translatorMap.clear();
-#if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
-  ClearLircButtonMapEntries();
-  lircRemotesMap.clear();
-#endif
-  
-  m_customControllersMap.clear();
 
-  m_Loaded = false;
+  for (auto it : m_buttonMappers)
+    it.second->Clear();
 }
 
-uint32_t CButtonTranslator::TranslateTouchCommand(TiXmlElement *pButton, CButtonAction &action)
+void CButtonTranslator::RegisterMapper(const std::string &device, IButtonMapper *mapper)
 {
-  const char *szButton = pButton->Value();
-  if (szButton == NULL || pButton->FirstChild() == NULL)
-    return ACTION_NONE;
+  m_buttonMappers[device] = mapper;
+}
 
-  const char *szAction = pButton->FirstChild()->Value();
-  if (szAction == NULL)
-    return ACTION_NONE;
-
-  std::string strTouchCommand = szButton;
-  StringUtils::ToLower(strTouchCommand);
-
-  const char *attrVal = pButton->Attribute("direction");
-  if (attrVal != NULL)
-    strTouchCommand += attrVal;
-
-  uint32_t actionId = ACTION_NONE;
-  for (unsigned int i = 0; i < ARRAY_SIZE(touchcommands); i++)
+void CButtonTranslator::UnregisterMapper(IButtonMapper *mapper)
+{
+  for (auto it = m_buttonMappers.begin(); it != m_buttonMappers.end(); ++it)
   {
-    if (strTouchCommand == touchcommands[i].name)
+    if (it->second == mapper)
     {
-      actionId = touchcommands[i].action;
+      m_buttonMappers.erase(it);
       break;
     }
   }
-
-  if (actionId <= ACTION_NONE)
-  {
-    CLog::Log(LOGERROR, "%s: Can't find touch command %s", __FUNCTION__, szButton);
-    return ACTION_NONE;
-  }
-
-  attrVal = pButton->Attribute("pointers");
-  if (attrVal != NULL)
-  {
-    int pointers = (int)strtol(attrVal, NULL, 0);
-    if (pointers >= 1)
-      actionId += pointers - 1;
-  }
-
-  action.strID = szAction;
-  if (!TranslateActionString(szAction, action.id) || action.id <= ACTION_NONE)
-    return ACTION_NONE;
-
-  return actionId | KEY_TOUCH;
-}
-
-void CButtonTranslator::MapTouchActions(int windowID, TiXmlNode *pTouch)
-{
-  if (pTouch == NULL)
-    return;
-
-  buttonMap map;
-  // check if there already is a touch map for the window ID
-  std::map<int, buttonMap>::iterator it = m_touchMap.find(windowID);
-  if (it != m_touchMap.end())
-  {
-    // get the existing touch map and remove it from the window mapping
-    // as it will be inserted later on
-    map = it->second;
-    m_touchMap.erase(it);
-  }
-
-  uint32_t actionId = 0;
-  TiXmlElement *pTouchElem = pTouch->ToElement();
-  if (pTouchElem == NULL)
-    return;
-
-  TiXmlElement *pButton = pTouchElem->FirstChildElement();
-  while (pButton != NULL)
-  {
-    CButtonAction action;
-    actionId = TranslateTouchCommand(pButton, action);
-    if (actionId > 0)
-    {
-      // check if there already is a mapping for the parsed action
-      // and remove it if necessary
-      buttonMap::iterator actionIt = map.find(actionId);
-      if (actionIt != map.end())
-        map.erase(actionIt);
-
-      map.insert(std::make_pair(actionId, action));
-    }
-
-    pButton = pButton->NextSiblingElement();
-  }
-
-  // add the modified touch map with the window ID
-  if (!map.empty())
-    m_touchMap.insert(std::pair<int, buttonMap>(windowID, map));
-}
-
-int CButtonTranslator::GetTouchActionCode(int window, int action, std::string &actionString)
-{
-  std::map<int, buttonMap>::const_iterator windowIt = m_touchMap.find(window);
-  if (windowIt == m_touchMap.end())
-    return ACTION_NONE;
-
-  buttonMap::const_iterator touchIt = windowIt->second.find(action);
-  if (touchIt == windowIt->second.end())
-    return ACTION_NONE;
-
-  actionString = touchIt->second.strID;
-  return touchIt->second.id;
-}
-
-uint32_t CButtonTranslator::TranslateJoystickString(const char *szButton)
-{
-  if (!szButton)
-    return 0;
-  uint32_t buttonCode = 0;
-  std::string strButton = szButton;
-  StringUtils::ToLower(strButton);
-
-  if (strButton == "a") buttonCode = KEY_JOYSTICK_BUTTON_A;
-  else if (strButton == "b") buttonCode = KEY_JOYSTICK_BUTTON_B;
-  else if (strButton == "x") buttonCode = KEY_JOYSTICK_BUTTON_X;
-  else if (strButton == "y") buttonCode = KEY_JOYSTICK_BUTTON_Y;
-  else if (strButton == "start") buttonCode = KEY_JOYSTICK_BUTTON_START;
-  else if (strButton == "back") buttonCode = KEY_JOYSTICK_BUTTON_BACK;
-  else if (strButton == "left") buttonCode = KEY_JOYSTICK_BUTTON_DPAD_LEFT;
-  else if (strButton == "right") buttonCode = KEY_JOYSTICK_BUTTON_DPAD_RIGHT;
-  else if (strButton == "up") buttonCode = KEY_JOYSTICK_BUTTON_DPAD_UP;
-  else if (strButton == "down") buttonCode = KEY_JOYSTICK_BUTTON_DPAD_DOWN;
-  else if (strButton == "leftthumb") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_STICK_BUTTON;
-  else if (strButton == "rightthumb") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_STICK_BUTTON;
-  else if (strButton == "leftstickup") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_UP;
-  else if (strButton == "leftstickdown") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_DOWN;
-  else if (strButton == "leftstickleft") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_LEFT;
-  else if (strButton == "leftstickright") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_THUMB_STICK_RIGHT;
-  else if (strButton == "rightstickup") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_UP;
-  else if (strButton == "rightstickdown") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_DOWN;
-  else if (strButton == "rightstickleft") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_LEFT;
-  else if (strButton == "rightstickright") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_THUMB_STICK_RIGHT;
-  else if (strButton == "lefttrigger") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_TRIGGER;
-  else if (strButton == "righttrigger") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_TRIGGER;
-  else if (strButton == "leftbumper") buttonCode = KEY_JOYSTICK_BUTTON_LEFT_SHOULDER;
-  else if (strButton == "rightbumper") buttonCode = KEY_JOYSTICK_BUTTON_RIGHT_SHOULDER;
-  else if (strButton == "guide") buttonCode = KEY_JOYSTICK_BUTTON_GUIDE;
-  else CLog::Log(LOGERROR, "Joystick Translator: Can't find button %s", strButton.c_str());
-
-  return buttonCode;
 }

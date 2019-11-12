@@ -1,34 +1,20 @@
 /*
- *      Copyright (C) 2010 Team Boxee
+ *  Copyright (C) 2010 Team Boxee
  *      http://www.boxee.tv
  *
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- *  Note: parts of this code comes from libdvdread.
- *  Jorgen Lundman and team boxee did the necessary modifications to support udf 2.5
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+#include "udf25.h"
+
+#include "File.h"
+#include "utils/log.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include "system.h"
-#include "utils/log.h"
-#include "udf25.h"
-#include "File.h"
 
 /* For direct data access, LSB first */
 #define GETN1(p) ((uint8_t)data[p])
@@ -48,7 +34,7 @@
                   | ((uint64_t)data[(p) + 6] << 48) \
                   | ((uint64_t)data[(p) + 7] << 56))
 
-/* This is wrong with regard to endianess */
+/* This is wrong with regard to endianness */
 #define GETN(p, n, target) memcpy(target, &data[p], n)
 
 using namespace XFILE;
@@ -1104,7 +1090,7 @@ HANDLE udf25::OpenFile( const char* filename )
 
   bdfile->file     = file;
   bdfile->filesize = filesize;
-  return (HANDLE)bdfile;
+  return reinterpret_cast<HANDLE>(bdfile);
 }
 
 
@@ -1230,14 +1216,14 @@ udf_dir_t *udf25::OpenDir( const char *subdir )
 
   result = (udf_dir_t *)calloc(1, sizeof(udf_dir_t));
   if (!result) {
-    CloseFile((HANDLE)bd_file);
+    CloseFile(reinterpret_cast<HANDLE>(bd_file));
     return NULL;
   }
 
   result->dir_location = UDFFileBlockPos(bd_file->file, 0);
   result->dir_current  = UDFFileBlockPos(bd_file->file, 0);
   result->dir_length   = (uint32_t) bd_file->filesize;
-  CloseFile((HANDLE)bd_file);
+  CloseFile(reinterpret_cast<HANDLE>(bd_file));
 
   return result;
 }

@@ -1,50 +1,35 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#include "DVDSubtitleStream.h"
+
+#include "DVDInputStreams/DVDFactoryInputStream.h"
+#include "DVDInputStreams/DVDInputStream.h"
+#include "filesystem/File.h"
+#include "utils/CharsetConverter.h"
+#include "utils/CharsetDetection.h"
+#include "utils/URIUtils.h"
+#include "utils/Utf8Utils.h"
+#include "utils/log.h"
 
 #include <cstring>
 #include <memory>
 
-#include "DVDSubtitleStream.h"
-#include "DVDInputStreams/DVDFactoryInputStream.h"
-#include "DVDInputStreams/DVDInputStream.h"
-#include "utils/CharsetConverter.h"
-#include "utils/Utf8Utils.h"
-#include "utils/CharsetDetection.h"
-#include "filesystem/File.h"
-#include "utils/log.h"
-#include "utils/URIUtils.h"
 
+CDVDSubtitleStream::CDVDSubtitleStream() = default;
 
-CDVDSubtitleStream::CDVDSubtitleStream()
-{
-}
-
-CDVDSubtitleStream::~CDVDSubtitleStream()
-{
-}
+CDVDSubtitleStream::~CDVDSubtitleStream() = default;
 
 bool CDVDSubtitleStream::Open(const std::string& strFile)
 {
   CFileItem item(strFile, false);
   item.SetContentLookup(false);
-  std::unique_ptr<CDVDInputStream> pInputStream(CDVDFactoryInputStream::CreateInputStream(NULL, item));
+  std::shared_ptr<CDVDInputStream> pInputStream(CDVDFactoryInputStream::CreateInputStream(NULL, item));
   if (pInputStream && pInputStream->Open())
   {
     // prepare buffer
@@ -67,7 +52,7 @@ bool CDVDSubtitleStream::Open(const std::string& strFile)
       if (totalread == buf.size())
         buf.resize(buf.size() + chunksize);
 
-      read = pInputStream->Read((uint8_t*)buf.get() + totalread, buf.size() - totalread);
+      read = pInputStream->Read((uint8_t*)buf.get() + totalread, static_cast<int>(buf.size() - totalread));
       if (read > 0)
         totalread += read;
     } while (read > 0);
@@ -113,7 +98,7 @@ bool CDVDSubtitleStream::IsIncompatible(CDVDInputStream* pInputStream, XUTILS::a
 
   static const uint8_t vobsub[] = { 0x00, 0x00, 0x01, 0xBA };
 
-  int read = pInputStream->Read((uint8_t*)buf.get(), buf.size());
+  int read = pInputStream->Read(reinterpret_cast<uint8_t*>(buf.get()), static_cast<int>(buf.size()));
 
   if (read < 0)
   {
@@ -123,7 +108,7 @@ bool CDVDSubtitleStream::IsIncompatible(CDVDInputStream* pInputStream, XUTILS::a
   {
     *bytesRead = (size_t)read;
   }
-  
+
   if (read >= 4)
   {
     if (!std::memcmp(buf.get(), vobsub, 4))

@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "coffldr.h"
 #include "LibraryLoader.h"
@@ -31,6 +19,7 @@
     !defined(__SH4__) && \
     !defined(__sparc__) && \
     !defined(__arc__) && \
+    !defined(__or1k__) && \
     !defined(__xtensa__)
 #define USE_LDT_KEEPER
 #include "ldt_keeper.h"
@@ -67,16 +56,16 @@ class DllLoader : public CoffLoader, public LibraryLoader
 {
 public:
   DllLoader(const char *dll, bool track = false, bool bSystemDll = false, bool bLoadSymbols = false, Export* exports = NULL);
-  virtual ~DllLoader();
+  ~DllLoader() override;
 
-  virtual bool Load();
-  virtual void Unload();
+  bool Load() override;
+  void Unload() override;
 
-  virtual int ResolveExport(const char*, void** ptr, bool logging = true);
-  virtual int ResolveOrdinal(unsigned long ordinal, void** ptr);
-  virtual bool HasSymbols() { return m_bLoadSymbols && !m_bUnloadSymbols; }
-  virtual bool IsSystemDll() { return m_bSystemDll; }
-  virtual HMODULE GetHModule() { return (HMODULE)hModule; }
+  int ResolveExport(const char*, void** ptr, bool logging = true) override;
+  int ResolveOrdinal(unsigned long ordinal, void** ptr) override;
+  bool HasSymbols() override { return m_bLoadSymbols && !m_bUnloadSymbols; }
+  bool IsSystemDll() override { return m_bSystemDll; }
+  HMODULE GetHModule() override { return (HMODULE)hModule; }
 
   Export* GetExportByFunctionName(const char* sFunctionName);
   Export* GetExportByOrdinal(unsigned long ordinal);

@@ -53,11 +53,9 @@
 				<height>100%</height>
 				<onleft>9000</onleft>
 				<onup>9000</onup>
-				<onright condition="!Window.IsActive(MyPVRGuide.xml)">50</onright>
-				<onright condition="Window.IsActive(MyPVRGuide.xml)">10</onright>
+				<onright>50</onright>
 				<ondown>14100</ondown>
 				<onback>50</onback>
-				<defaultcontrol>6054</defaultcontrol>
 				<control type="group" id="60520">
 					<height>50</height>
 					<control type="label">
@@ -84,10 +82,9 @@
 						<left>0</left>
 						<height>120</height>
 						<onleft>6056</onleft>
-						<onright condition="!Window.IsActive(MyPVRGuide.xml)">50</onright>
-						<onright condition="Window.IsActive(MyPVRGuide.xml)">10</onright>
+						<onright>50</onright>
 						<onup>14100</onup>
-						<ondown>6054</ondown>
+						<ondown>6051</ondown>
 						<width>1000</width>
 						<include content="PVRQuickNavItemsCommon">
 							<param name="control_id" value="100" />
@@ -125,6 +122,13 @@
 					<include>MediaMenuLabelCommon</include>
 					<label>$LOCALIZE[14018]</label>
 				</control>
+				<control type="button" id="6051">
+					<include>MediaMenuItemsCommon</include>
+					<label>$LOCALIZE[31023]</label>
+					<label2>[B]$INFO[Container.Viewmode][/B]</label2>
+					<onclick>Container.NextViewMode</onclick>
+					<visible>Window.IsActive(MyPVRGuide.xml)</visible>
+				</control>
 				<control type="button" id="6054">
 					<include>MediaMenuItemsCommon</include>
 					<label>$LOCALIZE[19141]</label>
@@ -144,19 +148,24 @@
 					<label>$LOCALIZE[31022]</label>
 					<label2>[B]$INFO[Container.SortMethod][/B]</label2>
 					<onclick>SendClick(3)</onclick>
-					<visible>!Window.IsActive(MyPVRGuide.xml)</visible>
 				</control>
 				<control type="button" id="6055">
 					<include>MediaMenuItemsCommon</include>
 					<label>$LOCALIZE[31032]</label>
 					<label2>[B]$INFO[Container.SortOrder][/B]</label2>
 					<onclick>Container.SetSortDirection</onclick>
-					<visible>!Window.IsActive(MyPVRGuide.xml)</visible>
+				</control>
+				<control type="button" id="10">
+					<description>Watched Toggle</description>
+					<include>MediaMenuItemsCommon</include>
+					<label>$LOCALIZE[20367]</label>
+					<label2>[B]$INFO[Container.NumNonFolderItems][/B]</label2>
+					<visible>Window.IsActive(MyPVRRecordings.xml)</visible>
 				</control>
 				<control type="label" id="300">
 					<label>$LOCALIZE[31021]</label>
 					<include>MediaMenuLabelCommon</include>
-					<visible>Control.IsVisible(31) |Control.IsVisible(5) |Control.IsVisible(6) |Control.IsVisible(7) |Control.IsVisible(8)</visible>
+					<visible>Control.IsVisible(31) | Control.IsVisible(5) | Control.IsVisible(6) | Control.IsVisible(7) | Control.IsVisible(8)</visible>
 				</control>
 				<control type="radiobutton" id="31">
 					<include>MediaMenuItemsCommon</include>
@@ -201,7 +210,7 @@
 						<onup>8</onup>
 						<ondown>6056</ondown>
 						<visible>Player.HasMedia + [$EXP[sidebar_visible]]</visible>
-						<visible>!System.HasModalDialog</visible>
+						<visible>!System.HasActiveModalDialog</visible>
 						<include content="BottomMainMenuToggleItem">
 							<param name="control_id" value="14101" />
 							<param name="onclick" value="PlayerControl(Play)" />
@@ -251,7 +260,7 @@
 			<height>100%</height>
 			<aspectratio>scale</aspectratio>
 			<texture colordiffuse="80FFFFFF">colors/black.png</texture>
-			<visible>$EXP[sidebar_visible] + !System.HasModalDialog</visible>
+			<visible>$EXP[sidebar_visible] + !System.HasActiveModalDialog</visible>
 			<animation effect="fade" time="200">VisibleChange</animation>
 		</control>
 		<control type="image">
@@ -260,6 +269,15 @@
 			<width>520</width>
 			<height>100%</height>
 			<texture border="0,0,52,0">lists/panel-mediamenu.png</texture>
+		</control>
+		<control type="button" id="6131">
+			<left>0</left>
+			<top>0</top>
+			<width>500</width>
+			<height>100%</height>
+			<label></label>
+			<texturefocus />
+			<texturenofocus />
 		</control>
 		<control type="button" id="3">
 			<description>Viewtype Toggle</description>
@@ -277,13 +295,14 @@
 				<animation effect="fade" start="0" end="100" time="400">WindowOpen</animation>
 				<animation effect="fade" start="100" end="0" time="300">WindowClose</animation>
 				<animation effect="fade" time="300">VisibleChange</animation>
+				<animation effect="slide" end="-10,0" time="0" condition ="Window.IsActive(MyPlaylist.xml)">Conditional</animation>
 				<orientation>horizontal</orientation>
 				<itemgap>-17</itemgap>
 				<left>$PARAM[left]</left>
 				<onleft>14100</onleft>
 				<width>450</width>
 				<visible>Player.HasMedia + [$EXP[sidebar_visible]]</visible>
-				<visible>!System.HasModalDialog</visible>
+				<visible>!System.HasActiveModalDialog</visible>
 				<include content="BottomMainMenuToggleItem">
 					<param name="control_id" value="14101" />
 					<param name="onclick" value="PlayerControl(Play)" />
@@ -346,10 +365,12 @@
 				<visible>Control.IsEnabled(4)</visible>
 				<onclick>SendClick(4)</onclick>
 			</control>
+			<include condition="Window.IsVisible(Videos) | Window.IsVisible(Music)">MediaMenuSearchButton</include>
 			<control type="button" id="19">
 				<visible>Container.CanFilter + !Container.CanFilterAdvanced</visible>
 				<include>MediaMenuItemsCommon</include>
-				<label>$LOCALIZE[137]</label>
+				<onclick>right</onclick>
+				<label>$LOCALIZE[587]</label>
 			</control>
 			<control type="button" id="199">
 				<visible>Container.CanFilterAdvanced</visible>
@@ -360,13 +381,19 @@
 			</control>
 		</definition>
 	</include>
+	<include name="MediaMenuSearchButton">
+		<control type="button" id="8">
+			<include>MediaMenuItemsCommon</include>
+			<label>$LOCALIZE[137]</label>
+		</control>
+	</include>
 	<include name="MediaMenuMouseOverlay">
 		<control type="button" id="6130">
 			<label></label>
-			<height>100%</height>
-			<width>50</width>
 			<left>-50</left>
-			<top>0</top>
+			<top>200</top>
+			<bottom>0</bottom>
+			<width>50</width>
 			<texturefocus />
 			<texturenofocus />
 		</control>

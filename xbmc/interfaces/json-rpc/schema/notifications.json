@@ -8,6 +8,57 @@
     ],
     "returns": null
   },
+  "Player.OnResume": {
+    "type": "notification",
+    "description": "Playback of a media item has been resumed. If there is no ID available extra information will be provided.",
+    "params": [
+      {
+        "name": "sender",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "data",
+        "$ref": "Player.Notifications.Data",
+        "required": true
+      }
+    ],
+    "returns": null
+  },
+  "Player.OnAVStart": {
+    "type": "notification",
+    "description": "Playback of a media item has been started and first frame is available. If there is no ID available extra information will be provided.",
+    "params": [
+      {
+        "name": "sender",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "data",
+        "$ref": "Player.Notifications.Data",
+        "required": true
+      }
+    ],
+    "returns": null
+  },
+  "Player.OnAVChange": {
+    "type": "notification",
+    "description": "Audio- or videostream has changed. If there is no ID available extra information will be provided.",
+    "params": [
+      {
+        "name": "sender",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "data",
+        "$ref": "Player.Notifications.Data",
+        "required": true
+      }
+    ],
+    "returns": null
+  },
   "Player.OnPause": {
     "type": "notification",
     "description": "Playback of a media item has been paused. If there is no ID available extra information will be provided.",
@@ -119,7 +170,8 @@
         "properties": {
           "id": { "$ref": "Library.Id", "required": true },
           "type": { "type": "string", "id": "Notifications.Library.Audio.Type", "enum": [ "song" ], "required": true },
-          "transaction": { "$ref": "Optional.Boolean", "description": "True if the update is being performed within a transaction." }
+          "transaction": { "$ref": "Optional.Boolean", "description": "True if the update is being performed within a transaction." },
+          "added": { "$ref": "Optional.Boolean", "description": "True if the update is for a newly added item." }
         }
       }
     ],
@@ -200,7 +252,8 @@
           "id": { "$ref": "Library.Id", "required": true },
           "type": { "type": "string", "id": "Notifications.Library.Video.Type", "enum": [ "movie", "tvshow", "episode", "musicvideo" ], "required": true },
           "playcount": { "type": "integer", "minimum": 0, "default": -1 },
-          "transaction": { "$ref": "Optional.Boolean", "description": "True if the update is being performed within a transaction." }
+          "transaction": { "$ref": "Optional.Boolean", "description": "True if the update is being performed within a transaction." },
+          "added": { "$ref": "Optional.Boolean", "description": "True if the update is for a newly added item." }
         }
       }
     ],
@@ -266,6 +319,15 @@
   "VideoLibrary.OnCleanFinished": {
     "type": "notification",
     "description": "The video library has been cleaned.",
+    "params": [
+      { "name": "sender", "type": "string", "required": true },
+      { "name": "data", "type": "null", "required": true }
+    ],
+    "returns": null
+  },
+  "VideoLibrary.OnRefresh": {
+    "type": "notification",
+    "description": "The video library has been refreshed and a home screen reload might be necessary.",
     "params": [
       { "name": "sender", "type": "string", "required": true },
       { "name": "data", "type": "null", "required": true }

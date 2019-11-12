@@ -1,32 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "InfoScanner.h"
+#include "VideoDatabase.h"
+#include "addons/Scraper.h"
 
 #include <set>
 #include <string>
 #include <vector>
-
-#include "InfoScanner.h"
-#include "NfoFile.h"
-#include "VideoDatabase.h"
-#include "addons/Scraper.h"
 
 class CRegExp;
 class CFileItem;
@@ -34,6 +22,8 @@ class CFileItemList;
 
 namespace VIDEO
 {
+  class IVideoInfoTagLoader;
+
   typedef struct SScanSettings
   {
     SScanSettings() { parent_name = parent_name_root = noupdate = exclude = false; recurse = 1;}
@@ -44,31 +34,18 @@ namespace VIDEO
     bool exclude;           /* exclude this path from scraping */
   } SScanSettings;
 
-  /*! \brief return values from the information lookup functions
-   */
-  enum INFO_RET { INFO_CANCELLED,
-                  INFO_ERROR,
-                  INFO_NOT_NEEDED,
-                  INFO_HAVE_ALREADY,
-                  INFO_NOT_FOUND,
-                  INFO_ADDED };
-
   class CVideoInfoScanner : public CInfoScanner
   {
   public:
     CVideoInfoScanner();
-    virtual ~CVideoInfoScanner();
+    ~CVideoInfoScanner() override;
 
     /*! \brief Scan a folder using the background scanner
      \param strDirectory path to scan
      \param scanAll whether to scan everything not already scanned (regardless of whether the user normally doesn't want a folder scanned.) Defaults to false.
      */
     void Start(const std::string& strDirectory, bool scanAll = false);
-    bool IsScanning() const { return m_bRunning; }
     void Stop();
-
-    //! \brief Set whether or not to show a progress dialog
-    void ShowDialog(bool show) { m_showDialog = show; }
 
     /*! \brief Add an item to the database.
      \param pItem item to add to the database.
@@ -95,7 +72,6 @@ namespace VIDEO
 
     static void ApplyThumbToFolder(const std::string &folder, const std::string &imdbThumb);
     static bool DownloadFailed(CGUIDialogProgress* pDlgProgress);
-    CNfoFile::NFOResult CheckForNFOFile(CFileItem* pItem, bool bGrabAny, ADDON::ScraperPtr& scraper, CScraperUrl& scrUrl);
 
     /*! \brief Retrieve any artwork associated with an item
      \param pItem item to find artwork for.
@@ -121,8 +97,7 @@ namespace VIDEO
      \param useLocal whether to use local thumbs, defaults to true
      */
     static void GetSeasonThumbs(const CVideoInfoTag &show, std::map<int, std::map<std::string, std::string> > &art, const std::vector<std::string> &artTypes, bool useLocal = true);
-    static std::string GetImage(CFileItem *pItem, bool useLocal, bool bApplyToDir, const std::string &type = "");
-    static std::string GetFanart(CFileItem *pItem, bool useLocal);
+    static std::string GetImage(const CScraperUrl::SUrlEntry &image, const std::string& itemPath);
 
     bool EnumerateEpisodeItem(const CFileItem *item, EPISODELIST& episodeList);
 
@@ -144,13 +119,23 @@ namespace VIDEO
     bool ProgressCancelled(CGUIDialogProgress* progress, int heading, const std::string &line1);
 
     /*! \brief Find a url for the given video using the given scraper
-     \param videoName name of the video to lookup
+     \param title title of the video to lookup
+     \param year year of the video to lookup
      \param scraper scraper to use for the lookup
      \param url [out] returned url from the scraper
      \param progress CGUIDialogProgress bar
      \return >0 on success, <0 on failure (cancellation), and 0 on no info found
      */
-    int FindVideo(const std::string &videoName, const ADDON::ScraperPtr &scraper, CScraperUrl &url, CGUIDialogProgress *progress);
+    int FindVideo(const std::string &title, int year, const ADDON::ScraperPtr &scraper, CScraperUrl &url, CGUIDialogProgress *progress);
+
+    /*! \brief Find a url for the given video using the given scraper
+     \param item the video to lookup
+     \param scraper scraper to use for the lookup
+     \param url [out] returned url from the scraper
+     \param progress CGUIDialogProgress bar
+     \return >0 on success, <0 on failure (cancellation), and 0 on no info found
+     */
+    int FindVideoUsingTag(CFileItem& item, const ADDON::ScraperPtr &scraper, CScraperUrl &url, CGUIDialogProgress *progress);
 
     /*! \brief Retrieve detailed information for an item from an online source, optionally supplemented with local data
      @todo sort out some better return codes.
@@ -161,7 +146,10 @@ namespace VIDEO
      \param pDialog progress dialog to update and check for cancellation during processing. Defaults to NULL.
      \return true if information is found, false if an error occurred, the lookup was cancelled, or no information was found.
      */
-    bool GetDetails(CFileItem *pItem, CScraperUrl &url, const ADDON::ScraperPtr &scraper, CNfoFile *nfoFile=NULL, CGUIDialogProgress* pDialog=NULL);
+    bool GetDetails(CFileItem *pItem, CScraperUrl &url,
+                    const ADDON::ScraperPtr &scraper,
+                    VIDEO::IVideoInfoTagLoader* nfoFile = nullptr,
+                    CGUIDialogProgress* pDialog = nullptr);
 
     /*! \brief Extract episode and season numbers from a processed regexp
      \param reg Regular expression object with at least 2 matches
@@ -214,7 +202,7 @@ namespace VIDEO
     /*! \brief Decide whether a folder listing could use the "fast" hash
      Fast hashing can be done whenever the folder contains no scannable subfolders, as the
      fast hash technique uses modified time to determine when folder content changes, which
-     is generally not propogated up the directory tree.
+     is generally not propagated up the directory tree.
      \param items the directory listing
      \param excludes string array of exclude expressions
      \return true if this directory listing can be fast hashed, false otherwise
@@ -237,23 +225,12 @@ namespace VIDEO
     bool EnumerateSeriesFolder(CFileItem* item, EPISODELIST& episodeList);
     bool ProcessItemByVideoInfoTag(const CFileItem *item, EPISODELIST &episodeList);
 
-    std::string GetnfoFile(CFileItem *item, bool bGrabAny=false) const;
-
-    bool m_showDialog;
-    CGUIDialogProgressBarHandle* m_handle;
-    int m_currentItem;
-    int m_itemCount;
     bool m_bStop;
-    bool m_bRunning;
-    bool m_bCanInterrupt;
-    bool m_bClean;
     bool m_scanAll;
     std::string m_strStartDir;
     CVideoDatabase m_database;
-    std::set<std::string> m_pathsToScan;
     std::set<std::string> m_pathsToCount;
     std::set<int> m_pathsToClean;
-    CNfoFile m_nfoReader;
   };
 }
 

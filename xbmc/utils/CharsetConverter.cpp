@@ -1,44 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "CharsetConverter.h"
 
-#include <cerrno>
-#include <algorithm>
-
-#include <iconv.h>
-#include <fribidi/fribidi.h>
-
-#include "guilib/LocalizeStrings.h"
 #include "LangInfo.h"
+#include "guilib/LocalizeStrings.h"
 #include "log.h"
-#include "settings/lib/Setting.h"
 #include "settings/Settings.h"
-#include "system.h"
-#include "threads/SingleLock.h"
+#include "settings/lib/Setting.h"
+#include "settings/lib/SettingDefinitions.h"
 #include "utils/StringUtils.h"
 #include "utils/Utf8Utils.h"
 
-#if !defined(TARGET_WINDOWS) && defined(HAVE_CONFIG_H)
-  #include "config.h"
-#endif
+#include <algorithm>
+
+#include <fribidi.h>
+#include <iconv.h>
 
 #ifdef WORDS_BIGENDIAN
   #define ENDIAN_SUFFIX "BE"
@@ -57,20 +39,19 @@
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
   #define UTF8_SOURCE "UTF-8"
-  #define WCHAR_CHARSET UTF16_CHARSET 
-#if _DEBUG
-  #pragma comment(lib, "libfribidi.lib")
-  #pragma comment(lib, "libiconvd.lib")
-#else
-  #pragma comment(lib, "libfribidi.lib")
-  #pragma comment(lib, "libiconv.lib")
-#endif
+  #define WCHAR_CHARSET UTF16_CHARSET
+#elif defined(TARGET_FREEBSD)
+  #define WCHAR_IS_UCS_4 1
+  #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
+  #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
+  #define UTF8_SOURCE "UTF-8"
+  #define WCHAR_CHARSET UTF32_CHARSET
 #elif defined(TARGET_ANDROID)
   #define WCHAR_IS_UCS_4 1
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
   #define UTF8_SOURCE "UTF-8"
-  #define WCHAR_CHARSET UTF32_CHARSET 
+  #define WCHAR_CHARSET UTF32_CHARSET
 #else
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
@@ -93,7 +74,7 @@ enum SpecialCharset
 {
   NotSpecialCharset = 0,
   SystemCharset,
-  UserCharset /* locale.charset */, 
+  UserCharset /* locale.charset */,
   SubtitleCharset /* subtitles.charset */,
 };
 
@@ -198,7 +179,7 @@ iconv_t CConverterType::GetConverter(CSingleLock& converterLock)
       m_targetCharset = ResolveSpecialCharset(m_targetSpecialCharset);
 
     m_iconv = iconv_open(m_targetCharset.c_str(), m_sourceCharset.c_str());
-    
+
     if (m_iconv == NO_ICONV)
       CLog::Log(LOGERROR, "%s: iconv_open() for \"%s\" -> \"%s\" failed, errno = %d (%s)",
                 __FUNCTION__, m_sourceCharset.c_str(), m_targetCharset.c_str(), errno, strerror(errno));
@@ -280,13 +261,13 @@ enum StdConversionType /* Keep it in sync with CCharsetConverter::CInnerConverte
   NumberOfStdConversionTypes /* Dummy sentinel entry */
 };
 
-/* We don't want to pollute header file with many additional includes and definitions, so put 
+/* We don't want to pollute header file with many additional includes and definitions, so put
    here all staff that require usage of types defined in this file or in additional headers */
 class CCharsetConverter::CInnerConverter
 {
 public:
   static bool logicalToVisualBiDi(const std::u32string& stringSrc, std::u32string& stringDst, FriBidiCharType base = FRIBIDI_TYPE_LTR, const bool failOnBadString = false);
-  
+
   template<class INPUT,class OUTPUT>
   static bool stdConvert(StdConversionType convertType, const INPUT& strSource, OUTPUT& strDest, bool failOnInvalidChar = false);
   template<class INPUT,class OUTPUT>
@@ -367,7 +348,7 @@ bool CCharsetConverter::CInnerConverter::customConvert(const std::string& source
 struct charPtrPtrAdapter
 {
   const char** pointer;
-  charPtrPtrAdapter(const char** p) :
+  explicit charPtrPtrAdapter(const char** p) :
     pointer(p) { }
   operator char**()
   { return const_cast<char**>(pointer); }
@@ -400,7 +381,7 @@ bool CCharsetConverter::CInnerConverter::convert(iconv_t type, int multiplier, c
   char*       outBufStart   = outBuf;     //where in out output buffer iconv() should start writing
 
   size_t returnV;
-  while(1)
+  while(true)
   {
     //iconv() will update inBufStart, inBytesAvail, outBufStart and outBytesAvail
     returnV = iconv(type, charPtrPtrAdapter(&inBufStart), &inBytesAvail, &outBufStart, &outBytesAvail);
@@ -501,7 +482,7 @@ bool CCharsetConverter::CInnerConverter::logicalToVisualBiDi(const std::u32strin
       lineEnd = srcLen;
     else
       lineEnd++; // include '\n'
-    
+
     const size_t lineLen = lineEnd - lineStart;
 
     FriBidiChar* visual = (FriBidiChar*) malloc((lineLen + 1) * sizeof(FriBidiChar));
@@ -559,7 +540,7 @@ static struct SCharsetMapping
   , { "CP1255", "Hebrew (Windows)" }
   , { "CP1256", "Arabic (Windows)" }
   , { "CP1257", "Baltic (Windows)" }
-  , { "CP1258", "Vietnamesse (Windows)" }
+  , { "CP1258", "Vietnamese (Windows)" }
   , { "CP874", "Thai (Windows)" }
   , { "BIG5", "Chinese Traditional (Big5)" }
   , { "GBK", "Chinese Simplified (GBK)" }
@@ -569,11 +550,9 @@ static struct SCharsetMapping
   , { NULL, NULL }
 };
 
-CCharsetConverter::CCharsetConverter()
-{
-}
+CCharsetConverter::CCharsetConverter() = default;
 
-void CCharsetConverter::OnSettingChanged(const CSetting* setting)
+void CCharsetConverter::OnSettingChanged(std::shared_ptr<const CSetting> setting)
 {
   if (setting == NULL)
     return;
@@ -593,7 +572,7 @@ std::vector<std::string> CCharsetConverter::getCharsetLabels()
 {
   std::vector<std::string> lab;
   for(SCharsetMapping* c = g_charsets; c->charset; c++)
-    lab.push_back(c->caption);
+    lab.emplace_back(c->caption);
 
   return lab;
 }
@@ -622,8 +601,8 @@ std::string CCharsetConverter::getCharsetNameByLabel(const std::string& charsetL
 
 void CCharsetConverter::reset(void)
 {
-  for (int i = 0; i < NumberOfStdConversionTypes; i++)
-    CInnerConverter::m_stdConversion[i].Reset();
+  for (CConverterType& conversion : CInnerConverter::m_stdConversion)
+    conversion.Reset();
 }
 
 void CCharsetConverter::resetSystemCharset(void)
@@ -713,7 +692,7 @@ bool CCharsetConverter::wToUtf32(const std::wstring& wStringSrc, std::u32string&
 
 // The bVisualBiDiFlip forces a flip of characters for hebrew/arabic languages, only set to false if the flipping
 // of the string is already made or the string is not displayed in the GUI
-bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& wStringDst, bool bVisualBiDiFlip /*= true*/, 
+bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& wStringDst, bool bVisualBiDiFlip /*= true*/,
                                 bool forceLTRReadingOrder /*= false*/, bool failOnBadChar /*= false*/)
 {
   // Try to flip hebrew/arabic characters, if any
@@ -729,7 +708,7 @@ bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& 
 
     return CInnerConverter::stdConvert(Utf32ToW, utf32flipped, wStringDst, failOnBadChar) && bidiResult;
   }
-  
+
   return CInnerConverter::stdConvert(Utf8toW, utf8StringSrc, wStringDst, failOnBadChar);
 }
 
@@ -768,7 +747,7 @@ bool CCharsetConverter::ToUtf8(const std::string& strSourceCharset, const std::s
     utf8StringDst = stringSrc;
     return true;
   }
-  
+
   return CInnerConverter::customConvert(strSourceCharset, "UTF-8", stringSrc, utf8StringDst, failOnBadChar);
 }
 
@@ -862,12 +841,12 @@ bool CCharsetConverter::utf8logicalToVisualBiDi(const std::string& utf8StringSrc
   return CInnerConverter::stdConvert(Utf32ToUtf8, utf32flipped, utf8StringDst, failOnBadString);
 }
 
-void CCharsetConverter::SettingOptionsCharsetsFiller(const CSetting* setting, std::vector< std::pair<std::string, std::string> >& list, std::string& current, void *data)
+void CCharsetConverter::SettingOptionsCharsetsFiller(SettingConstPtr setting, std::vector<StringSettingOption>& list, std::string& current, void *data)
 {
   std::vector<std::string> vecCharsets = g_charsetConverter.getCharsetLabels();
   sort(vecCharsets.begin(), vecCharsets.end(), sortstringbyname());
 
-  list.push_back(make_pair(g_localizeStrings.Get(13278), "DEFAULT")); // "Default"
+  list.emplace_back(g_localizeStrings.Get(13278), "DEFAULT"); // "Default"
   for (int i = 0; i < (int) vecCharsets.size(); ++i)
-    list.push_back(make_pair(vecCharsets[i], g_charsetConverter.getCharsetNameByLabel(vecCharsets[i])));
+    list.emplace_back(vecCharsets[i], g_charsetConverter.getCharsetNameByLabel(vecCharsets[i]));
 }

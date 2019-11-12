@@ -1,32 +1,19 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ImageFile.h"
-#include "URL.h"
+
 #include "TextureCache.h"
+#include "URL.h"
 
 using namespace XFILE;
 
-CImageFile::CImageFile(void)
-{
-}
+CImageFile::CImageFile(void) = default;
 
 CImageFile::~CImageFile(void)
 {
@@ -57,7 +44,7 @@ bool CImageFile::Exists(const CURL& url)
   if (!cachedFile.empty())
     return CFile::Exists(cachedFile, false);
 
-  // need to check if the original can be cached on demand and that the file exists 
+  // need to check if the original can be cached on demand and that the file exists
   if (!CTextureCache::CanCacheImageURL(url))
     return false;
 
@@ -71,7 +58,7 @@ int CImageFile::Stat(const CURL& url, struct __stat64* buffer)
   if (!cachedFile.empty())
     return CFile::Stat(cachedFile, buffer);
 
-  /* 
+  /*
    Doesn't exist in the cache yet. We have 3 options here:
    1. Cache the file and do the Stat() on the cached file.
    2. Do the Stat() on the original file.

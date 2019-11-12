@@ -1,29 +1,29 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "log.h"
-#include "system.h"
+#include "CompileInfo.h"
+#include "ServiceBroker.h"
+#include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
+#include "threads/CriticalSection.h"
 #include "threads/SingleLock.h"
 #include "threads/Thread.h"
 #include "utils/StringUtils.h"
-#include "CompileInfo.h"
+
+#if defined(TARGET_POSIX)
+#include "platform/posix/utils/PosixInterfaceForCLog.h"
+typedef class CPosixInterfaceForCLog PlatformInterfaceForCLog;
+#elif defined(TARGET_WINDOWS)
+#include "platform/win32/utils/Win32InterfaceForCLog.h"
+typedef class CWin32InterfaceForCLog PlatformInterfaceForCLog;
+#endif
+
 
 static const char* const levelNames[] =
 {"DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "SEVERE", "FATAL", "NONE"};
@@ -32,70 +32,58 @@ static const char* const levelNames[] =
 static const char* const logLevelNames[] =
 { "LOG_LEVEL_NONE" /*-1*/, "LOG_LEVEL_NORMAL" /*0*/, "LOG_LEVEL_DEBUG" /*1*/, "LOG_LEVEL_DEBUG_FREEMEM" /*2*/ };
 
-// s_globals is used as static global with CLog global variables
-#define s_globals XBMC_GLOBAL_USE(CLog).m_globalInstance
+namespace
+{
+class CLogGlobals
+{
+public:
+  ~CLogGlobals() = default;
+  PlatformInterfaceForCLog m_platform;
+  int         m_repeatCount = 0;
+  int         m_repeatLogLevel = -1;
+  std::string m_repeatLine;
+  int         m_logLevel = LOG_LEVEL_DEBUG;
+  int         m_extraLogLevels = 0;
+  CCriticalSection critSec;
+};
 
-CLog::CLog()
-{}
+static CLogGlobals g_logState;
+}
 
-CLog::~CLog()
-{}
+CLog::CLog() = default;
+
+CLog::~CLog() = default;
 
 void CLog::Close()
 {
-  CSingleLock waitLock(s_globals.critSec);
-  s_globals.m_platform.CloseLogFile();
-  s_globals.m_repeatLine.clear();
+  CSingleLock waitLock(g_logState.critSec);
+  g_logState.m_platform.CloseLogFile();
+  g_logState.m_repeatLine.clear();
 }
 
-void CLog::Log(int loglevel, const char *format, ...)
+void CLog::LogString(int logLevel, std::string&& logString)
 {
-  if (IsLogLevelLogged(loglevel))
-  {
-    va_list va;
-    va_start(va, format);
-    LogString(loglevel, StringUtils::FormatV(format, va));
-    va_end(va);
-  }
-}
-
-void CLog::LogFunction(int loglevel, const char* functionName, const char* format, ...)
-{
-  if (IsLogLevelLogged(loglevel))
-  {
-    std::string fNameStr;
-    if (functionName && functionName[0])
-      fNameStr.assign(functionName).append(": ");
-    va_list va;
-    va_start(va, format);
-    LogString(loglevel, fNameStr + StringUtils::FormatV(format, va));
-    va_end(va);
-  }
-}
-
-void CLog::LogString(int logLevel, const std::string& logString)
-{
-  CSingleLock waitLock(s_globals.critSec);
+  CSingleLock waitLock(g_logState.critSec);
   std::string strData(logString);
   StringUtils::TrimRight(strData);
   if (!strData.empty())
   {
-    if (s_globals.m_repeatLogLevel == logLevel && s_globals.m_repeatLine == strData)
+    if (g_logState.m_repeatLogLevel == logLevel && g_logState.m_repeatLine == strData)
     {
-      s_globals.m_repeatCount++;
+      g_logState.m_repeatCount++;
       return;
     }
-    else if (s_globals.m_repeatCount)
+    else if (g_logState.m_repeatCount)
     {
       std::string strData2 = StringUtils::Format("Previous line repeats %d times.",
-                                                s_globals.m_repeatCount);
+                                                g_logState.m_repeatCount);
       PrintDebugString(strData2);
-      WriteLogString(s_globals.m_repeatLogLevel, strData2);
-      s_globals.m_repeatCount = 0;
+      WriteLogString(g_logState.m_repeatLogLevel, strData2);
+      g_logState.m_repeatCount = 0;
     }
 
-    s_globals.m_repeatLine = strData;
-    s_globals.m_repeatLogLevel = logLevel;
+    g_logState.m_repeatLine = strData;
+    g_logState.m_repeatLogLevel = logLevel;
 
     PrintDebugString(strData);
 
@@ -103,16 +91,22 @@ void CLog::LogString(int logLevel, const std::string& logString)
   }
 }
 
+void CLog::LogString(int logLevel, int component, std::string&& logString)
+{
+  if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->CanLogComponent(component) && IsLogLevelLogged(logLevel))
+    LogString(logLevel, std::move(logString));
+}
+
 bool CLog::Init(const std::string& path)
 {
-  CSingleLock waitLock(s_globals.critSec);
+  CSingleLock waitLock(g_logState.critSec);
 
   // the log folder location is initialized in the CAdvancedSettings
   // constructor and changed in CApplication::Create()
 
   std::string appName = CCompileInfo::GetAppName();
   StringUtils::ToLower(appName);
-  return s_globals.m_platform.OpenLogFile(path + appName + ".log", path + appName + ".old.log");
+  return g_logState.m_platform.OpenLogFile(path + appName + ".log", path + appName + ".old.log");
 }
 
 void CLog::MemDump(char *pData, int length)
@@ -148,11 +142,11 @@ void CLog::MemDump(char *pData, int length)
 
 void CLog::SetLogLevel(int level)
 {
-  CSingleLock waitLock(s_globals.critSec);
+  CSingleLock waitLock(g_logState.critSec);
   if (level >= LOG_LEVEL_NONE && level <= LOG_LEVEL_MAX)
   {
-    s_globals.m_logLevel = level;
-    CLog::Log(LOGNOTICE, "Log level changed to \"%s\"", logLevelNames[s_globals.m_logLevel + 1]);
+    g_logState.m_logLevel = level;
+    CLog::Log(LOGNOTICE, "Log level changed to \"%s\"", logLevelNames[g_logState.m_logLevel + 1]);
   }
   else
     CLog::Log(LOGERROR, "%s: Invalid log level requested: %d", __FUNCTION__, level);
@@ -160,61 +154,60 @@ void CLog::SetLogLevel(int level)
 
 int CLog::GetLogLevel()
 {
-  return s_globals.m_logLevel;
+  return g_logState.m_logLevel;
 }
 
 void CLog::SetExtraLogLevels(int level)
 {
-  CSingleLock waitLock(s_globals.critSec);
-  s_globals.m_extraLogLevels = level;
+  CSingleLock waitLock(g_logState.critSec);
+  g_logState.m_extraLogLevels = level;
 }
 
 bool CLog::IsLogLevelLogged(int loglevel)
 {
   const int extras = (loglevel & ~LOGMASK);
-  if (extras != 0 && (s_globals.m_extraLogLevels & extras) == 0)
+  if (extras != 0 && (g_logState.m_extraLogLevels & extras) == 0)
     return false;
 
-#if defined(_DEBUG) || defined(PROFILE)
-  return true;
-#else
-  if (s_globals.m_logLevel >= LOG_LEVEL_DEBUG)
+  if (g_logState.m_logLevel >= LOG_LEVEL_DEBUG)
     return true;
-  if (s_globals.m_logLevel <= LOG_LEVEL_NONE)
+  if (g_logState.m_logLevel <= LOG_LEVEL_NONE)
     return false;
 
   // "m_logLevel" is "LOG_LEVEL_NORMAL"
   return (loglevel & LOGMASK) >= LOGNOTICE;
-#endif
 }
 
 
 void CLog::PrintDebugString(const std::string& line)
 {
 #if defined(_DEBUG) || defined(PROFILE)
-  s_globals.m_platform.PrintDebugString(line);
+  g_logState.m_platform.PrintDebugString(line);
 #endif // defined(_DEBUG) || defined(PROFILE)
 }
 
 bool CLog::WriteLogString(int logLevel, const std::string& logString)
 {
-  static const char* prefixFormat = "%02d:%02d:%02d.%03d T:%" PRIu64" %7s: ";
+  static const char* prefixFormat = "%02d-%02d-%02d %02d:%02d:%02d.%03d T:%" PRIu64" %7s: ";
 
   std::string strData(logString);
   /* fixup newline alignment, number of spaces should equal prefix length */
   StringUtils::Replace(strData, "\n", "\n                                            ");
 
-  int hour, minute, second;
+  int year, month, day, hour, minute, second;
   double millisecond;
-  s_globals.m_platform.GetCurrentLocalTime(hour, minute, second, millisecond);
+  g_logState.m_platform.GetCurrentLocalTime(year, month, day, hour, minute, second, millisecond);
 
   strData = StringUtils::Format(prefixFormat,
+                                  year,
+                                  month,
+                                  day,
                                   hour,
                                   minute,
                                   second,
                                   static_cast<int>(millisecond),
-                                  (uint64_t)CThread::GetCurrentThreadId(),
+                                  static_cast<uint64_t>(CThread::GetCurrentThreadNativeId()),
                                   levelNames[logLevel]) + strData;
 
-  return s_globals.m_platform.WriteStringToLog(strData);
+  return g_logState.m_platform.WriteStringToLog(strData);
 }

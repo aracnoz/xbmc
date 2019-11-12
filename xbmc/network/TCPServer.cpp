@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TCPServer.h"
@@ -26,6 +14,7 @@
 #include <arpa/inet.h>
 
 #include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
 #include "interfaces/json-rpc/JSONRPC.h"
 #include "interfaces/AnnouncementManager.h"
 #include "utils/log.h"
@@ -41,6 +30,10 @@ static const char     bt_service_prov[] = "XBMC JSON-RPC Provider";
 static const uint32_t bt_service_guid[] = {0x65AE4CC0, 0x775D11E0, 0xBE16CE28, 0x4824019B};
 #endif
 
+#if defined(TARGET_WINDOWS)
+#include "platform/win32/CharsetConverter.h"
+#endif
+
 #ifdef HAVE_LIBBLUETOOTH
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
@@ -54,7 +47,6 @@ static const bdaddr_t bt_bdaddr_local = {{0, 0, 0, 0xff, 0xff, 0xff}};
 #endif
 
 using namespace JSONRPC;
-using namespace ANNOUNCEMENT;
 
 #define RECEIVEBUFFER 1024
 
@@ -67,20 +59,7 @@ bool CTCPServer::StartServer(int port, bool nonlocal)
   ServerInstance = new CTCPServer(port, nonlocal);
   if (ServerInstance->Initialize())
   {
-    size_t thread_stacksize = 0;
-#if defined(TARGET_DARWIN_TVOS)
-    void *stack_addr;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_getstack(&attr, &stack_addr, &thread_stacksize);
-    pthread_attr_destroy(&attr);
-    // double the stack size under tvos, not sure why yet
-    // but it stoped crashing using Kodi json -> play video.
-    // non-tvos will pass a value of zero which means 'system default'
-    thread_stacksize *= 2;
-  CLog::Log(LOGDEBUG, "CTCPServer: increasing thread stack to %zu", thread_stacksize);
-#endif
-    ServerInstance->Create(false, thread_stacksize);
+    ServerInstance->Create(false);
     return true;
   }
   else
@@ -126,11 +105,11 @@ void CTCPServer::Process()
     struct timeval  to     = {1, 0};
     FD_ZERO(&rfds);
 
-    for (std::vector<SOCKET>::iterator it = m_servers.begin(); it != m_servers.end(); ++it)
+    for (auto& it : m_servers)
     {
-      FD_SET(*it, &rfds);
-      if ((intptr_t)*it > (intptr_t)max_fd)
-        max_fd = *it;
+      FD_SET(it, &rfds);
+      if ((intptr_t)it > (intptr_t)max_fd)
+        max_fd = it;
     }
 
     for (unsigned int i = 0; i < m_connections.size(); i++)
@@ -196,13 +175,14 @@ void CTCPServer::Process()
         }
       }
 
-      for (std::vector<SOCKET>::iterator it = m_servers.begin(); it != m_servers.end(); ++it)
+      for (auto& it : m_servers)
       {
-        if (FD_ISSET(*it, &rfds))
+        if (FD_ISSET(it, &rfds))
         {
           CLog::Log(LOGDEBUG, "JSONRPC Server: New connection detected");
           CTCPClient *newconnection = new CTCPClient();
-          newconnection->m_socket = accept(*it, (sockaddr*)&newconnection->m_cliaddr, &newconnection->m_addrlen);
+          newconnection->m_socket =
+              accept(it, (sockaddr*)&newconnection->m_cliaddr, &newconnection->m_addrlen);
 
           if (newconnection->m_socket == INVALID_SOCKET)
           {
@@ -242,9 +222,9 @@ int CTCPServer::GetCapabilities()
   return Response | Announcing;
 }
 
-void CTCPServer::Announce(AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
+void CTCPServer::Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
 {
-  std::string str = IJSONRPCAnnouncer::AnnouncementToJSONRPC(flag, sender, message, data, g_advancedSettings.m_jsonOutputCompact);
+  std::string str = IJSONRPCAnnouncer::AnnouncementToJSONRPC(flag, sender, message, data, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_jsonOutputCompact);
 
   for (unsigned int i = 0; i < m_connections.size(); i++)
   {
@@ -269,13 +249,21 @@ bool CTCPServer::Initialize()
 
   if (started)
   {
-    CAnnouncementManager::GetInstance().AddAnnouncer(this);
+    CServiceBroker::GetAnnouncementManager()->AddAnnouncer(this);
     CLog::Log(LOGINFO, "JSONRPC Server: Successfully initialized");
     return true;
   }
   return false;
 }
 
+#ifdef TARGET_WINDOWS_STORE
+bool CTCPServer::InitializeBlue()
+{
+  CLog::Log(LOGDEBUG, "%s is not implemented", __FUNCTION__);
+  return true; // need to fake it for now
+}
+
+#else
 bool CTCPServer::InitializeBlue()
 {
   if (!m_nonlocal)
@@ -329,11 +317,13 @@ bool CTCPServer::InitializeBlue()
   addrinfo.RemoteAddr.lpSockaddr      = (SOCKADDR*)&sa;
   addrinfo.RemoteAddr.iSockaddrLength = sizeof(sa);
 
+  using KODI::PLATFORM::WINDOWS::ToW;
+
   WSAQUERYSET service = {};
   service.dwSize = sizeof(service);
-  service.lpszServiceInstanceName = (LPSTR)bt_service_name;
+  service.lpszServiceInstanceName = const_cast<LPWSTR>(ToW(bt_service_name).c_str());
   service.lpServiceClassId        = (LPGUID)&bt_service_guid;
-  service.lpszComment             = (LPSTR)bt_service_desc;
+  service.lpszComment             = const_cast<LPWSTR>(ToW(bt_service_desc).c_str());
   service.dwNameSpace             = NS_BTH;
   service.lpNSProviderId          = NULL; /* RFCOMM? */
   service.lpcsaBuffer             = &addrinfo;
@@ -394,7 +384,7 @@ bool CTCPServer::InitializeBlue()
   sdp_uuid128_create(&svc_uuid, &bt_service_guid);
   sdp_set_service_id(record, svc_uuid);
 
-  // make the service record publicly browsable
+  // make the service record publicly browseable
   sdp_uuid16_create(&root_uuid, PUBLIC_BROWSE_GROUP);
   root_list = sdp_list_append(0, &root_uuid);
   sdp_set_browse_groups(record, root_list);
@@ -456,17 +446,17 @@ bool CTCPServer::InitializeBlue()
 #endif
   return false;
 }
+#endif
 
 bool CTCPServer::InitializeTCP()
 {
-  SOCKET fd;
-
   Deinitialize();
 
-  if ((fd = CreateTCPServerSocket(m_port, !m_nonlocal, 10, "JSONRPC")) == INVALID_SOCKET)
+  std::vector<SOCKET> sockets = CreateTCPServerSocket(m_port, !m_nonlocal, 10, "JSONRPC");
+  if (sockets.empty())
     return false;
 
-  m_servers.push_back(fd);
+  m_servers.insert(m_servers.end(), sockets.begin(), sockets.end());
   return true;
 }
 
@@ -491,13 +481,13 @@ void CTCPServer::Deinitialize()
   m_sdpd = NULL;
 #endif
 
-  CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
+  CServiceBroker::GetAnnouncementManager()->RemoveAnnouncer(this);
 }
 
 CTCPServer::CTCPClient::CTCPClient()
 {
   m_new = true;
-  m_announcementflags = ANNOUNCE_ALL;
+  m_announcementflags = ANNOUNCEMENT::ANNOUNCE_ALL;
   m_socket = INVALID_SOCKET;
   m_beginBrackets = 0;
   m_endBrackets = 0;
@@ -547,6 +537,9 @@ void CTCPServer::CTCPClient::Send(const char *data, unsigned int size)
 void CTCPServer::CTCPClient::PushBuffer(CTCPServer *host, const char *buffer, int length)
 {
   m_new = false;
+  bool inObject = false;
+  bool inString = false;
+  bool escapeNext = false;
 
   for (int i = 0; i < length; i++)
   {
@@ -566,10 +559,42 @@ void CTCPServer::CTCPClient::PushBuffer(CTCPServer *host, const char *buffer, in
     if (m_beginChar != 0)
     {
       m_buffer.push_back(c);
-      if (c == m_beginChar)
-        m_beginBrackets++;
-      else if (c == m_endChar)
-        m_endBrackets++;
+      if (inObject)
+      {
+        if (!inString)
+        {
+          if (c == '"')
+            inString = true;
+        }
+        else
+        {
+          if (escapeNext)
+          {
+            escapeNext = false;
+          }
+          else
+          {
+            if (c == '\\')
+              escapeNext = true;
+            else if (c == '"')
+              inString = false;
+          }
+        }
+      }
+      if (!inString)
+      {
+        if (c == m_beginChar)
+        {
+          m_beginBrackets++;
+          inObject = true;
+        }
+        else if (c == m_endChar)
+        {
+          m_endBrackets++;
+          if (m_beginBrackets == m_endBrackets)
+            inObject = false;
+        }
+      }
       if (m_beginBrackets > 0 && m_endBrackets > 0 && m_beginBrackets == m_endBrackets)
       {
         std::string line = CJSONRPC::MethodCall(m_buffer, host, this);

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AESinkOSS.h"
@@ -23,6 +11,7 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include "cores/AudioEngine/AESinkFactory.h"
 #include "cores/AudioEngine/Utils/AEUtil.h"
 #include "utils/log.h"
 #include "threads/SingleLock.h"
@@ -71,6 +60,25 @@ CAESinkOSS::CAESinkOSS()
 CAESinkOSS::~CAESinkOSS()
 {
   Deinitialize();
+}
+
+void CAESinkOSS::Register()
+{
+  AE::AESinkRegEntry entry;
+  entry.sinkName = "OSS";
+  entry.createFunc = CAESinkOSS::Create;
+  entry.enumerateFunc = CAESinkOSS::EnumerateDevicesEx;
+  AE::CAESinkFactory::RegisterSink(entry);
+}
+
+IAESink* CAESinkOSS::Create(std::string &device, AEAudioFormat& desiredFormat)
+{
+  IAESink* sink = new CAESinkOSS();
+  if (sink->Initialize(desiredFormat, device))
+    return sink;
+
+  delete sink;
+  return nullptr;
 }
 
 std::string CAESinkOSS::GetDeviceUse(const AEAudioFormat& format, const std::string &device)
@@ -342,7 +350,7 @@ inline CAEChannelInfo CAESinkOSS::GetChannelLayout(const AEAudioFormat& format)
   {
     switch (format.m_streamInfo.m_type)
     {
-    case CAEStreamInfo::STREAM_TYPE_DTSHD:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD_MA:
     case CAEStreamInfo::STREAM_TYPE_TRUEHD:
       count = 8;
       break;
@@ -352,6 +360,7 @@ inline CAEChannelInfo CAESinkOSS::GetChannelLayout(const AEAudioFormat& format)
     case CAEStreamInfo::STREAM_TYPE_DTS_2048:
     case CAEStreamInfo::STREAM_TYPE_AC3:
     case CAEStreamInfo::STREAM_TYPE_EAC3:
+    case CAEStreamInfo::STREAM_TYPE_DTSHD:
       count = 2;
       break;
     default:
@@ -392,7 +401,7 @@ void CAESinkOSS::GetDelay(AEDelayStatus& status)
     status.SetDelay(0);
     return;
   }
-  
+
   int delay;
   if (ioctl(m_fd, SNDCTL_DSP_GETODELAY, &delay) == -1)
   {
@@ -444,7 +453,7 @@ void CAESinkOSS::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
     CLog::Log(LOGNOTICE,
 	  "CAESinkOSS::EnumerateDevicesEx - No OSS mixer device present: %s", mixerdev);
     return;
-  }	
+  }
 
 #if defined(SNDCTL_SYSINFO) && defined(SNDCTL_CARDINFO)
   oss_sysinfo sysinfo;
@@ -486,6 +495,7 @@ void CAESinkOSS::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
       info.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_DTS_512);
       info.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_EAC3);
       info.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_DTSHD);
+      info.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_DTSHD_MA);
       info.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_TRUEHD);
       info.m_dataFormats.push_back(AE_FMT_RAW);
     }
@@ -503,7 +513,7 @@ void CAESinkOSS::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
     {
       info.m_deviceType = AE_DEVTYPE_PCM;
     }
- 
+
     oss_audioinfo ainfo;
     memset(&ainfo, 0, sizeof(ainfo));
     ainfo.dev = i;

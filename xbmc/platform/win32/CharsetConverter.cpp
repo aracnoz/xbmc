@@ -1,26 +1,14 @@
 /*
- *      Copyright (C) 2005-2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <memory>
-
 #include "CharsetConverter.h"
+
+#include <memory>
 namespace KODI
 {
 namespace PLATFORM
@@ -29,12 +17,12 @@ namespace WINDOWS
 {
 std::string FromW(const wchar_t* str, size_t length)
 {
-  int result = WideCharToMultiByte(CP_UTF8, MB_ERR_INVALID_CHARS, str, length, nullptr, 0, nullptr, nullptr);
+  int result = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, str, length, nullptr, 0, nullptr, nullptr);
   if (result == 0)
     return std::string();
 
   auto newStr = std::make_unique<char[]>(result);
-  result = WideCharToMultiByte(CP_UTF8, MB_ERR_INVALID_CHARS, str, length, newStr.get(), result, nullptr, nullptr);
+  result = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, str, length, newStr.get(), result, nullptr, nullptr);
   if (result == 0)
     return std::string();
 

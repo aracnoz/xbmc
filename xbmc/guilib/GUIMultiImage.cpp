@@ -1,36 +1,28 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIMultiImage.h"
-#include "TextureManager.h"
-#include "filesystem/Directory.h"
-#include "utils/URIUtils.h"
-#include "utils/JobManager.h"
+
 #include "FileItem.h"
-#include "settings/AdvancedSettings.h"
-#include "input/Key.h"
+#include "GUIMessage.h"
+#include "ServiceBroker.h"
 #include "TextureCache.h"
+#include "TextureManager.h"
 #include "WindowIDs.h"
+#include "filesystem/Directory.h"
+#include "input/Key.h"
+#include "utils/FileExtensionProvider.h"
+#include "utils/JobManager.h"
 #include "utils/Random.h"
 #include "utils/StringUtils.h"
+#include "utils/URIUtils.h"
 
+using namespace KODI::GUILIB;
 using namespace XFILE;
 
 CGUIMultiImage::CGUIMultiImage(int parentID, int controlID, float posX, float posY, float width, float height, const CTextureInfo& texture, unsigned int timePerImage, unsigned int fadeTime, bool randomized, bool loop, unsigned int timeToPauseAtEnd)
@@ -139,17 +131,17 @@ void CGUIMultiImage::Process(unsigned int currentTime, CDirtyRegionList &dirtyre
       }
     }
   }
-  else
+  else if (m_directoryStatus != LOADING)
     m_image.SetFileName("");
 
-  if (g_graphicsContext.SetClipRegion(m_posX, m_posY, m_width, m_height))
+  if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height))
   {
     if (m_image.SetColorDiffuse(m_diffuseColor))
       MarkDirtyRegion();
 
     m_image.DoProcess(currentTime, dirtyregions);
 
-    g_graphicsContext.RestoreClipRegion();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
   }
 
   CGUIControl::Process(currentTime, dirtyregions);
@@ -234,7 +226,7 @@ void CGUIMultiImage::LoadDirectory()
   if (item.IsPicture() || CTextureCache::GetInstance().HasCachedImage(m_currentPath))
     m_files.push_back(m_currentPath);
   else // bundled folder?
-    g_TextureManager.GetBundledTexturesFromPath(m_currentPath, m_files);
+    CServiceBroker::GetGUI()->GetTextureManager().GetBundledTexturesFromPath(m_currentPath, m_files);
   if (!m_files.empty())
   { // found - nothing more to do
     OnDirectoryLoaded();
@@ -279,7 +271,7 @@ void CGUIMultiImage::OnJobComplete(unsigned int jobID, bool success, CJob *job)
   }
 }
 
-void CGUIMultiImage::SetInfo(const CGUIInfoLabel &info)
+void CGUIMultiImage::SetInfo(const GUIINFO::CGUIInfoLabel &info)
 {
   m_texturePath = info;
   if (m_texturePath.IsConstant())
@@ -309,13 +301,13 @@ bool CGUIMultiImage::CMultiImageJob::DoWork()
   {
     // Load in images from the directory specified
     // m_path is relative (as are all skin paths)
-    std::string realPath = g_TextureManager.GetTexturePath(m_path, true);
+    std::string realPath = CServiceBroker::GetGUI()->GetTextureManager().GetTexturePath(m_path, true);
     if (realPath.empty())
       return true;
 
     URIUtils::AddSlashAtEnd(realPath);
     CFileItemList items;
-    CDirectory::GetDirectory(realPath, items, g_advancedSettings.m_pictureExtensions + "|.tbn|.dds", DIR_FLAG_NO_FILE_DIRS | DIR_FLAG_NO_FILE_INFO);
+    CDirectory::GetDirectory(realPath, items, CServiceBroker::GetFileExtensionProvider().GetPictureExtensions()+ "|.tbn|.dds", DIR_FLAG_NO_FILE_DIRS | DIR_FLAG_NO_FILE_INFO);
     for (int i=0; i < items.Size(); i++)
     {
       CFileItem* pItem = items[i].get();

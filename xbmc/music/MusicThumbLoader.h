@@ -1,54 +1,48 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
+#pragma once
+
 #include "ThumbLoader.h"
+
+#include <map>
 
 class CFileItem;
 class CMusicDatabase;
-
-namespace MUSIC_INFO
-{
-  class EmbeddedArt;
-};
+class EmbeddedArt;
 
 class CMusicThumbLoader : public CThumbLoader
 {
 public:
   CMusicThumbLoader();
-  virtual ~CMusicThumbLoader();
+  ~CMusicThumbLoader() override;
 
-  virtual void OnLoaderStart();
-  virtual void OnLoaderFinish();
+  void OnLoaderStart() override;
+  void OnLoaderFinish() override;
 
-  virtual bool LoadItem(CFileItem* pItem);
-  virtual bool LoadItemCached(CFileItem* pItem);
-  virtual bool LoadItemLookup(CFileItem* pItem);
+  bool LoadItem(CFileItem* pItem) override;
+  bool LoadItemCached(CFileItem* pItem) override;
+  bool LoadItemLookup(CFileItem* pItem) override;
 
-  /*! \brief helper function to fill the art for a video library item
-   \param item a video CFileItem
-   \return true if we fill art, false otherwise
+  /*! \brief Helper function to fill all the art for a music library item
+  This fetches the original url for each type of art, and sets fallback thumb and fanart.
+  For songs the art for the related album and artist(s) is also set, and for albums that
+  of the related artist(s). Art type is named according to media type of the item,
+  for example:
+  artists may have "thumb", "fanart", "logo", "poster" etc.,
+  albums may have "thumb", "spine" etc. and "artist.thumb", "artist.fanart" etc.,
+  songs may have "thumb", "album.thumb", "artist.thumb", "artist.fanart", "artist.logo",...
+  "artist1.thumb", "artist1.fanart",... "albumartist.thumb", "albumartist1.thumb" etc.
+   \param item a music CFileItem
+   \return true if we fill art, false if there is no art found
    */
-  virtual bool FillLibraryArt(CFileItem &item);
-  
+  bool FillLibraryArt(CFileItem &item) override;
+
   /*! \brief Fill the thumb of a music file/folder item
    First uses a cached thumb from a previous run, then checks for a local thumb
    and caches it for the next run
@@ -56,8 +50,8 @@ public:
    \return true if we fill the thumb, false otherwise
    */
   virtual bool FillThumb(CFileItem &item, bool folderThumbs = true);
-  
-  static bool GetEmbeddedThumb(const std::string &path, MUSIC_INFO::EmbeddedArt &art);
+
+  static bool GetEmbeddedThumb(const std::string &path, EmbeddedArt &art);
 
 protected:
   CMusicDatabase *m_musicDatabase;

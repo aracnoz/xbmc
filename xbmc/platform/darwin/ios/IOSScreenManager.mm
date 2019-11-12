@@ -1,45 +1,30 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-//hack around problem with xbmc's typedef int BOOL
-// and obj-c's typedef unsigned char BOOL
-#define BOOL XBMC_BOOL
-#include <sys/resource.h>
-#include <signal.h>
-#include "utils/log.h"
+#import "IOSScreenManager.h"
+
+#include "Application.h"
+#import "IOSEAGLView.h"
+#import "IOSExternalTouchController.h"
+#include "ServiceBroker.h"
+#import "XBMCController.h"
+#include "cores/AudioEngine/Interfaces/AE.h"
 #include "settings/DisplaySettings.h"
 #include "threads/Event.h"
-#include "Application.h"
-#include "windowing/WindowingFactory.h"
-#include "settings/DisplaySettings.h"
-#include "cores/AudioEngine/AEFactory.h"
-#include "platform/darwin/DarwinUtils.h"
-#undef BOOL
+#include "utils/log.h"
+#include "windowing/WinSystem.h"
+#include "windowing/ios/WinSystemIOS.h"
+
+#include <signal.h>
 
 #import <Foundation/Foundation.h>
 #include <objc/runtime.h>
-
-#import "IOSScreenManager.h"
-#import "XBMCController.h"
-#import "IOSExternalTouchController.h"
-#import "IOSEAGLView.h"
+#include <sys/resource.h>
 
 const CGFloat timeSwitchingToExternalSecs = 6.0;
 const CGFloat timeSwitchingToInternalSecs = 2.0;
@@ -102,51 +87,17 @@ static CEvent screenChangeEvent;
 
     [_glView setScreen:newScreen withFrameBufferResize:TRUE];//will also resize the framebuffer
 
-    if (toExternal)
-    {
-      // portrait on external screen means its landscape for xbmc
-#if __IPHONE_8_0
-      if (CDarwinUtils::GetIOSVersion() >= 8.0 && CDarwinUtils::GetIOSVersion() < 9.0)
-        [g_xbmcController activateScreen:newScreen withOrientation:UIInterfaceOrientationLandscapeLeft];// will attach the screen to xbmc mainwindow
-      else
-#endif
-        [g_xbmcController activateScreen:newScreen withOrientation:UIInterfaceOrientationPortrait];// will attach the screen to xbmc mainwindow
-    }
-    else
-    {
-#if __IPHONE_8_0
-      if (CDarwinUtils::GetIOSVersion() >= 8.0)
-        [g_xbmcController activateScreen:newScreen withOrientation:UIInterfaceOrientationPortrait];// will attach the screen to xbmc mainwindow
-      else
-#endif
-      // switching back to internal - use same orientation as we used for the touch controller
-      [g_xbmcController activateScreen:newScreen withOrientation:_lastTouchControllerOrientation];// will attach the screen to xbmc mainwindow
-    }
+    [g_xbmcController activateScreen:newScreen withOrientation:UIInterfaceOrientationPortrait];// will attach the screen to xbmc mainwindow
 
     if(toExternal)//changing the external screen might need some time ...
     {
       //deactivate any overscan compensation when switching to external screens
-      if([newScreen respondsToSelector:@selector(overscanCompensation)])
-      {
-        //since iOS5.0 tvout has an default overscan compensation and property
-        //we need to switch it off here so that the tv can handle any
-        //needed overscan compensation (else on tvs without "just scan" option
-        //we might end up with black borders.
-        //Beside that in Apples documentation to setOverscanCompensation
-        //the parameter enum is lacking the UIScreenOverscanCompensationNone value.
-        //Someone on stackoverflow figured out that value 3 is for turning it off
-        //(though there is no enum value for it).
-#ifdef __IPHONE_5_0
-        [newScreen setOverscanCompensation:(UIScreenOverscanCompensation)3];
-#else
-        [newScreen setOverscanCompensation:3];
-#endif
-        CLog::Log(LOGDEBUG, "[IOSScreenManager] Disabling overscancompensation.");
-      }
-      else
-      {
-        CLog::Log(LOGDEBUG, "[IOSScreenManager] Disabling overscancompensation not supported on this iOS version.");
-      }
+      //tvout has a default overscan compensation and property
+      //we need to switch it off here so that the tv can handle any
+      //needed overscan compensation (else on tvs without "just scan" option
+      //we might end up with black borders.
+      [newScreen setOverscanCompensation:UIScreenOverscanCompensationNone];
+      CLog::Log(LOGDEBUG, "[IOSScreenManager] Disabling overscancompensation.");
 
       [[IOSScreenManager sharedInstance] fadeFromBlack:timeSwitchingToExternalSecs];
     }
@@ -173,8 +124,7 @@ static CEvent screenChangeEvent;
 
   if([self willSwitchToInternal:screenIdx] && _externalTouchController != nil)
   {
-    _lastTouchControllerOrientation = [_externalTouchController interfaceOrientation];
-    [_externalTouchController release];
+    _lastTouchControllerOrientation = [[UIApplication sharedApplication] statusBarOrientation];
     _externalTouchController = nil;
   }
 
@@ -229,7 +179,7 @@ static CEvent screenChangeEvent;
 
   // re-enumerate audio devices in that case too
   // as we might gain passthrough capabilities via HDMI
-  CAEFactory::DeviceChange();
+  CServiceBroker::GetActiveAE()->DeviceChange();
   return true;
 }
 //--------------------------------------------------------------
@@ -251,47 +201,27 @@ static CEvent screenChangeEvent;
   return false;
 }
 //--------------------------------------------------------------
-+ (CGRect) getLandscapeResolution:(UIScreen *)screen
-{
-  CGRect res = [screen bounds];
-  #if __IPHONE_8_0
-  if (CDarwinUtils::GetIOSVersion() < 8.0)
-  #endif
-  {
-    //main screen is in portrait mode (physically) so exchange height and width
-    //at least when compiled with ios sdk < 8.0 (seems to be fixed in later sdks)
-    if(screen == [UIScreen mainScreen])
-    {
-      CGRect frame = res;
-      res.size = CGSizeMake(frame.size.height, frame.size.width);
-    }
-  }
-  return res;
-}
-//--------------------------------------------------------------
 - (void) screenDisconnect
 {
   //if we are on external screen and he was disconnected
   //change back to internal screen
-  if([[UIScreen screens] count] == 1 && _screenIdx != 0)
+  if (_screenIdx != 0)
   {
-    RESOLUTION_INFO res = CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP);//internal screen default res
-    g_Windowing.SetFullScreen(true, res, false);
+    CWinSystemIOS *winSystem = (CWinSystemIOS *)CServiceBroker::GetWinSystem();
+    if (winSystem != nullptr)
+    {
+      winSystem->MoveToTouchscreen();
+    }
   }
 }
 //--------------------------------------------------------------
 + (void) updateResolutions
 {
-  g_Windowing.UpdateResolutions();
-}
-//--------------------------------------------------------------
-- (void) dealloc
-{
-  if(_externalTouchController != nil )
+  CWinSystemBase *winSystem = CServiceBroker::GetWinSystem();
+  if (winSystem != nullptr)
   {
-    [_externalTouchController release];
+    winSystem->UpdateResolutions();
   }
-  [super dealloc];
 }
 //--------------------------------------------------------------
 + (id) sharedInstance

@@ -1,30 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#if (defined HAVE_CONFIG_H) && (!defined TARGET_WINDOWS)
-  #include "config.h"
-#endif
 
 #include "WebServer.h"
 
-#ifdef HAS_WEB_SERVER
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
@@ -39,24 +22,17 @@
 #include "network/httprequesthandler/IHTTPRequestHandler.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "ServiceBroker.h"
 #include "threads/SingleLock.h"
-#include "URL.h"
 #include "Util.h"
-#include "utils/Base64.h"
+#include "utils/FileUtils.h"
 #include "utils/log.h"
 #include "utils/Mime.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
 #include "XBDateTime.h"
-
-#ifdef TARGET_WINDOWS
-#ifndef _DEBUG
-#pragma comment(lib, "libmicrohttpd.lib")
-#else  // _DEBUG
-#pragma comment(lib, "libmicrohttpd_d.lib")
-#endif // _DEBUG
-#endif // TARGET_WINDOWS
 
 #define MAX_POST_BUFFER_SIZE 2048
 
@@ -80,13 +56,10 @@ typedef struct {
 } HttpFileDownloadContext;
 
 CWebServer::CWebServer()
-  : m_port(0),
-    m_daemon_ip6(nullptr),
-    m_daemon_ip4(nullptr),
-    m_running(false),
-    m_needcredentials(false),
-    m_thread_stacksize(0),
-    m_Credentials64Encoded("eGJtYzp4Ym1j") // xbmc:xbmc
+  : m_authenticationUsername("kodi"),
+    m_authenticationPassword(""),
+    m_key(),
+    m_cert()
 {
 #if defined(TARGET_DARWIN)
   void *stack_addr;
@@ -102,21 +75,18 @@ CWebServer::CWebServer()
 #endif
 }
 
-static MHD_Response* create_response(size_t size, void* data, int free, int copy)
+static MHD_Response* create_response(size_t size, const void* data, int free, int copy)
 {
-#if (MHD_VERSION >= 0x00094001)
   MHD_ResponseMemoryMode mode = MHD_RESPMEM_PERSISTENT;
   if (copy)
     mode = MHD_RESPMEM_MUST_COPY;
   else if (free)
     mode = MHD_RESPMEM_MUST_FREE;
-  return MHD_create_response_from_buffer(size, data, mode);
-#else
-  return MHD_create_response_from_data(size, data, free, copy);
-#endif
+  //! @bug libmicrohttpd isn't const correct
+  return MHD_create_response_from_buffer(size, const_cast<void*>(data), mode);
 }
 
-int CWebServer::AskForAuthentication(struct MHD_Connection *connection) const
+int CWebServer::AskForAuthentication(const HTTPRequest& request) const
 {
   struct MHD_Response *response = create_response(0, nullptr, MHD_NO, MHD_NO);
   if (!response)
@@ -125,8 +95,7 @@ int CWebServer::AskForAuthentication(struct MHD_Connection *connection) const
     return MHD_NO;
   }
 
-  int ret = AddHeader(response, MHD_HTTP_HEADER_WWW_AUTHENTICATE, "Basic realm=XBMC");
-  ret |= AddHeader(response, MHD_HTTP_HEADER_CONNECTION, "close");
+  int ret = AddHeader(response, MHD_HTTP_HEADER_CONNECTION, "close");
   if (!ret)
   {
     CLog::Log(LOGERROR, "CWebServer[%hu]: unable to prepare HTTP Unauthorized response", m_port);
@@ -134,49 +103,42 @@ int CWebServer::AskForAuthentication(struct MHD_Connection *connection) const
     return MHD_NO;
   }
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-  {
-    std::multimap<std::string, std::string> headerValues;
-    HTTPRequestHandlerUtils::GetRequestHeaderValues(connection, MHD_RESPONSE_HEADER_KIND, headerValues);
+  LogResponse(request, MHD_HTTP_UNAUTHORIZED);
 
-    CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] HTTP %d", m_port, MHD_HTTP_UNAUTHORIZED);
-
-    for (std::multimap<std::string, std::string>::const_iterator header = headerValues.begin(); header != headerValues.end(); ++header)
-      CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, header->first.c_str(), header->second.c_str());
-  }
-
-  ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
+  ret = MHD_queue_basic_auth_fail_response(request.connection, "XBMC", response);
   MHD_destroy_response(response);
 
   return ret;
 }
 
-bool CWebServer::IsAuthenticated(struct MHD_Connection *connection) const
+bool CWebServer::IsAuthenticated(const HTTPRequest& request) const
 {
   CSingleLock lock(m_critSection);
 
-  if (!m_needcredentials)
+  if (!m_authenticationRequired)
     return true;
 
-  const char *base = "Basic ";
-  std::string authorization = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_AUTHORIZATION);
-  if (authorization.empty() || !StringUtils::StartsWith(authorization, base))
+  // try to retrieve username and password for basic authentication
+  char* password = nullptr;
+  char* username = MHD_basic_auth_get_username_password(request.connection, &password);
+
+  if (username == nullptr || password == nullptr)
     return false;
 
-  return m_Credentials64Encoded.compare(StringUtils::Mid(authorization.c_str(), strlen(base))) == 0;
+  // compare the received username and password
+  bool authenticated = m_authenticationUsername.compare(username) == 0 &&
+                       m_authenticationPassword.compare(password) == 0;
+
+  free(username);
+  free(password);
+
+  return authenticated;
 }
 
-#if (MHD_VERSION >= 0x00040001)
 int CWebServer::AnswerToConnection(void *cls, struct MHD_Connection *connection,
                       const char *url, const char *method,
                       const char *version, const char *upload_data,
                       size_t *upload_data_size, void **con_cls)
-#else
-int CWebServer::AnswerToConnection(void *cls, struct MHD_Connection *connection,
-                      const char *url, const char *method,
-                      const char *version, const char *upload_data,
-                      unsigned int *upload_data_size, void **con_cls)
-#endif
 {
   if (cls == nullptr || con_cls == nullptr || *con_cls == nullptr)
   {
@@ -195,34 +157,13 @@ int CWebServer::AnswerToConnection(void *cls, struct MHD_Connection *connection,
   HTTPMethod methodType = GetHTTPMethod(method);
   HTTPRequest request = { webServer, connection, connectionHandler->fullUri, url, methodType, version };
 
-  if (connectionHandler->isNew && g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-  {
-    std::multimap<std::string, std::string> headerValues;
-    HTTPRequestHandlerUtils::GetRequestHeaderValues(connection, MHD_HEADER_KIND, headerValues);
-    std::multimap<std::string, std::string> getValues;
-    HTTPRequestHandlerUtils::GetRequestHeaderValues(connection, MHD_GET_ARGUMENT_KIND, getValues);
-
-    CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] %s %s %s", webServer->m_port, version, GetHTTPMethod(request.method).c_str(), request.pathUrlFull.c_str());
-    if (!getValues.empty())
-    {
-      std::string tmp;
-      for (std::multimap<std::string, std::string>::const_iterator get = getValues.begin(); get != getValues.end(); ++get)
-      {
-        if (get != getValues.begin())
-          tmp += "; ";
-        tmp += get->first + " = " + get->second;
-      }
-      CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] Query arguments: %s", webServer->m_port, tmp.c_str());
-    }
-
-    for (std::multimap<std::string, std::string>::const_iterator header = headerValues.begin(); header != headerValues.end(); ++header)
-      CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] %s: %s", webServer->m_port, header->first.c_str(), header->second.c_str());
-  }
+  if (connectionHandler->isNew)
+    webServer->LogRequest(request);
 
   return webServer->HandlePartialRequest(connection, connectionHandler, request, upload_data, upload_data_size, con_cls);
 }
 
-int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, ConnectionHandler* connectionHandler, HTTPRequest request, const char *upload_data, size_t *upload_data_size, void **con_cls)
+int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, ConnectionHandler* connectionHandler, const HTTPRequest& request, const char *upload_data, size_t *upload_data_size, void **con_cls)
 {
   std::unique_ptr<ConnectionHandler> conHandler(connectionHandler);
 
@@ -234,139 +175,69 @@ int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, Connecti
   // reset con_cls and set it if still necessary
   *con_cls = nullptr;
 
-  if (!IsAuthenticated(connection)) 
-    return AskForAuthentication(connection);
+  if (!IsAuthenticated(request))
+    return AskForAuthentication(request);
 
   // check if this is the first call to AnswerToConnection for this request
   if (isNewRequest)
   {
-    // parse the Range header and store it in the request object
-    CHttpRanges ranges;
-    bool ranged = ranges.Parse(HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_RANGE));
-
     // look for a IHTTPRequestHandler which can take care of the current request
-    for (std::vector<IHTTPRequestHandler *>::const_iterator it = m_requestHandlers.begin(); it != m_requestHandlers.end(); ++it)
+    auto handler = FindRequestHandler(request);
+    if (handler != nullptr)
     {
-      IHTTPRequestHandler *requestHandler = *it;
-      if (requestHandler->CanHandleRequest(request))
+      // if we got a GET request we need to check if it should be cached
+      if (request.method == GET)
       {
-        // we found a matching IHTTPRequestHandler so let's get a new instance for this request
-        std::shared_ptr<IHTTPRequestHandler> handler(requestHandler->Create(request));
-
-        // if we got a GET request we need to check if it should be cached
-        if (request.method == GET)
+        if (handler->CanBeCached())
         {
-          if (handler->CanBeCached())
+          bool cacheable = IsRequestCacheable(request);
+
+          CDateTime lastModified;
+          if (handler->GetLastModifiedDate(lastModified) && lastModified.IsValid())
           {
-            bool cacheable = true;
+            // handle If-Modified-Since or If-Unmodified-Since
+            std::string ifModifiedSince = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_MODIFIED_SINCE);
+            std::string ifUnmodifiedSince = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_UNMODIFIED_SINCE);
 
-            // handle Cache-Control
-            std::string cacheControl = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CACHE_CONTROL);
-            if (!cacheControl.empty())
+            CDateTime ifModifiedSinceDate;
+            CDateTime ifUnmodifiedSinceDate;
+            // handle If-Modified-Since (but only if the response is cacheable)
+            if (cacheable &&
+              ifModifiedSinceDate.SetFromRFC1123DateTime(ifModifiedSince) &&
+              lastModified.GetAsUTCDateTime() <= ifModifiedSinceDate)
             {
-              std::vector<std::string> cacheControls = StringUtils::Split(cacheControl, ",");
-              for (std::vector<std::string>::const_iterator it = cacheControls.begin(); it != cacheControls.end(); ++it)
+              struct MHD_Response *response = create_response(0, nullptr, MHD_NO, MHD_NO);
+              if (response == nullptr)
               {
-                std::string control = *it;
-                control = StringUtils::Trim(control);
-
-                // handle no-cache
-                if (control.compare(HEADER_VALUE_NO_CACHE) == 0)
-                  cacheable = false;
+                CLog::Log(LOGERROR, "CWebServer[%hu]: failed to create a HTTP 304 response", m_port);
+                return MHD_NO;
               }
+
+              return FinalizeRequest(handler, MHD_HTTP_NOT_MODIFIED, response);
             }
-
-            if (cacheable)
-            {
-              // handle Pragma (but only if "Cache-Control: no-cache" hasn't been set)
-              std::string pragma = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_PRAGMA);
-              if (pragma.compare(HEADER_VALUE_NO_CACHE) == 0)
-                cacheable = false;
-            }
-
-            CDateTime lastModified;
-            if (handler->GetLastModifiedDate(lastModified) && lastModified.IsValid())
-            {
-              // handle If-Modified-Since or If-Unmodified-Since
-              std::string ifModifiedSince = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_MODIFIED_SINCE);
-              std::string ifUnmodifiedSince = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_UNMODIFIED_SINCE);
-
-              CDateTime ifModifiedSinceDate;
-              CDateTime ifUnmodifiedSinceDate;
-              // handle If-Modified-Since (but only if the response is cacheable)
-              if (cacheable &&
-                ifModifiedSinceDate.SetFromRFC1123DateTime(ifModifiedSince) &&
-                lastModified.GetAsUTCDateTime() <= ifModifiedSinceDate)
-              {
-                struct MHD_Response *response = create_response(0, nullptr, MHD_NO, MHD_NO);
-                if (response == nullptr)
-                {
-                  CLog::Log(LOGERROR, "CWebServer[%hu]: failed to create a HTTP 304 response", m_port);
-                  return MHD_NO;
-                }
-
-                return FinalizeRequest(handler, MHD_HTTP_NOT_MODIFIED, response);
-              }
-              // handle If-Unmodified-Since
-              else if (ifUnmodifiedSinceDate.SetFromRFC1123DateTime(ifUnmodifiedSince) &&
-                lastModified.GetAsUTCDateTime() > ifUnmodifiedSinceDate)
-                return SendErrorResponse(connection, MHD_HTTP_PRECONDITION_FAILED, request.method);
-            }
-
-            // handle If-Range header but only if the Range header is present
-            if (ranged && lastModified.IsValid())
-            {
-              std::string ifRange = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_RANGE);
-              if (!ifRange.empty() && lastModified.IsValid())
-              {
-                CDateTime ifRangeDate;
-                ifRangeDate.SetFromRFC1123DateTime(ifRange);
-
-                // check if the last modification is newer than the If-Range date
-                // if so we have to server the whole file instead
-                if (lastModified.GetAsUTCDateTime() > ifRangeDate)
-                  ranges.Clear();
-              }
-            }
-
-            // pass the requested ranges on to the request handler
-            handler->SetRequestRanged(!ranges.IsEmpty());
-          }
-        }
-        // if we got a POST request we need to take care of the POST data
-        else if (request.method == POST)
-        {
-          conHandler->requestHandler = handler;
-
-          // get the content-type of the POST data
-          std::string contentType = HTTPRequestHandlerUtils::GetRequestHeaderValue(connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CONTENT_TYPE);
-          if (!contentType.empty())
-          {
-            // if the content-type is application/x-ww-form-urlencoded or multipart/form-data we can use MHD's POST processor
-            if (StringUtils::EqualsNoCase(contentType, MHD_HTTP_POST_ENCODING_FORM_URLENCODED) ||
-                StringUtils::EqualsNoCase(contentType, MHD_HTTP_POST_ENCODING_MULTIPART_FORMDATA))
-            {
-              // Get a new MHD_PostProcessor
-              conHandler->postprocessor = MHD_create_post_processor(connection, MAX_POST_BUFFER_SIZE, &CWebServer::HandlePostField, (void*)conHandler.get());
-
-              // MHD doesn't seem to be able to handle this post request
-              if (conHandler->postprocessor == nullptr)
-              {
-                CLog::Log(LOGERROR, "CWebServer[%hu]: unable to create HTTP POST processor for %s", m_port, request.pathUrl.c_str());
-                conHandler->errorStatus = MHD_HTTP_INTERNAL_SERVER_ERROR;
-              }
-            }
+            // handle If-Unmodified-Since
+            else if (ifUnmodifiedSinceDate.SetFromRFC1123DateTime(ifUnmodifiedSince) &&
+              lastModified.GetAsUTCDateTime() > ifUnmodifiedSinceDate)
+              return SendErrorResponse(request, MHD_HTTP_PRECONDITION_FAILED, request.method);
           }
 
-          // otherwise we need to handle the POST data ourselves which is done in the next call to AnswerToConnection
-          // as ownership of the connection handler is passed to libmicrohttpd we must not destroy it 
-          *con_cls = conHandler.release();
-
-          return MHD_YES;
+          // pass the requested ranges on to the request handler
+          handler->SetRequestRanged(IsRequestRanged(request, lastModified));
         }
-
-        return HandleRequest(handler);
       }
+      // if we got a POST request we need to take care of the POST data
+      else if (request.method == POST)
+      {
+        // as ownership of the connection handler is passed to libmicrohttpd we must not destroy it
+        SetupPostDataProcessing(request, conHandler.get(), handler, con_cls);
+
+        // as ownership of the connection handler has been passed to libmicrohttpd we must not destroy it
+        conHandler.release();
+
+        return MHD_YES;
+      }
+
+      return HandleRequest(handler);
     }
   }
   // this is a subsequent call to AnswerToConnection for this request
@@ -375,83 +246,40 @@ int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, Connecti
     // again we need to take special care of the POST data
     if (request.method == POST)
     {
-      if (conHandler->requestHandler == nullptr)
+      // process additional / remaining POST data
+      if (ProcessPostData(request, conHandler.get(), upload_data, upload_data_size, con_cls))
       {
-        CLog::Log(LOGERROR, "CWebServer[%hu]: cannot handle partial HTTP POST for %s request because there is no valid request handler available", m_port, request.pathUrl.c_str());
-        conHandler->errorStatus = MHD_HTTP_INTERNAL_SERVER_ERROR;
-      }
-
-      // we only need to handle POST data if there actually is data left to handle
-      if (*upload_data_size > 0)
-      {
-        // if nothing has gone wrong so far, process the given POST data
-        if (conHandler->errorStatus == MHD_HTTP_OK)
-        {
-          bool postDataHandled = false;
-          // either use MHD's POST processor
-          if (conHandler->postprocessor != nullptr)
-            postDataHandled = MHD_post_process(conHandler->postprocessor, upload_data, *upload_data_size) == MHD_YES;
-          // or simply copy the data to the handler
-          else
-            postDataHandled = conHandler->requestHandler->AddPostData(upload_data, *upload_data_size);
-
-          // abort if the received POST data couldn't be handled
-          if (!postDataHandled)
-          {
-            CLog::Log(LOGERROR, "CWebServer[%hu]: failed to handle HTTP POST data for %s", m_port, request.pathUrl.c_str());
-            conHandler->errorStatus = MHD_HTTP_REQUEST_ENTITY_TOO_LARGE;
-          }
-        }
-
-        // signal that we have handled the data
-        *upload_data_size = 0;
-
-        // we may need to handle more POST data which is done in the next call to AnswerToConnection
-        // as ownership of the connection handler is passed to libmicrohttpd we must not destroy it 
-        *con_cls = conHandler.release();
+        // as ownership of the connection handler has been passed to libmicrohttpd we must not destroy it
+        conHandler.release();
 
         return MHD_YES;
       }
+
+      // finalize POST data processing
+      FinalizePostDataProcessing(conHandler.get());
+
+      // check if something went wrong while handling the POST data
+      if (conHandler->errorStatus != MHD_HTTP_OK)
+        return SendErrorResponse(request, conHandler->errorStatus, request.method);
+
       // we have handled all POST data so it's time to invoke the IHTTPRequestHandler
-      else
-      {
-        if (conHandler->postprocessor != nullptr)
-          MHD_destroy_post_processor(conHandler->postprocessor);
-
-        // check if something went wrong while handling the POST data
-        if (conHandler->errorStatus != MHD_HTTP_OK)
-          return SendErrorResponse(connection, conHandler->errorStatus, request.method);
-
-        return HandleRequest(conHandler->requestHandler);
-      }
+      return HandleRequest(conHandler->requestHandler);
     }
+
     // it's unusual to get more than one call to AnswerToConnection for none-POST requests, but let's handle it anyway
-    else
-    {
-      for (std::vector<IHTTPRequestHandler *>::const_iterator it = m_requestHandlers.begin(); it != m_requestHandlers.end(); ++it)
-      {
-        IHTTPRequestHandler *requestHandler = *it;
-        if (requestHandler->CanHandleRequest(request))
-          return HandleRequest(std::shared_ptr<IHTTPRequestHandler>(requestHandler->Create(request)));
-      }
-    }
+    auto requestHandler = FindRequestHandler(request);
+    if (requestHandler != nullptr)
+      return HandleRequest(requestHandler);
   }
 
   CLog::Log(LOGERROR, "CWebServer[%hu]: couldn't find any request handler for %s", m_port, request.pathUrl.c_str());
-  return SendErrorResponse(connection, MHD_HTTP_NOT_FOUND, request.method);
+  return SendErrorResponse(request, MHD_HTTP_NOT_FOUND, request.method);
 }
 
-#if (MHD_VERSION >= 0x00040001)
 int CWebServer::HandlePostField(void *cls, enum MHD_ValueKind kind, const char *key,
                                 const char *filename, const char *content_type,
                                 const char *transfer_encoding, const char *data, uint64_t off,
                                 size_t size)
-#else
-int CWebServer::HandlePostField(void *cls, enum MHD_ValueKind kind, const char *key,
-                                const char *filename, const char *content_type,
-                                const char *transfer_encoding, const char *data, uint64_t off,
-                                unsigned int size)
-#endif
 {
   ConnectionHandler *conHandler = (ConnectionHandler *)cls;
 
@@ -476,7 +304,7 @@ int CWebServer::HandleRequest(const std::shared_ptr<IHTTPRequestHandler>& handle
   if (ret == MHD_NO)
   {
     CLog::Log(LOGERROR, "CWebServer[%hu]: failed to handle HTTP request for %s", m_port, request.pathUrl.c_str());
-    return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+    return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
   }
 
   const HTTPResponseDetails &responseDetails = handler->GetResponseDetails();
@@ -508,13 +336,13 @@ int CWebServer::HandleRequest(const std::shared_ptr<IHTTPRequestHandler>& handle
 
     default:
       CLog::Log(LOGERROR, "CWebServer[%hu]: internal error while HTTP request handler processed %s", m_port, request.pathUrl.c_str());
-      return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+      return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
   }
 
   if (ret == MHD_NO)
   {
     CLog::Log(LOGERROR, "CWebServer[%hu]: failed to create HTTP response for %s", m_port, request.pathUrl.c_str());
-    return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+    return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
   }
 
   return FinalizeRequest(handler, responseDetails.status, response);
@@ -528,7 +356,7 @@ int CWebServer::FinalizeRequest(const std::shared_ptr<IHTTPRequestHandler>& hand
   const HTTPRequest &request = handler->GetRequest();
   const HTTPResponseDetails &responseDetails = handler->GetResponseDetails();
 
-  // if the request handler has set a content type and it hasn't been set as a header, add it 
+  // if the request handler has set a content type and it hasn't been set as a header, add it
   if (!responseDetails.contentType.empty())
     handler->AddResponseHeader(MHD_HTTP_HEADER_CONTENT_TYPE, responseDetails.contentType);
 
@@ -582,24 +410,156 @@ int CWebServer::FinalizeRequest(const std::shared_ptr<IHTTPRequestHandler>& hand
     handler->AddResponseHeader(MHD_HTTP_HEADER_CONTENT_LENGTH, StringUtils::Format("%" PRIu64, responseDetails.totalLength));
 
   // add all headers set by the request handler
-  for (std::multimap<std::string, std::string>::const_iterator it = responseDetails.headers.begin(); it != responseDetails.headers.end(); ++it)
-    AddHeader(response, it->first, it->second);
+  for (const auto& it : responseDetails.headers)
+    AddHeader(response, it.first, it.second);
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
+  return SendResponse(request, responseStatus, response);
+}
+
+std::shared_ptr<IHTTPRequestHandler> CWebServer::FindRequestHandler(const HTTPRequest& request) const
+{
+  // look for a IHTTPRequestHandler which can take care of the current request
+  auto requestHandlerIt = std::find_if(m_requestHandlers.cbegin(), m_requestHandlers.cend(),
+    [&request](const IHTTPRequestHandler* requestHandler)
+    {
+      return requestHandler->CanHandleRequest(request);
+    });
+
+  // we found a matching IHTTPRequestHandler so let's get a new instance for this request
+  if (requestHandlerIt != m_requestHandlers.cend())
+    return std::shared_ptr<IHTTPRequestHandler>((*requestHandlerIt)->Create(request));
+
+  return nullptr;
+}
+
+bool CWebServer::IsRequestCacheable(const HTTPRequest& request) const
+{
+  // handle Cache-Control
+  std::string cacheControl = HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CACHE_CONTROL);
+  if (!cacheControl.empty())
   {
-    std::multimap<std::string, std::string> headerValues;
-    HTTPRequestHandlerUtils::GetRequestHeaderValues(request.connection, MHD_RESPONSE_HEADER_KIND, headerValues);
+    std::vector<std::string> cacheControls = StringUtils::Split(cacheControl, ",");
+    for (auto control : cacheControls)
+    {
+      control = StringUtils::Trim(control);
 
-    CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s %d %s", m_port, request.version.c_str(), responseStatus, request.pathUrlFull.c_str());
-
-    for (std::multimap<std::string, std::string>::const_iterator header = headerValues.begin(); header != headerValues.end(); ++header)
-      CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, header->first.c_str(), header->second.c_str());
+      // handle no-cache
+      if (control.compare(HEADER_VALUE_NO_CACHE) == 0)
+        return false;
+    }
   }
 
-  int ret = MHD_queue_response(request.connection, responseStatus, response);
-  MHD_destroy_response(response);
+  // handle Pragma
+  std::string pragma = HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_PRAGMA);
+  if (pragma.compare(HEADER_VALUE_NO_CACHE) == 0)
+    return false;
 
-  return ret;
+  return true;
+}
+
+bool CWebServer::IsRequestRanged(const HTTPRequest& request, const CDateTime &lastModified) const
+{
+  // parse the Range header and store it in the request object
+  CHttpRanges ranges;
+  bool ranged = ranges.Parse(HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_RANGE));
+
+  // handle If-Range header but only if the Range header is present
+  if (ranged && lastModified.IsValid())
+  {
+    std::string ifRange = HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_IF_RANGE);
+    if (!ifRange.empty() && lastModified.IsValid())
+    {
+      CDateTime ifRangeDate;
+      ifRangeDate.SetFromRFC1123DateTime(ifRange);
+
+      // check if the last modification is newer than the If-Range date
+      // if so we have to server the whole file instead
+      if (lastModified.GetAsUTCDateTime() > ifRangeDate)
+        ranges.Clear();
+    }
+  }
+
+  return !ranges.IsEmpty();
+}
+
+void CWebServer::SetupPostDataProcessing(const HTTPRequest& request, ConnectionHandler *connectionHandler, std::shared_ptr<IHTTPRequestHandler> handler, void **con_cls) const
+{
+  connectionHandler->requestHandler = handler;
+
+  // we might need to handle the POST data ourselves which is done in the next call to AnswerToConnection
+  *con_cls = connectionHandler;
+
+  // get the content-type of the POST data
+  const auto contentType = HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CONTENT_TYPE);
+  if (contentType.empty())
+    return;
+
+  // if the content-type is neither application/x-ww-form-urlencoded nor multipart/form-data we need to handle it ourselves
+  if (!StringUtils::EqualsNoCase(contentType, MHD_HTTP_POST_ENCODING_FORM_URLENCODED) &&
+      !StringUtils::EqualsNoCase(contentType, MHD_HTTP_POST_ENCODING_MULTIPART_FORMDATA))
+    return;
+
+  // otherwise we can use MHD's POST processor
+  connectionHandler->postprocessor = MHD_create_post_processor(request.connection, MAX_POST_BUFFER_SIZE, &CWebServer::HandlePostField, static_cast<void*>(connectionHandler));
+
+  // MHD doesn't seem to be able to handle this post request
+  if (connectionHandler->postprocessor == nullptr)
+  {
+    CLog::Log(LOGERROR, "CWebServer[%hu]: unable to create HTTP POST processor for %s", m_port, request.pathUrl.c_str());
+    connectionHandler->errorStatus = MHD_HTTP_INTERNAL_SERVER_ERROR;
+  }
+}
+
+bool CWebServer::ProcessPostData(const HTTPRequest& request, ConnectionHandler *connectionHandler, const char *upload_data, size_t *upload_data_size, void **con_cls) const
+{
+  if (connectionHandler->requestHandler == nullptr)
+  {
+    CLog::Log(LOGERROR, "CWebServer[%hu]: cannot handle partial HTTP POST for %s request because there is no valid request handler available", m_port, request.pathUrl.c_str());
+    connectionHandler->errorStatus = MHD_HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  // we only need to handle POST data if there actually is data left to handle
+  if (*upload_data_size == 0)
+    return false;
+
+  // we may need to handle more POST data which is done in the next call to AnswerToConnection
+  *con_cls = connectionHandler;
+
+  // if nothing has gone wrong so far, process the given POST data
+  if (connectionHandler->errorStatus == MHD_HTTP_OK)
+  {
+    bool postDataHandled = false;
+    // either use MHD's POST processor
+    if (connectionHandler->postprocessor != nullptr)
+      postDataHandled = MHD_post_process(connectionHandler->postprocessor, upload_data, *upload_data_size) == MHD_YES;
+    // or simply copy the data to the handler
+    else if (connectionHandler->requestHandler != nullptr)
+      postDataHandled = connectionHandler->requestHandler->AddPostData(upload_data, *upload_data_size);
+
+    // abort if the received POST data couldn't be handled
+    if (!postDataHandled)
+    {
+      CLog::Log(LOGERROR, "CWebServer[%hu]: failed to handle HTTP POST data for %s", m_port, request.pathUrl.c_str());
+#if (MHD_VERSION >= 0x00095213)
+      connectionHandler->errorStatus = MHD_HTTP_PAYLOAD_TOO_LARGE;
+#else
+      connectionHandler->errorStatus = MHD_HTTP_REQUEST_ENTITY_TOO_LARGE;
+#endif
+    }
+  }
+
+  // signal that we have handled the data
+  *upload_data_size = 0;
+
+  return true;
+}
+
+void CWebServer::FinalizePostDataProcessing(ConnectionHandler *connectionHandler) const
+{
+  if (connectionHandler->postprocessor == nullptr)
+    return;
+
+  MHD_destroy_post_processor(connectionHandler->postprocessor);
 }
 
 int CWebServer::CreateMemoryDownloadResponse(const std::shared_ptr<IHTTPRequestHandler>& handler, struct MHD_Response *&response) const
@@ -620,7 +580,7 @@ int CWebServer::CreateMemoryDownloadResponse(const std::shared_ptr<IHTTPRequestH
      (!request.ranges.IsEmpty() && responseRanges.size() > request.ranges.Size()))
   {
     CLog::Log(LOGWARNING, "CWebServer[%hu]: response contains more ranges (%d) than the request asked for (%d)", m_port, (int)responseRanges.size(), (int)request.ranges.Size());
-    return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+    return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
   }
 
   // if the request asked for no or only one range we can simply use MHDs memory download handler
@@ -632,7 +592,7 @@ int CWebServer::CreateMemoryDownloadResponse(const std::shared_ptr<IHTTPRequestH
     if (!responseRange.IsValid())
     {
       CLog::Log(LOGWARNING, "CWebServer[%hu]: invalid response data with range start at %" PRId64 " and end at %" PRId64, m_port, responseRange.GetFirstPosition(), responseRange.GetLastPosition());
-      return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+      return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
     }
 
     const void* responseData = responseRange.GetData();
@@ -653,7 +613,7 @@ int CWebServer::CreateMemoryDownloadResponse(const std::shared_ptr<IHTTPRequestH
       return CreateMemoryDownloadResponse(request.connection, responseData, responseDataLength, true, true, response);
 
     default:
-      return SendErrorResponse(request.connection, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
+      return SendErrorResponse(request, MHD_HTTP_INTERNAL_SERVER_ERROR, request.method);
     }
   }
 
@@ -676,17 +636,17 @@ int CWebServer::CreateRangedMemoryDownloadResponse(const std::shared_ptr<IHTTPRe
   // extract all the valid ranges and calculate their total length
   uint64_t firstRangePosition = 0;
   HttpResponseRanges ranges;
-  for (HttpResponseRanges::const_iterator range = responseRanges.begin(); range != responseRanges.end(); ++range)
+  for (const auto& range : responseRanges)
   {
     // ignore invalid ranges
-    if (!range->IsValid())
+    if (!range.IsValid())
       continue;
 
     // determine the first range position
     if (ranges.empty())
-      firstRangePosition = range->GetFirstPosition();
+      firstRangePosition = range.GetFirstPosition();
 
-    ranges.push_back(*range);
+    ranges.push_back(range);
   }
 
   if (ranges.empty())
@@ -765,10 +725,14 @@ int CWebServer::CreateFileDownloadResponse(const std::shared_ptr<IHTTPRequestHan
   std::shared_ptr<XFILE::CFile> file = std::make_shared<XFILE::CFile>();
   std::string filePath = handler->GetResponseFile();
 
+  // access check
+  if (!CFileUtils::CheckFileAccessAllowed(filePath))
+    return SendErrorResponse(request, MHD_HTTP_NOT_FOUND, request.method);
+
   if (!file->Open(filePath, XFILE::READ_NO_CACHE))
   {
     CLog::Log(LOGERROR, "CWebServer[%hu]: Failed to open %s", m_port, filePath.c_str());
-    return SendErrorResponse(request.connection, MHD_HTTP_NOT_FOUND, request.method);
+    return SendErrorResponse(request, MHD_HTTP_NOT_FOUND, request.method);
   }
 
   bool ranged = false;
@@ -889,7 +853,7 @@ int CWebServer::CreateFileDownloadResponse(const std::shared_ptr<IHTTPRequestHan
 int CWebServer::CreateErrorResponse(struct MHD_Connection *connection, int responseType, HTTPMethod method, struct MHD_Response *&response) const
 {
   size_t payloadSize = 0;
-  void *payload = nullptr;
+  const void *payload = nullptr;
 
   if (method != HEAD)
   {
@@ -897,12 +861,12 @@ int CWebServer::CreateErrorResponse(struct MHD_Connection *connection, int respo
     {
       case MHD_HTTP_NOT_FOUND:
         payloadSize = strlen(PAGE_FILE_NOT_FOUND);
-        payload = (void *)PAGE_FILE_NOT_FOUND;
+        payload = (const void *)PAGE_FILE_NOT_FOUND;
         break;
 
       case MHD_HTTP_NOT_IMPLEMENTED:
         payloadSize = strlen(NOT_SUPPORTED);
-        payload = (void *)NOT_SUPPORTED;
+        payload = (const void *)NOT_SUPPORTED;
         break;
     }
   }
@@ -929,28 +893,24 @@ int CWebServer::CreateMemoryDownloadResponse(struct MHD_Connection *connection, 
   return MHD_YES;
 }
 
-int CWebServer::SendErrorResponse(struct MHD_Connection *connection, int errorType, HTTPMethod method) const
+int CWebServer::SendResponse(const HTTPRequest& request, int responseStatus, MHD_Response *response) const
 {
-  struct MHD_Response *response = nullptr;
-  int ret = CreateErrorResponse(connection, errorType, method, response);
-  if (ret == MHD_YES)
-  {
-    if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    {
-      std::multimap<std::string, std::string> headerValues;
-      HTTPRequestHandlerUtils::GetRequestHeaderValues(connection, MHD_RESPONSE_HEADER_KIND, headerValues);
+  LogResponse(request, responseStatus);
 
-      CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] HTTP %d", m_port, errorType);
-
-      for (std::multimap<std::string, std::string>::const_iterator header = headerValues.begin(); header != headerValues.end(); ++header)
-        CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, header->first.c_str(), header->second.c_str());
-    }
-
-    ret = MHD_queue_response(connection, errorType, response);
-    MHD_destroy_response(response);
-  }
+  int ret = MHD_queue_response(request.connection, responseStatus, response);
+  MHD_destroy_response(response);
 
   return ret;
+}
+
+int CWebServer::SendErrorResponse(const HTTPRequest& request, int errorType, HTTPMethod method) const
+{
+  struct MHD_Response *response = nullptr;
+  int ret = CreateErrorResponse(request.connection, errorType, method, response);
+  if (ret == MHD_NO)
+    return MHD_NO;
+
+  return SendResponse(request, errorType, response);
 }
 
 void* CWebServer::UriRequestLogger(void *cls, const char *uri)
@@ -975,24 +935,13 @@ void CWebServer::LogRequest(const char* uri) const
   CLog::Log(LOGDEBUG, "CWebServer[%hu]: request received for %s", m_port, uri);
 }
 
-#if (MHD_VERSION >= 0x00090200)
 ssize_t CWebServer::ContentReaderCallback(void *cls, uint64_t pos, char *buf, size_t max)
-#elif (MHD_VERSION >= 0x00040001)
-int CWebServer::ContentReaderCallback(void *cls, uint64_t pos, char *buf, int max)
-#else   //libmicrohttpd < 0.4.0
-int CWebServer::ContentReaderCallback(void *cls, size_t pos, char *buf, int max)
-#endif
 {
   HttpFileDownloadContext *context = (HttpFileDownloadContext *)cls;
   if (context == nullptr || context->file == nullptr)
     return -1;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-#if (MHD_VERSION >= 0x00090200)
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] write maximum %zu bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
-#else
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] write maximum %d bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
-#endif
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] write maximum %zu bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
 
   // check if we need to add the end-boundary
   if (context->rangeCountTotal > 1 && context->ranges.IsEmpty())
@@ -1051,7 +1000,7 @@ int CWebServer::ContentReaderCallback(void *cls, size_t pos, char *buf, int max)
 
   // seek to the position if necessary
   if (context->file->GetPosition() < 0 || context->writePosition != static_cast<uint64_t>(context->file->GetPosition()))
-    context->file->Seek(static_cast<uint64_t>(context->writePosition));
+    context->file->Seek(context->writePosition);
 
   // read data from the file
   ssize_t res = context->file->Read(buf, static_cast<size_t>(maximum));
@@ -1061,8 +1010,7 @@ int CWebServer::ContentReaderCallback(void *cls, size_t pos, char *buf, int max)
   // add the number of read bytes to the number of written bytes
   written += res;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] wrote %d bytes from %" PRIu64 " in range (%" PRIu64 " - %" PRIu64 ")", written, context->writePosition, start, end);
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] wrote %d bytes from %" PRIu64 " in range (%" PRIu64 " - %" PRIu64 ")", written, context->writePosition, start, end);
 
   // update the current write position
   context->writePosition += res;
@@ -1083,8 +1031,7 @@ void CWebServer::ContentReaderFreeCallback(void *cls)
   HttpFileDownloadContext *context = (HttpFileDownloadContext *)cls;
   delete context;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] done");
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] done");
 }
 
 // local helper
@@ -1109,51 +1056,108 @@ static void logFromMHD(void* unused, const char* fmt, va_list ap)
     {
       if (errDsc.at(errDsc.length() - 1) == '\n')
         errDsc.erase(errDsc.length() - 1);
-      
+
       // Most common error is "aborted connection", so log it at LOGDEBUG level
       CLog::Log(LOGDEBUG, "CWebServer [MHD]: %s", errDsc.c_str());
     }
   }
 }
 
+bool CWebServer::LoadCert(std::string &skey, std::string &scert)
+{
+  XFILE::CFile file;
+  XFILE::auto_buffer buf;
+  const char* keyFile = "special://userdata/server.key";
+  const char* certFile = "special://userdata/server.pem";
+
+  if (!file.Exists(keyFile) || !file.Exists(certFile))
+    return false;
+
+  if (file.LoadFile(keyFile, buf) > 0)
+  {
+    skey.resize(buf.length());
+    skey.assign(buf.get());
+    file.Close();
+  }
+  else
+    CLog::Log(LOGDEBUG, "WebServer %s: Error loading: %s", __FUNCTION__, keyFile);
+
+  if (file.LoadFile(certFile, buf) > 0)
+  {
+    scert.resize(buf.length());
+    scert.assign(buf.get());
+    file.Close();
+  }
+  else
+    CLog::Log(LOGDEBUG, "WebServer %s: Error loading: %s", __FUNCTION__, certFile);
+
+  if (!skey.empty() && !scert.empty())
+  {
+    CLog::Log(LOGERROR, "WebServer %s: found server key: %s, certificate: %s, HTTPS support enabled", __FUNCTION__, keyFile, certFile);
+    return true;
+  }
+  return false;
+}
+
 struct MHD_Daemon* CWebServer::StartMHD(unsigned int flags, int port)
 {
   unsigned int timeout = 60 * 60 * 24;
+  const char* ciphers = "NORMAL:-VERS-TLS1.0";
 
-#if MHD_VERSION >= 0x00040500
   MHD_set_panic_func(&panicHandlerForMHD, nullptr);
-#endif
 
-  return MHD_start_daemon(flags |
-#if (MHD_VERSION >= 0x00040002) && (MHD_VERSION < 0x00090B01)
-                          // use main thread for each connection, can only handle one request at a
-                          // time [unless you set the thread pool size]
-                          MHD_USE_SELECT_INTERNALLY
-#else
+  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_SERVICES_WEBSERVERSSL) &&
+      MHD_is_feature_supported(MHD_FEATURE_SSL) == MHD_YES &&
+      LoadCert(m_key, m_cert))
+    // SSL enabled
+    return MHD_start_daemon(flags |
                           // one thread per connection
                           // WARNING: set MHD_OPTION_CONNECTION_TIMEOUT to something higher than 1
                           // otherwise on libmicrohttpd 0.4.4-1 it spins a busy loop
                           MHD_USE_THREAD_PER_CONNECTION
+#if (MHD_VERSION >= 0x00095207)
+                          | MHD_USE_INTERNAL_POLLING_THREAD /* MHD_USE_THREAD_PER_CONNECTION must be used only with MHD_USE_INTERNAL_POLLING_THREAD since 0.9.54 */
 #endif
-#if (MHD_VERSION >= 0x00040001)
                           | MHD_USE_DEBUG /* Print MHD error messages to log */
-#endif 
+                          | MHD_USE_SSL
                           ,
                           port,
-                          nullptr,
-                          nullptr,
+                          0,
+                          0,
                           &CWebServer::AnswerToConnection,
                           this,
 
-#if (MHD_VERSION >= 0x00040002) && (MHD_VERSION < 0x00090B01)
-                          MHD_OPTION_THREAD_POOL_SIZE, 4,
-#endif
                           MHD_OPTION_CONNECTION_LIMIT, 512,
                           MHD_OPTION_CONNECTION_TIMEOUT, timeout,
                           MHD_OPTION_URI_LOG_CALLBACK, &CWebServer::UriRequestLogger, this,
-#if (MHD_VERSION >= 0x00040001)
-                          MHD_OPTION_EXTERNAL_LOGGER, &logFromMHD, nullptr,
-#endif // MHD_VERSION >= 0x00040001
+                          MHD_OPTION_EXTERNAL_LOGGER, &logFromMHD, 0,
+                          MHD_OPTION_THREAD_STACK_SIZE, m_thread_stacksize,
+                          MHD_OPTION_HTTPS_MEM_KEY, m_key.c_str(),
+                          MHD_OPTION_HTTPS_MEM_CERT, m_cert.c_str(),
+                          MHD_OPTION_HTTPS_PRIORITIES, ciphers,
+                          MHD_OPTION_END);
+
+  // No SSL
+  return MHD_start_daemon(flags |
+                          // one thread per connection
+                          // WARNING: set MHD_OPTION_CONNECTION_TIMEOUT to something higher than 1
+                          // otherwise on libmicrohttpd 0.4.4-1 it spins a busy loop
+                          MHD_USE_THREAD_PER_CONNECTION
+#if (MHD_VERSION >= 0x00095207)
+                          | MHD_USE_INTERNAL_POLLING_THREAD /* MHD_USE_THREAD_PER_CONNECTION must be used only with MHD_USE_INTERNAL_POLLING_THREAD since 0.9.54 */
+#endif
+                          | MHD_USE_DEBUG /* Print MHD error messages to log */
+                          ,
+                          port,
+                          0,
+                          0,
+                          &CWebServer::AnswerToConnection,
+                          this,
+
+                          MHD_OPTION_CONNECTION_LIMIT, 512,
+                          MHD_OPTION_CONNECTION_TIMEOUT, timeout,
+                          MHD_OPTION_URI_LOG_CALLBACK, &CWebServer::UriRequestLogger, this,
+                          MHD_OPTION_EXTERNAL_LOGGER, &logFromMHD, 0,
                           MHD_OPTION_THREAD_STACK_SIZE, m_thread_stacksize,
                           MHD_OPTION_END);
 }
@@ -1169,9 +1173,8 @@ bool CWebServer::Start(uint16_t port, const std::string &username, const std::st
       closesocket(v6testSock);
       m_daemon_ip6 = StartMHD(MHD_USE_IPv6, port);
     }
-    
     m_daemon_ip4 = StartMHD(0, port);
-    
+
     m_running = (m_daemon_ip6 != nullptr) || (m_daemon_ip4 != nullptr);
     if (m_running)
     {
@@ -1195,7 +1198,7 @@ bool CWebServer::Stop()
 
   if (m_daemon_ip4 != nullptr)
     MHD_stop_daemon(m_daemon_ip4);
-    
+
   m_running = false;
   CLog::Log(LOGNOTICE, "CWebServer[%hu]: Stopped", m_port);
   m_port = 0;
@@ -1208,12 +1211,18 @@ bool CWebServer::IsStarted()
   return m_running;
 }
 
+bool CWebServer::WebServerSupportsSSL()
+{
+  return MHD_is_feature_supported(MHD_FEATURE_SSL) == MHD_YES;
+}
+
 void CWebServer::SetCredentials(const std::string &username, const std::string &password)
 {
   CSingleLock lock(m_critSection);
 
-  Base64::Encode(username + ':' + password, m_Credentials64Encoded);
-  m_needcredentials = !password.empty();
+  m_authenticationUsername = username;
+  m_authenticationPassword = password;
+  m_authenticationRequired = !m_authenticationPassword.empty();
 }
 
 void CWebServer::RegisterRequestHandler(IHTTPRequestHandler *handler)
@@ -1238,6 +1247,45 @@ void CWebServer::UnregisterRequestHandler(IHTTPRequestHandler *handler)
   m_requestHandlers.erase(std::remove(m_requestHandlers.begin(), m_requestHandlers.end(), handler), m_requestHandlers.end());
 }
 
+void CWebServer::LogRequest(const HTTPRequest& request) const
+{
+  if (!CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->CanLogComponent(LOGWEBSERVER))
+    return;
+
+  std::multimap<std::string, std::string> headerValues;
+  HTTPRequestHandlerUtils::GetRequestHeaderValues(request.connection, MHD_HEADER_KIND, headerValues);
+  std::multimap<std::string, std::string> getValues;
+  HTTPRequestHandlerUtils::GetRequestHeaderValues(request.connection, MHD_GET_ARGUMENT_KIND, getValues);
+
+  CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] %s %s %s", m_port, request.version.c_str(), GetHTTPMethod(request.method).c_str(), request.pathUrlFull.c_str());
+
+  if (!getValues.empty())
+  {
+    std::vector<std::string> values;
+    for (const auto get : getValues)
+      values.push_back(get.first + " = " + get.second);
+
+    CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] Query arguments: %s", m_port, StringUtils::Join(values, "; ").c_str());
+  }
+
+  for (const auto header : headerValues)
+    CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] %s: %s", m_port, header.first.c_str(), header.second.c_str());
+}
+
+void CWebServer::LogResponse(const HTTPRequest& request, int responseStatus) const
+{
+  if (!CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->CanLogComponent(LOGWEBSERVER))
+    return;
+
+  std::multimap<std::string, std::string> headerValues;
+  HTTPRequestHandlerUtils::GetRequestHeaderValues(request.connection, MHD_HEADER_KIND, headerValues);
+
+  CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s %d %s", m_port, request.version.c_str(), responseStatus, request.pathUrlFull.c_str());
+
+  for (const auto header : headerValues)
+    CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, header.first.c_str(), header.second.c_str());
+}
+
 std::string CWebServer::CreateMimeTypeFromExtension(const char *ext)
 {
   if (strcmp(ext, ".kar") == 0)
@@ -1253,9 +1301,7 @@ int CWebServer::AddHeader(struct MHD_Response *response, const std::string &name
   if (response == nullptr || name.empty())
     return 0;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, name.c_str(), value.c_str());
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer[%hu] [OUT] %s: %s", m_port, name.c_str(), value.c_str());
 
   return MHD_add_response_header(response, name.c_str(), value.c_str());
 }
-#endif

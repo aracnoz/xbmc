@@ -1,37 +1,26 @@
-#pragma once
 /*
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <sys/types.h>
-#include <sys/select.h>
-#include <sys/socket.h>
+#pragma once
+
+#include "utils/HttpRangeUtils.h"
+
+#include <map>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <map>
 #include <string>
 
 #include <microhttpd.h>
-
-#include "utils/HttpRangeUtils.h"
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 class CDateTime;
 class CWebServer;
@@ -90,7 +79,7 @@ typedef struct HTTPResponseDetails {
 class IHTTPRequestHandler
 {
 public:
-  virtual ~IHTTPRequestHandler() { }
+  virtual ~IHTTPRequestHandler() = default;
 
   /*!
    * \brief Creates a new HTTP request handler for the given request.
@@ -102,7 +91,7 @@ public:
    *
    * \param request HTTP request to be handled
    */
-  virtual IHTTPRequestHandler* Create(const HTTPRequest &request) = 0;
+  virtual IHTTPRequestHandler* Create(const HTTPRequest &request) const = 0;
 
   /*!
    * \brief Returns the priority of the HTTP request handler.
@@ -118,7 +107,7 @@ public:
   * \param request HTTP request to be handled
   * \return True if the given HTTP request can be handled otherwise false.
   */
-  virtual bool CanHandleRequest(const HTTPRequest &request) = 0;
+  virtual bool CanHandleRequest(const HTTPRequest &request) const = 0;
 
   /*!
    * \brief Handles the HTTP request.
@@ -150,7 +139,7 @@ public:
   * \details This is only used if the response can be cached.
   */
   virtual bool GetLastModifiedDate(CDateTime &lastModified) const { return false; }
- 
+
   /*!
    * \brief Returns the ranges with raw data belonging to the response.
    *
@@ -224,7 +213,6 @@ public:
    * \param value Value of the HTTP POST field
    */
   void AddPostField(const std::string &key, const std::string &value);
-#if (MHD_VERSION >= 0x00040001)
   /*!
   * \brief Adds the given raw HTTP POST data.
   *
@@ -232,19 +220,12 @@ public:
   * \param size Size of the raw HTTP POST data
   */
   bool AddPostData(const char *data, size_t size);
-#else
-  bool AddPostData(const char *data, unsigned int size);
-#endif
 
 protected:
   IHTTPRequestHandler();
   explicit IHTTPRequestHandler(const HTTPRequest &request);
 
-#if (MHD_VERSION >= 0x00040001)
   virtual bool appendPostData(const char *data, size_t size)
-#else
-  virtual bool appendPostData(const char *data, unsigned int size)
-#endif
   { return true; }
 
   bool GetRequestedRanges(uint64_t totalLength);
@@ -256,5 +237,5 @@ protected:
   std::map<std::string, std::string> m_postFields;
 
 private:
-  bool m_ranged;
+  bool m_ranged = false;
 };

@@ -168,6 +168,11 @@
 						<font>font12</font>
 						<visible>Control.IsEnabled(13)</visible>
 					</control>
+					<include content="InfoDialogButton">
+						<param name="id" value="10" />
+						<param name="icon" value="icons/infodialogs/info.png" />
+						<param name="label" value="$LOCALIZE[39024]" />
+					</include>
 					<include content="InfoDialogToggleButton">
 						<param name="id" value="7" />
 						<param name="icon_on" value="icons/infodialogs/disable.png" />
@@ -249,7 +254,7 @@
 						<width>470</width>
 						<height>40</height>
 						<label>$INFO[ListItem.AddonOrigin,[COLOR button_focus]$LOCALIZE[31150]:[/COLOR] ]</label>
-						<visible>!String.IsEmpty(ListItem.AddonOrigin)</visible>
+						<visible>!String.IsEmpty(ListItem.AddonOrigin) + ListItem.Property(addon.isinstalled)</visible>
 					</control>
 				</control>
 			</control>
@@ -271,5 +276,6 @@
 				<param name="sub_label" value="$INFO[ListItem.AddonVersion,[COLOR grey],[/COLOR]]$INFO[ListItem.AddonCreator, $LOCALIZE[31071] ]" />
 			</include>
 		</control>
+		<include condition="Skin.HasSetting(touchmode)">TouchBackButton</include>
 	</controls>
 </window>

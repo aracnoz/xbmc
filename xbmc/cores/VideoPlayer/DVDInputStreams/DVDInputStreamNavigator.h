@@ -1,33 +1,22 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "DVDInputStream.h"
-#include "DVDDemuxers/DVDDemux.h"
-#include "../IVideoPlayer.h"
-#include "../DVDCodecs/Overlay/DVDOverlaySpu.h"
-#include <string>
-#include "guilib/Geometry.h"
+#pragma once
 
+#include "../DVDCodecs/Overlay/DVDOverlaySpu.h"
+#include "../IVideoPlayer.h"
+#include "DVDDemuxers/DVDDemux.h"
+#include "DVDInputStream.h"
+#include "DVDInputStreamFile.h"
 #include "DllDvdNav.h"
+#include "utils/Geometry.h"
+
+#include <string>
 
 #define DVD_VIDEO_BLOCKSIZE         DVD_VIDEO_LB_LEN // 2048 bytes
 
@@ -45,60 +34,6 @@ class CDVDOverlayPicture;
 
 struct dvdnav_s;
 
-struct DVDNavStreamInfo
-{
-  std::string name;
-  std::string language;
-
-  DVDNavStreamInfo() {}
-};
-
-struct DVDNavAudioStreamInfo : DVDNavStreamInfo
-{
-  std::string codec;
-  int channels;
-
-  DVDNavAudioStreamInfo() : DVDNavStreamInfo(),
-    channels(0) {}
-};
-
-struct DVDNavSubtitleStreamInfo : DVDNavStreamInfo
-{
-  CDemuxStream::EFlags flags;
-
-  DVDNavSubtitleStreamInfo() : DVDNavStreamInfo(),
-    flags(CDemuxStream::EFlags::FLAG_NONE) {}
-};
-
-struct DVDNavVideoStreamInfo : DVDNavStreamInfo
-{
-  int angles;
-  float aspectRatio;
-  std::string codec;
-  uint32_t width;
-  uint32_t height;
-
-  DVDNavVideoStreamInfo() : DVDNavStreamInfo(),
-    angles(0),
-    aspectRatio(0.0f),
-    width(0),
-    height(0)
-  {}
-};
-
-class DVDNavResult
-{
-public:
-  DVDNavResult() :
-      pData (NULL ),
-      type  (0    )
-  {
-  };
-  DVDNavResult(void* p, int t) { pData = p; type = t; };
-  void* pData;
-  int type;
-};
-
 class CDVDInputStreamNavigator
   : public CDVDInputStream
   , public CDVDInputStream::IDisplayTime
@@ -108,44 +43,44 @@ class CDVDInputStreamNavigator
 {
 public:
   CDVDInputStreamNavigator(IVideoPlayer* player, const CFileItem& fileitem);
-  virtual ~CDVDInputStreamNavigator();
+  ~CDVDInputStreamNavigator() override;
 
-  virtual bool Open();
-  virtual void Close();
-  virtual int Read(uint8_t* buf, int buf_size);
-  virtual int64_t Seek(int64_t offset, int whence);
-  virtual bool Pause(double dTime) { return false; };
-  virtual int GetBlockSize() { return DVDSTREAM_BLOCK_SIZE_DVD; }
-  virtual bool IsEOF() { return m_bEOF; }
-  virtual int64_t GetLength()             { return 0; }
-  virtual ENextStream NextStream() ;
+  bool Open() override;
+  void Close() override;
+  int Read(uint8_t* buf, int buf_size) override;
+  int64_t Seek(int64_t offset, int whence) override;
+  bool Pause(double dTime) override { return false; };
+  int GetBlockSize() override { return DVDSTREAM_BLOCK_SIZE_DVD; }
+  bool IsEOF() override { return m_bEOF; }
+  int64_t GetLength() override { return 0; }
+  ENextStream NextStream() override ;
 
-  void ActivateButton();
-  void SelectButton(int iButton);
-  void SkipStill();
+  void ActivateButton() override;
+  void SelectButton(int iButton) override;
+  void SkipStill() override;
   void SkipWait();
-  void OnUp();
-  void OnDown();
-  void OnLeft();
-  void OnRight();
-  void OnMenu();
-  void OnBack();
-  void OnNext();
-  void OnPrevious();
-  bool OnMouseMove(const CPoint &point);
-  bool OnMouseClick(const CPoint &point);
+  void OnUp() override;
+  void OnDown() override;
+  void OnLeft() override;
+  void OnRight() override;
+  void OnMenu() override;
+  void OnBack() override;
+  void OnNext() override;
+  void OnPrevious() override;
+  bool OnMouseMove(const CPoint &point) override;
+  bool OnMouseClick(const CPoint &point) override;
 
-  int GetCurrentButton();
-  int GetTotalButtons();
+  int GetCurrentButton() override;
+  int GetTotalButtons() override;
   bool GetCurrentButtonInfo(CDVDOverlaySpu* pOverlayPicture, CDVDDemuxSPU* pSPU, int iButtonType /* 0 = selection, 1 = action (clicked)*/);
 
-  bool HasMenu() { return true; }
-  bool IsInMenu() { return m_bInMenu; }
-  double GetTimeStampCorrection() { return (double)(m_iVobUnitCorrection * 1000) / 90; }
+  bool HasMenu() override { return true; }
+  bool IsInMenu() override { return m_bInMenu; }
+  double GetTimeStampCorrection() override { return (double)(m_iVobUnitCorrection * 1000) / 90; }
 
   int GetActiveSubtitleStream();
   int GetSubTitleStreamCount();
-  DVDNavSubtitleStreamInfo GetSubtitleStreamInfo(const int iId);
+  SubtitleStreamInfo GetSubtitleStreamInfo(const int iId);
 
   bool SetActiveSubtitleStream(int iId);
   void EnableSubtitleStream(bool bEnable);
@@ -156,32 +91,32 @@ public:
   int GetActiveAngle();
   bool SetAngle(int angle);
   bool SetActiveAudioStream(int iId);
-  DVDNavAudioStreamInfo GetAudioStreamInfo(const int iId);
+  AudioStreamInfo GetAudioStreamInfo(const int iId);
 
-  bool GetState(std::string &xmlstate);
-  bool SetState(const std::string &xmlstate);
+  bool GetState(std::string &xmlstate) override;
+  bool SetState(const std::string &xmlstate) override;
 
-  int GetChapter()      { return m_iPart; }      // the current part in the current title
-  int GetChapterCount() { return m_iPartCount; } // the number of parts in the current title
-  void GetChapterName(std::string& name, int idx=-1) {};
-  int64_t GetChapterPos(int ch=-1);
-  bool SeekChapter(int iChapter);
+  int GetChapter() override { return m_iPart; } // the current part in the current title
+  int GetChapterCount() override { return m_iPartCount; } // the number of parts in the current title
+  void GetChapterName(std::string& name, int idx=-1) override {};
+  int64_t GetChapterPos(int ch=-1) override;
+  bool SeekChapter(int iChapter) override;
 
   CDVDInputStream::IDisplayTime* GetIDisplayTime() override { return this; }
-  int GetTotalTime(); // the total time in milli seconds
-  int GetTime(); // the current position in milli seconds
+  int GetTotalTime() override; // the total time in milli seconds
+  int GetTime() override; // the current position in milli seconds
 
   float GetVideoAspectRatio();
 
   CDVDInputStream::IPosTime* GetIPosTime() override { return this; }
-  bool PosTime(int iTimeInMsec); //seek within current pg(c)
+  bool PosTime(int iTimeInMsec) override; //seek within current pg(c)
 
   std::string GetDVDTitleString();
   std::string GetDVDSerialString();
 
   void CheckButtons();
 
-  DVDNavVideoStreamInfo GetVideoStreamInfo();
+  VideoStreamInfo GetVideoStreamInfo();
 
 protected:
 
@@ -201,8 +136,8 @@ protected:
   int ConvertSubtitleStreamId_XBMCToExternal(int id);
   int ConvertSubtitleStreamId_ExternalToXBMC(int id);
 
-  static void SetAudioStreamName(DVDNavStreamInfo &info, const audio_attr_t &audio_attributes);
-  static void SetSubtitleStreamName(DVDNavStreamInfo &info, const subp_attr_t &subp_attributes);
+  static void SetAudioStreamName(AudioStreamInfo &info, const audio_attr_t &audio_attributes);
+  static void SetSubtitleStreamName(SubtitleStreamInfo &info, const subp_attr_t &subp_attributes);
 
   int GetAngleCount();
   void GetVideoResolution(uint32_t * width, uint32_t * height);
@@ -230,11 +165,13 @@ protected:
   int m_iPart;
 
   struct dvdnav_s* m_dvdnav;
+  dvdnav_stream_cb m_dvdnav_stream_cb;
+  std::unique_ptr<CDVDInputStreamFile> m_pstream;
 
   IVideoPlayer* m_pVideoPlayer;
 
   uint8_t m_lastblock[DVD_VIDEO_BLOCKSIZE];
-  int     m_lastevent;
+  int m_lastevent;
 
   std::map<int, std::map<int, int64_t>> m_mapTitleChapters;
 };

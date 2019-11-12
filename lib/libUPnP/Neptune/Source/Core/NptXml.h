@@ -175,7 +175,7 @@ class NPT_XmlElementNode : public NPT_XmlNode
     // methods
                             NPT_XmlElementNode(const char* tag);
                             NPT_XmlElementNode(const char* prefix, const char* tag);
-    virtual                ~NPT_XmlElementNode();
+                   ~NPT_XmlElementNode() override;
     NPT_List<NPT_XmlNode*>& GetChildren() { return m_Children; }
     const NPT_List<NPT_XmlNode*>& 
                             GetChildren() const { return m_Children; }
@@ -211,12 +211,12 @@ class NPT_XmlElementNode : public NPT_XmlNode
     const NPT_String* GetNamespacePrefix(const char* uri) const;
 
     // type casting
-    NPT_XmlElementNode*       AsElementNode()       { return this; }
-    const NPT_XmlElementNode* AsElementNode() const { return this; }
+    NPT_XmlElementNode*       AsElementNode() override       { return this; }
+    const NPT_XmlElementNode* AsElementNode() const override { return this; }
 
 protected:
     // methods
-    void SetParent(NPT_XmlNode* parent);
+    void SetParent(NPT_XmlNode* parent) override;
     void SetNamespaceParent(NPT_XmlElementNode* parent);
     void RelinkNamespaceMaps();
 
@@ -260,15 +260,16 @@ class NPT_XmlTextNode : public NPT_XmlNode
     NPT_XmlTextNode(TokenType token_type, const char* text);
 
     // methods
-    const NPT_String& GetString() const { return m_Text; }
-
+    const NPT_String& GetString()    const { return m_Text;      }
+    TokenType         GetTokenType() const { return m_TokenType; }
+    
     // type casting
-    NPT_XmlTextNode*       AsTextNode()       { return this; }
-    const NPT_XmlTextNode* AsTextNode() const { return this; }
+    NPT_XmlTextNode*       AsTextNode() override       { return this; }
+    const NPT_XmlTextNode* AsTextNode() const override { return this; }
 
  private:
     // members  
-//    TokenType  m_TokenType;
+    TokenType  m_TokenType;
     NPT_String m_Text;
 };
 

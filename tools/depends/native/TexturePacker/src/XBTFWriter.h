@@ -1,9 +1,6 @@
-#ifndef XBTFWRITER_H_
-#define XBTFWRITER_H_
-
 /*
  *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *      http://kodi.tv
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,17 +18,19 @@
  *
  */
 
-#include <vector>
-#include <string>
-#include <stdio.h>
+#pragma once
 
 #include "guilib/XBTF.h"
+
+#include <cstdio>
+#include <string>
+#include <vector>
 
 class CXBTFWriter : public CXBTFBase
 {
 public:
   CXBTFWriter(const std::string& outputFile);
-  ~CXBTFWriter();
+  ~CXBTFWriter() override;
 
   bool Create();
   bool Close();
@@ -47,4 +46,3 @@ private:
   size_t         m_size;
 };
 
-#endif

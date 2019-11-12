@@ -1,39 +1,29 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "cores/AudioEngine/Utils/AEAudioFormat.h"
-#include "cores/AudioEngine/Utils/AEStreamData.h"
-#include "cores/AudioEngine/Interfaces/IAudioCallback.h"
 #include <stdint.h>
 
 extern "C" {
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
 }
 
+class IAudioCallback;
+
 /**
- * Callback interafce for VideoPlayer clock needed by AE for sync
+ * Callback interface for VideoPlayer clock needed by AE for sync
  */
 class IAEClockCallback
 {
 public:
+  virtual ~IAEClockCallback() = default;
   virtual double GetClock() = 0;
   virtual double GetClockSpeed() { return 1.0; };
 };
@@ -63,8 +53,16 @@ class IAEStream
 {
 protected:
   friend class IAE;
-  IAEStream() {}
-  virtual ~IAEStream() {}
+  IAEStream() = default;
+  virtual ~IAEStream() = default;
+
+public:
+  struct ExtData
+  {
+    double pts = 0;
+    bool hasDownmix = false;
+    double centerMixLevel = 1;
+  };
 
 public:
   /**
@@ -81,7 +79,7 @@ public:
    * @param pts timestamp
    * @return The number of frames consumed
    */
-  virtual unsigned int AddData(const uint8_t* const *data, unsigned int offset, unsigned int frames, double pts = 0.0) = 0;
+  virtual unsigned int AddData(const uint8_t* const *data, unsigned int offset, unsigned int frames, ExtData *extData) = 0;
 
   /**
    * Returns the time in seconds that it will take
@@ -116,6 +114,12 @@ public:
   virtual double GetCacheTotal() = 0;
 
   /**
+   * Returns the total time in seconds of maximum delay
+   * @return seconds
+   */
+  virtual double GetMaxDelay() = 0;
+
+  /**
    * Pauses the stream playback
    */
   virtual void Pause() = 0;
@@ -140,7 +144,7 @@ public:
    * Returns true if the is stream has finished draining
    */
   virtual bool IsDrained() = 0;
-  
+
   /**
    * Flush all buffers dropping the audio data
    */
@@ -194,25 +198,25 @@ public:
    * Returns the size of one audio frame in bytes (channelCount * resolution)
    * @return The size in bytes of one frame
   */
-  virtual const unsigned int GetFrameSize() const = 0;
+  virtual unsigned int GetFrameSize() const = 0;
 
   /**
    * Returns the number of channels the stream is configured to accept
    * @return The channel count
    */
-  virtual const unsigned int GetChannelCount() const = 0;
+  virtual unsigned int GetChannelCount() const = 0;
 
   /**
    * Returns the stream's sample rate, if the stream is using a dynamic sample rate, this value will NOT reflect any changes made by calls to SetResampleRatio()
    * @return The stream's sample rate (eg, 48000)
    */
-  virtual const unsigned int GetSampleRate() const = 0;
+  virtual unsigned int GetSampleRate() const = 0;
 
   /**
    * Return the data format the stream has been configured with
    * @return The stream's data format (eg, AE_FMT_S16LE)
    */
-  virtual const enum AEDataFormat GetDataFormat() const = 0;
+  virtual enum AEDataFormat GetDataFormat() const = 0;
 
   /**
    * Return the resample ratio
@@ -250,7 +254,7 @@ public:
     * @param from The volume level to fade from (0.0f-1.0f) - See notes
     * @param target The volume level to fade to (0.0f-1.0f)
     * @param time The amount of time in milliseconds for the fade to occur
-    * @note The from parameter does not set the streams volume, it is only used to calculate the fade time properly 
+    * @note The from parameter does not set the streams volume, it is only used to calculate the fade time properly
     */
   virtual void FadeVolume(float from, float target, unsigned int time) {} /* FIXME: once all the engines have these new methods */
 
@@ -264,10 +268,5 @@ public:
    * Slave a stream to resume when this stream has drained
    */
   virtual void RegisterSlave(IAEStream *stream) = 0;
-
-  /**
-   * Indicates if dsp addon system is active.
-   */
-  virtual bool HasDSP() = 0;
 };
 

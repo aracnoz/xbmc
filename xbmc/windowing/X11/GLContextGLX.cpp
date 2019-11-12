@@ -1,30 +1,18 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system_gl.h"
+#include "GLContextGLX.h"
 
-#if defined(HAVE_X11) && defined(HAS_GL)
+#include "utils/log.h"
 
 #include <GL/glx.h>
-#include "GLContextGLX.h"
-#include "utils/log.h"
+
+#include "system_gl.h"
 
 CGLContextGLX::CGLContextGLX(Display *dpy) : CGLContext(dpy)
 {
@@ -107,7 +95,7 @@ bool CGLContextGLX::Refresh(bool force, int screen, Window glWindow, bool &newCo
     {
       glXMakeCurrent(m_dpy, None, NULL);
       glXDestroyContext(m_dpy, m_glxContext);
-      XSync(m_dpy, FALSE);
+      XSync(m_dpy, False);
     }
 
     if ((m_glxContext = glXCreateContext(m_dpy, vInfo, NULL, True)))
@@ -115,6 +103,7 @@ bool CGLContextGLX::Refresh(bool force, int screen, Window glWindow, bool &newCo
       // make this context current
       glXMakeCurrent(m_dpy, glWindow, m_glxContext);
       retVal = true;
+      newContext = true;
     }
     else
       CLog::Log(LOGERROR, "GLX Error: Could not create context");
@@ -155,9 +144,7 @@ bool CGLContextGLX::IsSuitableVisual(XVisualInfo *vInfo)
     return false;
   if (glXGetConfig(m_dpy, vInfo, GLX_BLUE_SIZE, &value) || value < 8)
     return false;
-  if (glXGetConfig(m_dpy, vInfo, GLX_ALPHA_SIZE, &value) || value < 8)
-    return false;
-  if (glXGetConfig(m_dpy, vInfo, GLX_DEPTH_SIZE, &value) || value < 8)
+  if (glXGetConfig(m_dpy, vInfo, GLX_DEPTH_SIZE, &value) || value < 24)
     return false;
 
   return true;
@@ -270,7 +257,7 @@ void CGLContextGLX::SwapBuffers()
 void CGLContextGLX::QueryExtensions()
 {
   m_extensions  = " ";
-  m_extensions += (const char*)glXQueryExtensionsString(m_dpy, m_nScreen);
+  m_extensions += glXQueryExtensionsString(m_dpy, m_nScreen);
   m_extensions += " ";
 
   CLog::Log(LOGDEBUG, "GLX_EXTENSIONS:%s", m_extensions.c_str());
@@ -295,5 +282,3 @@ void CGLContextGLX::QueryExtensions()
   else
     m_glXSwapIntervalEXT = NULL;
 }
-
-#endif

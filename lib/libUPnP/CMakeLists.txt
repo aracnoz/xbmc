@@ -58,6 +58,7 @@ set(SOURCES Platinum/Source/Core/PltAction.cpp
             Neptune/Source/Core/NptUri.cpp
             Neptune/Source/Core/NptUtils.cpp
             Neptune/Source/Core/NptXml.cpp
+            Neptune/Source/System/Bsd/NptBsdResolver.cpp
             Neptune/Source/System/Bsd/NptBsdSockets.cpp
             Neptune/Source/System/StdC/NptStdcDebug.cpp
             Neptune/Source/System/StdC/NptStdcEnvironment.cpp
@@ -70,13 +71,19 @@ set(SOURCES Platinum/Source/Core/PltAction.cpp
             Platinum/Source/Devices/MediaConnect/PltMediaConnect.cpp
             Neptune/Source/System/Posix/NptPosixEnvironment.cpp)
 
-if(NOT CORE_SYSTEM_NAME STREQUAL windows)
+if(NOT CORE_SYSTEM_NAME STREQUAL windows AND NOT CORE_SYSTEM_NAME STREQUAL windowsstore)
   list(APPEND SOURCES Neptune/Source/System/Posix/NptPosixSystem.cpp
                       Neptune/Source/System/Posix/NptSelectableMessageQueue.cpp
                       Neptune/Source/System/Posix/NptPosixQueue.cpp
                       Neptune/Source/System/Posix/NptPosixThreads.cpp
                       Neptune/Source/System/Posix/NptPosixTime.cpp
                       Neptune/Source/System/Bsd/NptBsdNetwork.cpp)
+  if(APPLE)
+    list(APPEND SOURCES Neptune/Source/System/Apple/NptAppleAutoreleasePool.mm)
+    set_property(SOURCE Neptune/Source/System/Apple/NptAppleAutoreleasePool.mm APPEND_STRING PROPERTY COMPILE_OPTIONS "-fno-objc-arc")
+  else()
+    list(APPEND SOURCES Neptune/Source/System/Null/NptNullAutoreleasePool.cpp)
+  endif()
 else()
   list(APPEND SOURCES Neptune/Source/System/Win32/NptWin32Console.cpp
                       Neptune/Source/System/Win32/NptWin32Debug.cpp
@@ -90,13 +97,18 @@ else()
                       Neptune/Source/System/Win32/NptWin32Time.cpp)
 endif()
 
-if(APPLE)
-  list(APPEND SOURCES Neptune/Source/System/Apple/NptAppleAutoreleasePool.mm
-                      Neptune/Source/System/Apple/NptAppleLogConfig.mm)
+if(CORE_SYSTEM_NAME STREQUAL "freebsd")
+  list(APPEND SOURCES Neptune/Source/System/Bsd/NptBsdResolver.cpp
+                      Neptune/Source/System/Bsd/NptBsdSockets.cpp)
 endif()
+
 
 add_library(upnp STATIC ${SOURCES} ${HEADERS})
 target_compile_definitions(upnp PUBLIC -DNPT_CONFIG_ENABLE_LOGGING)
+if(CORE_SYSTEM_NAME STREQUAL "freebsd")
+  target_compile_definitions(upnp PUBLIC -DNPT_CONFIG_HAVE_GETADDRINFO)
+endif()
+
 target_include_directories(upnp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                        Platinum/Source/Core
                                        Platinum/Source/Platinum
@@ -106,9 +118,13 @@ target_include_directories(upnp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
                                        Platinum/Source/Extras
                                        Neptune/Source/Core
                                        Neptune/Source/System/Posix)
-if(CORE_SYSTEM_NAME STREQUAL windows)
+if(CORE_SYSTEM_NAME STREQUAL windows OR CORE_SYSTEM_NAME STREQUAL windowsstore)
   target_include_directories(upnp PRIVATE Neptune/Source/System/Win32)
 endif()
 set_target_properties(upnp PROPERTIES FOLDER lib)
 source_group_by_folder(upnp)
 set(core_DEPENDS upnp ${core_DEPENDS} CACHE STRING "" FORCE)
+
+if(CORE_SYSTEM_NAME STREQUAL windowsstore)
+	set_target_properties(upnp PROPERTIES STATIC_LIBRARY_FLAGS "/ignore:4264")
+endif()

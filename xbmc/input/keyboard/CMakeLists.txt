@@ -1,8 +1,13 @@
-set(SOURCES KeymapActionMap.cpp
+set(SOURCES KeyboardEasterEgg.cpp
+            KeymapActionMap.cpp
 )
 
-set(HEADERS IActionMap.h
-            IKeyboardHandler.h
+set(HEADERS interfaces/IActionMap.h
+            interfaces/IKeyboardDriverHandler.h
+            interfaces/IKeyboardInputHandler.h
+            interfaces/IKeyboardInputProvider.h
+            KeyboardEasterEgg.h
+            KeyboardTypes.h
             KeymapActionMap.h
 )
 

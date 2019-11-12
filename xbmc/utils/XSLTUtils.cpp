@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://www.xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "XSLTUtils.h"
@@ -23,10 +11,7 @@
 #include <libxslt/xslt.h>
 #include <libxslt/transform.h>
 
-#ifdef TARGET_WINDOWS
-#pragma comment(lib, "libxslt.lib")
-#pragma comment(lib, "libxml2.lib")
-#else
+#ifndef TARGET_WINDOWS
 #include <iostream>
 #endif
 
@@ -38,11 +23,9 @@ void err(void *ctx, const char *msg, ...) {
   vsnprintf(string, TMP_BUF_SIZE, msg, arg_ptr);
   va_end(arg_ptr);
   CLog::Log(LOGDEBUG, "XSLT: %s", string);
-  return;
 }
 
-XSLTUtils::XSLTUtils() :
-m_xmlInput(nullptr), m_xmlOutput(nullptr), m_xmlStylesheet(nullptr), m_xsltStylesheet(nullptr)
+XSLTUtils::XSLTUtils()
 {
   // initialize libxslt
   xmlSubstituteEntitiesDefault(1);
@@ -115,6 +98,6 @@ bool XSLTUtils::SetStylesheet(const std::string& stylesheet)
     m_xmlStylesheet = NULL;
     return false;
   }
-  
+
   return true;
 }

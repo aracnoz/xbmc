@@ -1,32 +1,22 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralHID.h"
-#include "utils/log.h"
+
 #include "guilib/LocalizeStrings.h"
-#include "input/ButtonTranslator.h"
+#include "input/InputManager.h"
+#include "peripherals/Peripherals.h"
+#include "utils/log.h"
 
 using namespace PERIPHERALS;
 
-CPeripheralHID::CPeripheralHID(const PeripheralScanResult& scanResult, CPeripheralBus* bus) :
-  CPeripheral(scanResult, bus)
+CPeripheralHID::CPeripheralHID(CPeripherals& manager, const PeripheralScanResult& scanResult, CPeripheralBus* bus) :
+  CPeripheral(manager, scanResult, bus)
 {
   m_strDeviceName = scanResult.m_strDeviceName.empty() ? g_localizeStrings.Get(35001) : scanResult.m_strDeviceName;
   m_features.push_back(FEATURE_HID);
@@ -37,7 +27,7 @@ CPeripheralHID::~CPeripheralHID(void)
   if (!m_strKeymap.empty() && !GetSettingBool("do_not_use_custom_keymap"))
   {
     CLog::Log(LOGDEBUG, "%s - switching active keymapping to: default", __FUNCTION__);
-    CButtonTranslator::GetInstance().RemoveDevice(m_strKeymap);
+    m_manager.GetInputManager().RemoveKeymap(m_strKeymap);
   }
 }
 
@@ -65,12 +55,12 @@ bool CPeripheralHID::InitialiseFeature(const PeripheralFeature feature)
       if (bKeymapEnabled)
       {
         CLog::Log(LOGDEBUG, "%s - adding keymapping for: %s", __FUNCTION__, m_strKeymap.c_str());
-        CButtonTranslator::GetInstance().AddDevice(m_strKeymap);
+        m_manager.GetInputManager().AddKeymap(m_strKeymap);
       }
       else if (!bKeymapEnabled)
       {
         CLog::Log(LOGDEBUG, "%s - removing keymapping for: %s", __FUNCTION__, m_strKeymap.c_str());
-        CButtonTranslator::GetInstance().RemoveDevice(m_strKeymap);
+        m_manager.GetInputManager().RemoveKeymap(m_strKeymap);
       }
     }
 

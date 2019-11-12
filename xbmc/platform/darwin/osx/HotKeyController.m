@@ -1,31 +1,16 @@
-//
-//  HotKeyController.m
-//
-//  Modified by Gaurav Khanna on 8/17/10.
-//  SOURCE: http://github.com/sweetfm/SweetFM/blob/master/Source/HMediaKeys.m
-//  SOURCE: http://stackoverflow.com/questions/2969110/cgeventtapcreate-breaks-down-mysteriously-with-key-down-events
-//
-//
-//  Permission is hereby granted, free of charge, to any person 
-//  obtaining a copy of this software and associated documentation
-//  files (the "Software"), to deal in the Software without restriction,
-//  including without limitation the rights to use, copy, modify, 
-//  merge, publish, distribute, sublicense, and/or sell copies of 
-//  the Software, and to permit persons to whom the Software is 
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be 
-//  included in all copies or substantial portions of the Software.
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
-//  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-//  OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-//  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
-//  ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
-//  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-//  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
+/*
+ *  HotKeyController.m
+ *
+ *  Modified by Gaurav Khanna on 8/17/10.
+ *  SOURCE: http://github.com/sweetfm/SweetFM/blob/master/Source/HMediaKeys.m
+ *  SOURCE: http://stackoverflow.com/questions/2969110/cgeventtapcreate-breaks-down-mysteriously-with-key-down-events
+ *
+ *  SPDX-License-Identifier: MIT
+ *  See LICENSES/README.md for more information.
+ */
 
 #import "HotKeyController.h"
+
 #import <IOKit/hidsystem/ev_keymap.h>
 #import <sys/sysctl.h>
 
@@ -50,42 +35,12 @@ NSString* const MediaKeyPreviousNotification  = @"MediaKeyPreviousNotification";
 
 + (HotKeyController*)sharedController
 {
-  static HotKeyController *sharedHotKeyController = nil;
-  if (sharedHotKeyController == nil)
-    sharedHotKeyController = [[super allocWithZone:NULL] init];
-
+  static HotKeyController* sharedHotKeyController;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    sharedHotKeyController = [self new];
+  });
   return sharedHotKeyController;
-}
-
-+ (id)allocWithZone:(NSZone *)zone
-{
-  return [[self sharedController] retain];
-}
- 
-- (id)copyWithZone:(NSZone *)zone
-{
-  return self;
-}
- 
-- (id)retain
-{
-  return self;
-}
- 
-- (NSUInteger)retainCount
-{
-  //denotes an object that cannot be released
-  return NSUIntegerMax;
-}
- 
-- (oneway void)release
-{
-  //do nothing
-}
- 
-- (id)autorelease
-{
-  return self;
 }
 
 - (CFMachPortRef)eventPort
@@ -93,20 +48,20 @@ NSString* const MediaKeyPreviousNotification  = @"MediaKeyPreviousNotification";
   return m_eventPort;
 }
 
-- (void)sysPower: (BOOL)enable;
+- (void)sysPower: (BOOL)enable
 {
   m_controlSysPower = enable;
 }
-- (BOOL)controlPower;
+- (BOOL)controlPower
 {
   return m_controlSysPower;
 }
 
-- (void)sysVolume: (BOOL)enable;
+- (void)sysVolume: (BOOL)enable
 {
   m_controlSysVolume = enable;
 }
-- (BOOL)controlVolume;
+- (BOOL)controlVolume
 {
   return m_controlSysVolume;
 }
@@ -124,14 +79,14 @@ NSString* const MediaKeyPreviousNotification  = @"MediaKeyPreviousNotification";
 - (BOOL)getDebuggerActive
 {
   // Technical Q&A QA1361
-  // returns true if the current process is being debugged (either 
+  // returns true if the current process is being debugged (either
   // running under the debugger or has a debugger attached post facto).
   int                 junk;
   int                 mib[4];
   struct kinfo_proc   info;
   size_t              size;
 
-  // initialize the flags so that, if sysctl fails for some bizarre 
+  // initialize the flags so that, if sysctl fails for some bizarre
   // reason, we get a predictable result.
   info.kp_proc.p_flag = 0;
 
@@ -156,7 +111,7 @@ NSString* const MediaKeyPreviousNotification  = @"MediaKeyPreviousNotification";
 // and you WILL lose all key control :)
 static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
 {
-  HotKeyController *hot_key_controller = (HotKeyController*)refcon;
+  HotKeyController* hot_key_controller = (__bridge HotKeyController*)refcon;
 
   if (type == kCGEventTapDisabledByTimeout)
   {
@@ -164,25 +119,25 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
       CGEventTapEnable([hot_key_controller eventPort], TRUE);
     return NULL;
   }
-  
+
   if ((type != NX_SYSDEFINED) || (![hot_key_controller getActive]))
     return event;
 
   NSEvent *nsEvent = [NSEvent eventWithCGEvent:event];
-  if (!nsEvent || [nsEvent subtype] != 8) 
+  if (!nsEvent || [nsEvent subtype] != 8)
     return event;
-    
+
   int data = [nsEvent data1];
   int keyCode  = (data & 0xFFFF0000) >> 16;
   int keyFlags = (data & 0xFFFF);
   int keyState = (keyFlags & 0xFF00) >> 8;
   BOOL keyIsRepeat = (keyFlags & 0x1) > 0;
-  
+
   // allow repeated keypresses for volume buttons
   // all other repeated keypresses are handled by the os (is this really good?)
-  if (keyIsRepeat && keyCode != NX_KEYTYPE_SOUND_UP && keyCode != NX_KEYTYPE_SOUND_DOWN) 
+  if (keyIsRepeat && keyCode != NX_KEYTYPE_SOUND_UP && keyCode != NX_KEYTYPE_SOUND_DOWN)
     return event;
-  
+
   NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
   switch (keyCode)
   {
@@ -190,7 +145,7 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
       if ([hot_key_controller controlPower])
       {
         if (keyState == NX_KEYSTATE_DOWN)
-          [center postNotificationName:MediaKeyPower object:(HotKeyController *)refcon];
+          [center postNotificationName:MediaKeyPower object:hot_key_controller];
         if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
           return NULL;
       }
@@ -199,7 +154,7 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
       if ([hot_key_controller controlVolume])
       {
         if (keyState == NX_KEYSTATE_DOWN)
-          [center postNotificationName:MediaKeySoundMute object:(HotKeyController *)refcon];
+          [center postNotificationName:MediaKeySoundMute object:hot_key_controller];
         if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
           return NULL;
       }
@@ -208,7 +163,7 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
       if ([hot_key_controller controlVolume])
       {
         if (keyState == NX_KEYSTATE_DOWN)
-          [center postNotificationName:MediaKeySoundUp object:(HotKeyController *)refcon];
+          [center postNotificationName:MediaKeySoundUp object:hot_key_controller];
         if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
           return NULL;
       }
@@ -217,38 +172,38 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
       if ([hot_key_controller controlVolume])
       {
         if (keyState == NX_KEYSTATE_DOWN)
-          [center postNotificationName:MediaKeySoundDown object:(HotKeyController *)refcon];
+          [center postNotificationName:MediaKeySoundDown object:hot_key_controller];
         if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
           return NULL;
       }
     break;
     case NX_KEYTYPE_PLAY:
       if (keyState == NX_KEYSTATE_DOWN)
-        [center postNotificationName:MediaKeyPlayPauseNotification object:(HotKeyController *)refcon];
+        [center postNotificationName:MediaKeyPlayPauseNotification object:hot_key_controller];
       if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
         return NULL;
     break;
     case NX_KEYTYPE_FAST:
       if (keyState == NX_KEYSTATE_DOWN)
-        [center postNotificationName:MediaKeyFastNotification object:(HotKeyController *)refcon];
+        [center postNotificationName:MediaKeyFastNotification object:hot_key_controller];
       if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
         return NULL;
     break;
     case NX_KEYTYPE_REWIND:
       if (keyState == NX_KEYSTATE_DOWN)
-        [center postNotificationName:MediaKeyRewindNotification object:(HotKeyController *)refcon];
+        [center postNotificationName:MediaKeyRewindNotification object:hot_key_controller];
       if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
         return NULL;
     break;
     case NX_KEYTYPE_NEXT:
       if (keyState == NX_KEYSTATE_DOWN)
-        [center postNotificationName:MediaKeyNextNotification object:(HotKeyController *)refcon];
+        [center postNotificationName:MediaKeyNextNotification object:hot_key_controller];
       if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
         return NULL;
     break;
     case NX_KEYTYPE_PREVIOUS:
       if (keyState == NX_KEYSTATE_DOWN)
-        [center postNotificationName:MediaKeyPreviousNotification object:(HotKeyController *)refcon];
+        [center postNotificationName:MediaKeyPreviousNotification object:hot_key_controller];
       if (keyState == NX_KEYSTATE_UP || keyState == NX_KEYSTATE_DOWN)
         return NULL;
     break;
@@ -258,10 +213,10 @@ static CGEventRef tapEventCallback2(CGEventTapProxy proxy, CGEventType type, CGE
 
 static CGEventRef tapEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
 {
-  NSAutoreleasePool *pool = [NSAutoreleasePool new];
-  CGEventRef ret = tapEventCallback2(proxy, type, event, refcon);
-  [pool drain];
-  return ret;
+  @autoreleasepool
+  {
+    return tapEventCallback2(proxy, type, event, refcon);
+  }
 }
 
 
@@ -303,12 +258,11 @@ static CGEventRef tapEventCallback(CGEventTapProxy proxy, CGEventType type, CGEv
 
 - (void)enableTap
 {
-  if (![self getDebuggerActive] && ![self getActive] && floor(NSAppKitVersionNumber) >= 949)
+  if (![self getDebuggerActive] && ![self getActive])
   {
-    // check runtime, we only allow this on 10.5+
     m_eventPort = CGEventTapCreate(kCGSessionEventTap,
       kCGHeadInsertEventTap, kCGEventTapOptionDefault,
-      CGEventMaskBit(NX_SYSDEFINED), tapEventCallback, self);
+      CGEventMaskBit(NX_SYSDEFINED), tapEventCallback, (__bridge void*)self);
     if (m_eventPort != NULL)
     {
       // Run this in a separate thread so that a slow app

@@ -1,46 +1,34 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
-*      Copyright (C) 2005-2013 Team Kodi
-*      http://kodi.tv
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+#include "InputCodingTable.h"
+#include "threads/Thread.h"
 
 #include <deque>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "InputCodingTable.h"
-#include "threads/Thread.h"
-
 class CInputCodingTableBaiduPY : public IInputCodingTable, public CThread
 {
 public:
-  CInputCodingTableBaiduPY(const std::string& strUrl);
-  virtual ~CInputCodingTableBaiduPY() {}
+  explicit CInputCodingTableBaiduPY(const std::string& strUrl);
+  ~CInputCodingTableBaiduPY() override = default;
 
-  virtual void Initialize() override;
-  virtual void Deinitialize() override;
-  virtual bool IsInitialized() const override;
-  virtual bool GetWordListPage(const std::string& strCode, bool isFirstPage) override;
-  virtual void Process() override;
+  void Initialize() override;
+  void Deinitialize() override;
+  bool IsInitialized() const override;
+  bool GetWordListPage(const std::string& strCode, bool isFirstPage) override;
+  void Process() override;
 
-  virtual std::vector<std::wstring> GetResponse(int response) override;
+  std::vector<std::wstring> GetResponse(int response) override;
 private:
   std::wstring UnicodeToWString(const std::string& unicode);
   void HandleResponse(const std::string& strCode, const std::string& response);

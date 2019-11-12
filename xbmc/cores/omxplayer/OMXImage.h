@@ -1,43 +1,23 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#if defined(HAVE_OMXLIB)
+#pragma once
 
 #include "OMXCore.h"
-
-#include <IL/OMX_Video.h>
-
-#include "OMXClock.h"
-#if defined(STANDALONE)
-#define XB_FMT_A8R8G8B8 1
-#include "File.h"
-#else
 #include "filesystem/File.h"
 #include "guilib/XBTF.h"
-#endif
+#include "threads/Thread.h"
 
-#include "system_gl.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include "threads/Thread.h"
+#include <IL/OMX_Video.h>
+
+#include "system_gl.h"
 
 class COMXImageFile;
 
@@ -59,7 +39,6 @@ public:
     GLuint texture;
     EGLImageKHR egl_image;
     void *parent;
-    const char *filename;
   };
   COMXImage();
   virtual ~COMXImage();
@@ -95,12 +74,12 @@ public:
   COMXImageFile();
   virtual ~COMXImageFile();
   bool ReadFile(const std::string& inputFile, int orientation = 0);
-  int  GetOrientation() { return m_orientation; };
-  unsigned int GetWidth()  { return m_width; };
-  unsigned int GetHeight() { return m_height; };
-  unsigned long GetImageSize() { return m_image_size; };
-  const uint8_t *GetImageBuffer() { return (const uint8_t *)m_image_buffer; };
-  const char *GetFilename() { return m_filename; };
+  int  GetOrientation() const { return m_orientation; };
+  unsigned int GetWidth() const { return m_width; };
+  unsigned int GetHeight() const { return m_height; };
+  unsigned long GetImageSize() const { return m_image_size; };
+  const uint8_t *GetImageBuffer() const { return (const uint8_t *)m_image_buffer; };
+  const char *GetFilename() const { return m_filename.c_str(); };
 protected:
   OMX_IMAGE_CODINGTYPE GetCodingType(unsigned int &width, unsigned int &height, int orientation);
   uint8_t           *m_image_buffer;
@@ -108,7 +87,7 @@ protected:
   unsigned int      m_width;
   unsigned int      m_height;
   int               m_orientation;
-  const char *      m_filename;
+  std::string       m_filename;
 };
 
 class COMXImageDec
@@ -120,15 +99,15 @@ public:
   // Required overrides
   void Close();
   bool Decode(const uint8_t *data, unsigned size, unsigned int width, unsigned int height, unsigned stride, void *pixels);
-  unsigned int GetDecodedWidth() { return (unsigned int)m_decoded_format.format.image.nFrameWidth; };
-  unsigned int GetDecodedHeight() { return (unsigned int)m_decoded_format.format.image.nFrameHeight; };
-  unsigned int GetDecodedStride() { return (unsigned int)m_decoded_format.format.image.nStride; };
+  unsigned int GetDecodedWidth() const { return (unsigned int)m_decoded_format.format.image.nFrameWidth; };
+  unsigned int GetDecodedHeight() const { return (unsigned int)m_decoded_format.format.image.nFrameHeight; };
+  unsigned int GetDecodedStride() const { return (unsigned int)m_decoded_format.format.image.nStride; };
 protected:
   bool HandlePortSettingChange(unsigned int resize_width, unsigned int resize_height, unsigned int resize_stride);
   // Components
   COMXCoreComponent             m_omx_decoder;
   COMXCoreComponent             m_omx_resize;
-  COMXCoreTunel                 m_omx_tunnel_decode;
+  COMXCoreTunnel                m_omx_tunnel_decode;
   OMX_BUFFERHEADERTYPE          *m_decoded_buffer;
   OMX_PARAM_PORTDEFINITIONTYPE  m_decoded_format;
   CCriticalSection              m_OMXSection;
@@ -169,8 +148,8 @@ protected:
   COMXCoreComponent             m_omx_decoder;
   COMXCoreComponent             m_omx_resize;
   COMXCoreComponent             m_omx_encoder;
-  COMXCoreTunel                 m_omx_tunnel_decode;
-  COMXCoreTunel                 m_omx_tunnel_resize;
+  COMXCoreTunnel                m_omx_tunnel_decode;
+  COMXCoreTunnel                m_omx_tunnel_resize;
   OMX_BUFFERHEADERTYPE          *m_encoded_buffer;
   CCriticalSection              m_OMXSection;
   void                          *m_pDestBuffer;
@@ -195,8 +174,8 @@ protected:
   COMXCoreComponent m_omx_resize;
   COMXCoreComponent m_omx_egl_render;
 
-  COMXCoreTunel     m_omx_tunnel_decode;
-  COMXCoreTunel     m_omx_tunnel_egl;
+  COMXCoreTunnel    m_omx_tunnel_decode;
+  COMXCoreTunnel    m_omx_tunnel_egl;
 
   OMX_BUFFERHEADERTYPE *m_egl_buffer;
   CCriticalSection              m_OMXSection;
@@ -204,4 +183,3 @@ protected:
 };
 
 extern COMXImage g_OMXImage;
-#endif

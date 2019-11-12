@@ -1,26 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include <vector>
+
+#pragma once
 
 #include "interfaces/legacy/AddonClass.h"
+
+#include <vector>
 
 struct HTTPPythonRequest;
 
@@ -34,7 +24,7 @@ namespace XBMCAddon
     {
     public:
       WsgiInputStreamIterator();
-      virtual ~WsgiInputStreamIterator();
+      ~WsgiInputStreamIterator() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       /// \ingroup python_xbmcwsgi_WsgiInputStream
@@ -91,11 +81,11 @@ namespace XBMCAddon
       bool operator!=(const WsgiInputStreamIterator& rhs);
       String& operator*();
       inline bool end() const { return m_remaining <= 0; }
-      
+
     protected:
       String m_data;
-      mutable unsigned long m_offset;
-      mutable unsigned long m_remaining;
+      mutable unsigned long m_offset = 0;
+      mutable unsigned long m_remaining = 0;
 
     private:
       String m_line;
@@ -115,7 +105,7 @@ namespace XBMCAddon
     {
     public:
       WsgiInputStream();
-      virtual ~WsgiInputStream();
+      ~WsgiInputStream() override;
 
 #if !defined SWIG && !defined DOXYGEN_SHOULD_SKIP_THIS
       WsgiInputStreamIterator* begin();

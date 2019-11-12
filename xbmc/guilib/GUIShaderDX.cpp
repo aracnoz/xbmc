@@ -1,31 +1,16 @@
 /*
-*      Copyright (C) 2005-2015 Team Kodi
-*      http://kodi.tv
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
-#ifdef HAS_DX
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
-#include <d3dcompiler.h>
 #include "GUIShaderDX.h"
-#include "guilib/GraphicContext.h"
-#include "settings/lib/Setting.h"
-#include "settings/Settings.h"
+#include "windowing/GraphicContext.h"
+#include "rendering/dx/DeviceResources.h"
+#include "rendering/dx/RenderContext.h"
 #include "utils/log.h"
-#include "windowing/WindowingFactory.h"
 
 // shaders bytecode includes
 #include "guishader_vert.h"
@@ -38,8 +23,11 @@
 #include "guishader_multi_texture_blend.h"
 #include "guishader_texture.h"
 #include "guishader_texture_noblend.h"
-#include "guishader_video.h"
-#include "guishader_video_control.h"
+
+#include <d3dcompiler.h>
+
+using namespace DirectX;
+using namespace Microsoft::WRL;
 
 // shaders bytecode holder
 static const D3D_SHADER_DATA cbPSShaderCode[SHADER_METHOD_RENDER_COUNT] =
@@ -49,8 +37,6 @@ static const D3D_SHADER_DATA cbPSShaderCode[SHADER_METHOD_RENDER_COUNT] =
   { guishader_fonts,               sizeof(guishader_fonts)                }, // SHADER_METHOD_RENDER_FONT
   { guishader_texture,             sizeof(guishader_texture)              }, // SHADER_METHOD_RENDER_TEXTURE_BLEND
   { guishader_multi_texture_blend, sizeof(guishader_multi_texture_blend)  }, // SHADER_METHOD_RENDER_MULTI_TEXTURE_BLEND
-  { guishader_video,               sizeof(guishader_video)                }, // SHADER_METHOD_RENDER_VIDEO
-  { guishader_video_control,       sizeof(guishader_video_control)        }, // SHADER_METHOD_RENDER_VIDEO_CONTROL
   { guishader_interlaced_left,     sizeof(guishader_interlaced_left)      }, // SHADER_METHOD_RENDER_STEREO_INTERLACED_LEFT
   { guishader_interlaced_right,    sizeof(guishader_interlaced_right)     }, // SHADER_METHOD_RENDER_STEREO_INTERLACED_RIGHT
   { guishader_checkerboard_left,   sizeof(guishader_checkerboard_left)    }, // SHADER_METHOD_RENDER_STEREO_CHECKERBOARD_LEFT
@@ -58,11 +44,10 @@ static const D3D_SHADER_DATA cbPSShaderCode[SHADER_METHOD_RENDER_COUNT] =
 };
 
 CGUIShaderDX::CGUIShaderDX() :
-    m_pSampLinear(NULL),
-    m_pSampPoint(NULL),
-    m_pVPBuffer(NULL),
-    m_pWVPBuffer(NULL),
-    m_pVertexBuffer(NULL),
+    m_pSampLinear(nullptr),
+    m_pVPBuffer(nullptr),
+    m_pWVPBuffer(nullptr),
+    m_pVertexBuffer(nullptr),
     m_clipXFactor(0.0f),
     m_clipXOffset(0.0f),
     m_clipYFactor(0.0f),
@@ -123,28 +108,28 @@ bool CGUIShaderDX::Initialize()
 
 bool CGUIShaderDX::CreateBuffers()
 {
-  ID3D11Device* pDevice = g_Windowing.Get3D11Device();
+  ComPtr<ID3D11Device> pDevice = DX::DeviceResources::Get()->GetD3DDevice();
 
   // create vertex buffer
   CD3D11_BUFFER_DESC bufferDesc(sizeof(Vertex) * 4, D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE);
-  if (FAILED(pDevice->CreateBuffer(&bufferDesc, NULL, &m_pVertexBuffer)))
+  if (FAILED(pDevice->CreateBuffer(&bufferDesc, NULL, m_pVertexBuffer.ReleaseAndGetAddressOf())))
   {
-    CLog::Log(LOGERROR, __FUNCTION__ " - Failed to create GUI vertex buffer.");
+    CLog::LogF(LOGERROR, "Failed to create GUI vertex buffer.");
     return false;
   }
 
   // Create the constant buffer for WVP
   size_t buffSize = (sizeof(cbWorld) + 15) & ~15;
   CD3D11_BUFFER_DESC cbbd(buffSize, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE); // it can change very frequently
-  if (FAILED(pDevice->CreateBuffer(&cbbd, NULL, &m_pWVPBuffer)))
+  if (FAILED(pDevice->CreateBuffer(&cbbd, NULL, m_pWVPBuffer.ReleaseAndGetAddressOf())))
   {
-    CLog::Log(LOGERROR, __FUNCTION__ " - Failed to create the constant buffer.");
+    CLog::LogF(LOGERROR, "Failed to create the constant buffer.");
     return false;
   }
   m_bIsWVPDirty = true;
 
   CRect viewPort;
-  g_Windowing.GetViewPort(viewPort);
+  DX::Windowing()->GetViewPort(viewPort);
 
   // initial data for viewport buffer
   m_cbViewPort.TopLeftX = viewPort.x1;
@@ -155,7 +140,7 @@ bool CGUIShaderDX::CreateBuffers()
   cbbd.ByteWidth = sizeof(cbViewPort);
   D3D11_SUBRESOURCE_DATA initData = { &m_cbViewPort, 0, 0 };
   // create viewport buffer
-  if (FAILED(pDevice->CreateBuffer(&cbbd, &initData, &m_pVPBuffer)))
+  if (FAILED(pDevice->CreateBuffer(&cbbd, &initData, m_pVPBuffer.ReleaseAndGetAddressOf())))
     return false;
 
   return true;
@@ -165,7 +150,7 @@ bool CGUIShaderDX::CreateSamplers()
 {
   // Describe the Sampler State
   D3D11_SAMPLER_DESC sampDesc;
-  ZeroMemory(&sampDesc, sizeof(D3D11_SAMPLER_DESC));
+  memset(&sampDesc, 0, sizeof(D3D11_SAMPLER_DESC));
   sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
   sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
   sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -174,15 +159,10 @@ bool CGUIShaderDX::CreateSamplers()
   sampDesc.MinLOD = 0;
   sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-  if (FAILED(g_Windowing.Get3D11Device()->CreateSamplerState(&sampDesc, &m_pSampLinear)))
+  if (FAILED(DX::DeviceResources::Get()->GetD3DDevice()->CreateSamplerState(&sampDesc, m_pSampLinear.ReleaseAndGetAddressOf())))
     return false;
 
-  sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-  if (FAILED(g_Windowing.Get3D11Device()->CreateSamplerState(&sampDesc, &m_pSampPoint)))
-    return false;
-
-  ID3D11SamplerState* samplers[] = { m_pSampLinear, m_pSampPoint };
-  g_Windowing.Get3D11Context()->PSSetSamplers(0, ARRAYSIZE(samplers), samplers);
+  DX::DeviceResources::Get()->GetD3DContext()->PSSetSamplers(0, 1, m_pSampLinear.GetAddressOf());
 
   return true;
 }
@@ -192,17 +172,16 @@ void CGUIShaderDX::ApplyStateBlock(void)
   if (!m_bCreated)
     return;
 
-  ID3D11DeviceContext* pContext = g_Windowing.Get3D11Context();
+  ComPtr<ID3D11DeviceContext> pContext = DX::DeviceResources::Get()->GetD3DContext();
 
   m_vertexShader.BindShader();
-  pContext->VSSetConstantBuffers(0, 1, &m_pWVPBuffer);
+  pContext->VSSetConstantBuffers(0, 1, m_pWVPBuffer.GetAddressOf());
 
   m_pixelShader[m_currentShader].BindShader();
-  pContext->PSSetConstantBuffers(0, 1, &m_pWVPBuffer);
-  pContext->PSSetConstantBuffers(1, 1, &m_pVPBuffer);
+  pContext->PSSetConstantBuffers(0, 1, m_pWVPBuffer.GetAddressOf());
+  pContext->PSSetConstantBuffers(1, 1, m_pVPBuffer.GetAddressOf());
 
-  ID3D11SamplerState* samplers[] = { m_pSampLinear, m_pSampPoint };
-  pContext->PSSetSamplers(0, ARRAYSIZE(samplers), samplers);
+  pContext->PSSetSamplers(0, 1, m_pSampLinear.GetAddressOf());
 
   RestoreBuffers();
 }
@@ -233,16 +212,16 @@ void CGUIShaderDX::DrawQuad(Vertex& v1, Vertex& v2, Vertex& v3, Vertex& v4)
 
   ApplyChanges();
 
-  ID3D11DeviceContext* pContext = g_Windowing.Get3D11Context();
+  ComPtr<ID3D11DeviceContext> pContext = DX::DeviceResources::Get()->GetD3DContext();
 
   // update vertex buffer
   D3D11_MAPPED_SUBRESOURCE resource;
-  if (SUCCEEDED(pContext->Map(m_pVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource)))
+  if (SUCCEEDED(pContext->Map(m_pVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource)))
   {
     // we are using strip topology
-    Vertex verticies[4] = { v2, v3, v1, v4 };
-    memcpy(resource.pData, &verticies, sizeof(Vertex) * 4);
-    pContext->Unmap(m_pVertexBuffer, 0);
+    Vertex vertices[4] = { v2, v3, v1, v4 };
+    memcpy(resource.pData, &vertices, sizeof(Vertex) * 4);
+    pContext->Unmap(m_pVertexBuffer.Get(), 0);
     // Draw primitives
     pContext->Draw(4, 0);
   }
@@ -254,7 +233,7 @@ void CGUIShaderDX::DrawIndexed(unsigned int indexCount, unsigned int startIndex,
     return;
 
   ApplyChanges();
-  g_Windowing.Get3D11Context()->DrawIndexed(indexCount, startIndex, startVertex);
+  DX::DeviceResources::Get()->GetD3DContext()->DrawIndexed(indexCount, startIndex, startVertex);
 }
 
 void CGUIShaderDX::Draw(unsigned int vertexCount, unsigned int startVertex)
@@ -263,7 +242,7 @@ void CGUIShaderDX::Draw(unsigned int vertexCount, unsigned int startVertex)
     return;
 
   ApplyChanges();
-  g_Windowing.Get3D11Context()->Draw(vertexCount, startVertex);
+  DX::DeviceResources::Get()->GetD3DContext()->Draw(vertexCount, startVertex);
 }
 
 void CGUIShaderDX::SetShaderViews(unsigned int numViews, ID3D11ShaderResourceView** views)
@@ -271,24 +250,15 @@ void CGUIShaderDX::SetShaderViews(unsigned int numViews, ID3D11ShaderResourceVie
   if (!m_bCreated)
     return;
 
-  g_Windowing.Get3D11Context()->PSSetShaderResources(0, numViews, views);
-}
-
-void CGUIShaderDX::SetSampler(SHADER_SAMPLER sampler)
-{
-  if (!m_bCreated)
-    return;
-
-  g_Windowing.Get3D11Context()->PSSetSamplers(1, 1, sampler == SHADER_SAMPLER_POINT ? &m_pSampPoint : &m_pSampLinear);
+  DX::DeviceResources::Get()->GetD3DContext()->PSSetShaderResources(0, numViews, views);
 }
 
 void CGUIShaderDX::Release()
 {
-  SAFE_RELEASE(m_pVertexBuffer);
-  SAFE_RELEASE(m_pWVPBuffer);
-  SAFE_RELEASE(m_pVPBuffer);
-  SAFE_RELEASE(m_pSampLinear);
-  SAFE_RELEASE(m_pSampPoint);
+  m_pVertexBuffer = nullptr;
+  m_pWVPBuffer = nullptr;
+  m_pVPBuffer = nullptr;
+  m_pSampLinear = nullptr;
   m_bCreated = false;
 }
 
@@ -312,9 +282,13 @@ void CGUIShaderDX::SetViewPort(D3D11_VIEWPORT viewPort)
 
 void CGUIShaderDX::Project(float &x, float &y, float &z)
 {
+#if defined(_XM_SSE_INTRINSICS_) && !defined(_XM_NO_INTRINSICS_)
   XMVECTOR vLocation = { x, y, z };
-  XMVECTOR vScreenCoord = XMVector3Project(vLocation, m_cbViewPort.TopLeftX, m_cbViewPort.TopLeftY, 
-                                           m_cbViewPort.Width, m_cbViewPort.Height, 0, 1, 
+#elif defined(_XM_ARM_NEON_INTRINSICS_) && !defined(_XM_NO_INTRINSICS_)
+  XMVECTOR vLocation = { x, y };
+#endif
+  XMVECTOR vScreenCoord = XMVector3Project(vLocation, m_cbViewPort.TopLeftX, m_cbViewPort.TopLeftY,
+                                           m_cbViewPort.Width, m_cbViewPort.Height, 0, 1,
                                            m_cbWorldViewProj.projection, m_cbWorldViewProj.view, m_cbWorldViewProj.world);
   x = XMVectorGetX(vScreenCoord);
   y = XMVectorGetY(vScreenCoord);
@@ -349,22 +323,22 @@ void CGUIShaderDX::SetProjection(const XMMATRIX &value)
 
 void CGUIShaderDX::ApplyChanges(void)
 {
-  ID3D11DeviceContext* pContext = g_Windowing.Get3D11Context();
+  ComPtr<ID3D11DeviceContext> pContext = DX::DeviceResources::Get()->GetD3DContext();
   D3D11_MAPPED_SUBRESOURCE res;
 
   if (m_bIsWVPDirty)
   {
-    if (SUCCEEDED(pContext->Map(m_pWVPBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &res)))
+    if (SUCCEEDED(pContext->Map(m_pWVPBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &res)))
     {
       XMMATRIX worldView = XMMatrixMultiply(m_cbWorldViewProj.world, m_cbWorldViewProj.view);
       XMMATRIX worldViewProj = XMMatrixMultiplyTranspose(worldView, m_cbWorldViewProj.projection);
 
       cbWorld* buffer = (cbWorld*)res.pData;
       buffer->wvp = worldViewProj;
-      buffer->blackLevel = (g_Windowing.UseLimitedColor() ? 16.f / 255.f : 0.f);
-      buffer->colorRange = (g_Windowing.UseLimitedColor() ? (235.f - 16.f) / 255.f : 1.0f);
+      buffer->blackLevel = (DX::Windowing()->UseLimitedColor() ? 16.f / 255.f : 0.f);
+      buffer->colorRange = (DX::Windowing()->UseLimitedColor() ? (235.f - 16.f) / 255.f : 1.0f);
 
-      pContext->Unmap(m_pWVPBuffer, 0);
+      pContext->Unmap(m_pWVPBuffer.Get(), 0);
       m_bIsWVPDirty = false;
     }
   }
@@ -372,10 +346,10 @@ void CGUIShaderDX::ApplyChanges(void)
   // update view port buffer
   if (m_bIsVPDirty)
   {
-    if (SUCCEEDED(pContext->Map(m_pVPBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &res)))
+    if (SUCCEEDED(pContext->Map(m_pVPBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &res)))
     {
       *(cbViewPort*)res.pData = m_cbViewPort;
-      pContext->Unmap(m_pVPBuffer, 0);
+      pContext->Unmap(m_pVPBuffer.Get(), 0);
       m_bIsVPDirty = false;
     }
   }
@@ -386,9 +360,9 @@ void CGUIShaderDX::RestoreBuffers(void)
   const unsigned stride = sizeof(Vertex);
   const unsigned offset = 0;
 
-  ID3D11DeviceContext* pContext = g_Windowing.Get3D11Context();
+  ComPtr<ID3D11DeviceContext> pContext = DX::DeviceResources::Get()->GetD3DContext();
   // Set the vertex buffer to active in the input assembler so it can be rendered.
-  pContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
+  pContext->IASetVertexBuffers(0, 1, m_pVertexBuffer.GetAddressOf(), &stride, &offset);
   // Set the type of primitive that should be rendered from this vertex buffer, in this case triangles.
   pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 }
@@ -396,10 +370,10 @@ void CGUIShaderDX::RestoreBuffers(void)
 void CGUIShaderDX::ClipToScissorParams(void)
 {
   CRect viewPort; // absolute positions of corners
-  g_Windowing.GetViewPort(viewPort);
+  DX::Windowing()->GetViewPort(viewPort);
 
   // get current GUI transform
-  const TransformMatrix &guiMatrix = g_graphicsContext.GetGUIMatrix();
+  const TransformMatrix &guiMatrix = CServiceBroker::GetWinSystem()->GetGfxContext().GetGUIMatrix();
   // get current GPU transforms
   XMFLOAT4X4 world, view, projection;
   XMStoreFloat4x4(&world, m_cbWorldViewProj.world);
@@ -448,5 +422,3 @@ void CGUIShaderDX::ClipToScissorParams(void)
     m_clipYOffset = m_clipYOffset * yMult + (viewPort.y2 + viewPort.y1) / 2;
   }
 }
-
-#endif

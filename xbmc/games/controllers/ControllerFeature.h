@@ -1,60 +1,65 @@
 /*
- *      Copyright (C) 2015-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "ControllerTypes.h"
 #include "input/joysticks/JoystickTypes.h"
+#include "input/keyboard/KeyboardTypes.h"
 
 #include <string>
 
 class TiXmlElement;
 
+namespace KODI
+{
 namespace GAME
 {
 
 class CControllerFeature
 {
 public:
-  CControllerFeature(void) { Reset(); }
+  CControllerFeature() = default;
+  CControllerFeature(int labelId);
   CControllerFeature(const CControllerFeature& other) { *this = other; }
 
   void Reset(void);
 
   CControllerFeature& operator=(const CControllerFeature& rhs);
 
-  JOYSTICK::FEATURE_TYPE Type(void) const       { return m_type; }
-  const std::string&     Group(void) const      { return m_group; }
-  const std::string&     Name(void) const       { return m_strName; }
-  const std::string&     Label(void) const      { return m_strLabel; }
-  unsigned int           LabelID(void) const    { return m_labelId; }
-  JOYSTICK::INPUT_TYPE   InputType(void) const  { return m_inputType; }
+  JOYSTICK::FEATURE_TYPE Type(void) const { return m_type; }
+  JOYSTICK::FEATURE_CATEGORY Category(void) const { return m_category; }
+  const std::string &Name(void) const { return m_strName; }
 
-  bool Deserialize(const TiXmlElement* pElement, const CController* controller, const std::string& strGroup);
+  // GUI properties
+  std::string Label(void) const;
+  int LabelID(void) const { return m_labelId; }
+  std::string CategoryLabel(void) const;
+
+  // Input properties
+  JOYSTICK::INPUT_TYPE InputType(void) const { return m_inputType; }
+  KEYBOARD::KeySymbol Keycode() const { return m_keycode; }
+
+  bool Deserialize(const TiXmlElement* pElement,
+                   const CController* controller,
+                   JOYSTICK::FEATURE_CATEGORY category,
+                   int categoryLabelId);
 
 private:
-  JOYSTICK::FEATURE_TYPE m_type;
-  std::string            m_group;
-  std::string            m_strName;
-  std::string            m_strLabel;
-  unsigned int           m_labelId;
-  JOYSTICK::INPUT_TYPE   m_inputType;
+  const CController *m_controller = nullptr; // Used for translating addon-specific labels
+  JOYSTICK::FEATURE_TYPE m_type = JOYSTICK::FEATURE_TYPE::UNKNOWN;
+  JOYSTICK::FEATURE_CATEGORY m_category = JOYSTICK::FEATURE_CATEGORY::UNKNOWN;
+  int m_categoryLabelId = -1;
+  std::string m_strName;
+  int m_labelId = -1;
+  JOYSTICK::INPUT_TYPE m_inputType = JOYSTICK::INPUT_TYPE::UNKNOWN;
+  KEYBOARD::KeySymbol m_keycode = XBMCK_UNKNOWN;
 };
 
+}
 }

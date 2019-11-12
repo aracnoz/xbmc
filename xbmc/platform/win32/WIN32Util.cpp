@@ -1,54 +1,58 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WIN32Util.h"
-#include "Util.h"
-#include "utils/URIUtils.h"
-#include "storage/cdioSupport.h"
-#include "PowrProf.h"
-#include "WindowHelper.h"
+
 #include "Application.h"
-#include <shlobj.h>
-#include "filesystem/SpecialProtocol.h"
-#include "my_ntddscsi.h"
-#include "Setupapi.h"
-#include "storage/MediaManager.h"
-#include "windowing/WindowingFactory.h"
-#include "guilib/LocalizeStrings.h"
-#include "utils/CharsetConverter.h"
-#include "utils/log.h"
-#include "powermanagement/PowerManager.h"
-#include "utils/SystemInfo.h"
-#include "utils/Environment.h"
-#include "utils/StringUtils.h"
-#include "platform/win32/crts_caller.h"
 #include "CompileInfo.h"
+#include "ServiceBroker.h"
+#include "Util.h"
+#include "WindowHelper.h"
+#include "guilib/LocalizeStrings.h"
+#include "my_ntddscsi.h"
+#include "storage/MediaManager.h"
+#include "storage/cdioSupport.h"
+#include "utils/CharsetConverter.h"
+#include "utils/StringUtils.h"
+#include "utils/SystemInfo.h"
+#include "utils/URIUtils.h"
+#include "utils/log.h"
 
+#include "platform/win32/CharsetConverter.h"
+
+#include <PowrProf.h>
+
+#ifdef TARGET_WINDOWS_DESKTOP
 #include <cassert>
-
-
+#endif
 #include <locale.h>
 
+#include <shellapi.h>
+#include <shlobj.h>
+#include <winioctl.h>
+
+#ifdef TARGET_WINDOWS_DESKTOP
 extern HWND g_hWnd;
+#endif
 
 using namespace MEDIA_DETECT;
+
+#ifdef TARGET_WINDOWS_STORE
+#include "platform/win10/AsyncHelpers.h"
+#include <ppltasks.h>
+#include <winrt/Windows.Devices.Power.h>
+#include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.Storage.h>
+
+using namespace winrt::Windows::Devices::Power;
+using namespace winrt::Windows::Graphics::Display;
+using namespace winrt::Windows::Storage;
+#endif
 
 CWIN32Util::CWIN32Util(void)
 {
@@ -60,6 +64,14 @@ CWIN32Util::~CWIN32Util(void)
 
 int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
 {
+#ifdef TARGET_WINDOWS_STORE
+  CLog::LogF(LOGDEBUG, "is not implemented");
+  CLog::LogF(LOGDEBUG, "Could not determine tray status %d", GetLastError());
+  return -1;
+#else
+  using KODI::PLATFORM::WINDOWS::ToW;
+
+  auto strPathW = ToW(strPath);
   HANDLE hDevice;               // handle to the drive to be examined
   int iResult;                  // results flag
   ULONG ulChanges=0;
@@ -67,9 +79,9 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
   T_SPDT_SBUF sptd_sb;  //SCSI Pass Through Direct variable.
   byte DataBuf[8];  //Buffer for holding data to/from drive.
 
-  CLog::Log(LOGDEBUG, __FUNCTION__": Requesting status for drive %s.", strPath.c_str());
+  CLog::LogF(LOGDEBUG, "Requesting status for drive %s.", strPath);
 
-  hDevice = CreateFile( strPath.c_str(),                  // drive
+  hDevice = CreateFile( strPathW.c_str(),                  // drive
                         0,                                // no access to the drive
                         FILE_SHARE_READ,                  // share mode
                         NULL,                             // default security attributes
@@ -79,11 +91,11 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
 
   if (hDevice == INVALID_HANDLE_VALUE)                    // cannot open the drive
   {
-    CLog::Log(LOGERROR, __FUNCTION__": Failed to CreateFile for %s.", strPath.c_str());
+    CLog::LogF(LOGERROR, "Failed to CreateFile for %s.", strPath);
     return -1;
   }
 
-  CLog::Log(LOGDEBUG, __FUNCTION__": Requesting media status for drive %s.", strPath.c_str());
+  CLog::LogF(LOGDEBUG, "Requesting media status for drive %s.", strPath);
   iResult = DeviceIoControl((HANDLE) hDevice,             // handle to device
                              IOCTL_STORAGE_CHECK_VERIFY2, // dwIoControlCode
                              NULL,                        // lpInBuffer
@@ -102,7 +114,7 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
   if(!bStatusEx)
     return 0;
 
-  hDevice = CreateFile( strPath.c_str(),
+  hDevice = CreateFile( strPathW.c_str(),
                         GENERIC_READ | GENERIC_WRITE,
                         FILE_SHARE_READ | FILE_SHARE_WRITE,
                         NULL,
@@ -112,7 +124,7 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
 
   if (hDevice == INVALID_HANDLE_VALUE)
   {
-    CLog::Log(LOGERROR, __FUNCTION__": Failed to CreateFile2 for %s.", strPath.c_str());
+    CLog::LogF(LOGERROR, "Failed to CreateFile2 for %s.", strPath);
     return -1;
   }
 
@@ -149,7 +161,7 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
   ZeroMemory(sptd_sb.SenseBuf, MAX_SENSE_LEN);
 
   //Send the command to drive
-  CLog::Log(LOGDEBUG, __FUNCTION__": Requesting tray status for drive %s.", strPath.c_str());
+  CLog::LogF(LOGDEBUG, "Requesting tray status for drive %s.", strPath);
   iResult = DeviceIoControl((HANDLE) hDevice,
                             IOCTL_SCSI_PASS_THROUGH_DIRECT,
                             (PVOID)&sptd_sb, (DWORD)sizeof(sptd_sb),
@@ -169,8 +181,9 @@ int CWIN32Util::GetDriveStatus(const std::string &strPath, bool bStatusEx)
     else
       return 2; // tray closed, media present
   }
-  CLog::Log(LOGERROR, __FUNCTION__": Could not determine tray status %d", GetLastError());
+  CLog::LogF(LOGERROR, "Could not determine tray status %d", GetLastError());
   return -1;
+#endif
 }
 
 char CWIN32Util::FirstDriveFromMask (ULONG unitmask)
@@ -184,77 +197,12 @@ char CWIN32Util::FirstDriveFromMask (ULONG unitmask)
     return (i + 'A');
 }
 
-bool CWIN32Util::PowerManagement(PowerState State)
-{
-  static bool gotShutdownPrivileges = false;
-  if (!gotShutdownPrivileges)
-  {
-    HANDLE hToken;
-    // Get a token for this process.
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-    {
-      // Get the LUID for the shutdown privilege.
-      TOKEN_PRIVILEGES tkp = {};
-      if (LookupPrivilegeValue(NULL, SE_SHUTDOWN_NAME, &tkp.Privileges[0].Luid))
-      {
-        tkp.PrivilegeCount = 1;  // one privilege to set
-        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-        // Get the shutdown privilege for this process.
-        if (AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0))
-          gotShutdownPrivileges = true;
-      }
-      CloseHandle(hToken);
-    }
-
-    if (!gotShutdownPrivileges)
-      return false;
-  }
-
-  switch (State)
-  {
-  case POWERSTATE_HIBERNATE:
-    CLog::Log(LOGINFO, "Asking Windows to hibernate...");
-    return SetSuspendState(true, true, false) == TRUE;
-    break;
-  case POWERSTATE_SUSPEND:
-    CLog::Log(LOGINFO, "Asking Windows to suspend...");
-    return SetSuspendState(false, true, false) == TRUE;
-    break;
-  case POWERSTATE_SHUTDOWN:
-    CLog::Log(LOGINFO, "Shutdown Windows...");
-    if (g_sysinfo.IsWindowsVersionAtLeast(CSysInfo::WindowsVersionWin8))
-      return InitiateShutdownW(NULL, NULL, 0, SHUTDOWN_HYBRID | SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_POWEROFF,
-                               SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_MINOR_OTHER | SHTDN_REASON_FLAG_PLANNED) == ERROR_SUCCESS;
-    return InitiateShutdownW(NULL, NULL, 0, SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_POWEROFF,
-                             SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_MINOR_OTHER | SHTDN_REASON_FLAG_PLANNED) == ERROR_SUCCESS;
-    break;
-  case POWERSTATE_REBOOT:
-    CLog::Log(LOGINFO, "Rebooting Windows...");
-    if (g_sysinfo.IsWindowsVersionAtLeast(CSysInfo::WindowsVersionWin8))
-      return InitiateShutdownW(NULL, NULL, 0, SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_RESTART,
-                               SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_MINOR_OTHER | SHTDN_REASON_FLAG_PLANNED) == ERROR_SUCCESS;
-    return InitiateShutdownW(NULL, NULL, 0, SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_RESTART,
-                             SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_MINOR_OTHER | SHTDN_REASON_FLAG_PLANNED) == ERROR_SUCCESS;
-    break;
-  default:
-    CLog::Log(LOGERROR, "Unknown PowerState called.");
-    return false;
-    break;
-  }
-}
-
-int CWIN32Util::BatteryLevel()
-{
-  SYSTEM_POWER_STATUS SystemPowerStatus;
-
-  if (GetSystemPowerStatus(&SystemPowerStatus) && SystemPowerStatus.BatteryLifePercent != 255)
-      return SystemPowerStatus.BatteryLifePercent;
-
-  return 0;
-}
-
 bool CWIN32Util::XBMCShellExecute(const std::string &strPath, bool bWaitForScriptExit)
 {
+#ifdef TARGET_WINDOWS_STORE
+  CLog::LogF(LOGDEBUG, "s not implemented");
+  return false;
+#else
   std::string strCommand = strPath;
   std::string strExe = strPath;
   std::string strParams;
@@ -324,58 +272,42 @@ bool CWIN32Util::XBMCShellExecute(const std::string &strPath, bool bWaitForScrip
   }
 
   return ret;
-}
-
-std::vector<std::string> CWIN32Util::GetDiskUsage()
-{
-  std::vector<std::string> result;
-  ULARGE_INTEGER ULTotal= { { 0 } };
-  ULARGE_INTEGER ULTotalFree= { { 0 } };
-
-  char* pcBuffer= NULL;
-  DWORD dwStrLength= GetLogicalDriveStrings( 0, pcBuffer );
-  if( dwStrLength != 0 )
-  {
-    std::string strRet;
-
-    dwStrLength+= 1;
-    pcBuffer= new char [dwStrLength];
-    GetLogicalDriveStrings( dwStrLength, pcBuffer );
-    int iPos= 0;
-    do
-    {
-      std::string strDrive = pcBuffer + iPos;
-      if( DRIVE_FIXED == GetDriveType( strDrive.c_str()  ) &&
-        GetDiskFreeSpaceEx( ( strDrive.c_str() ), NULL, &ULTotal, &ULTotalFree ) )
-      {
-        strRet = StringUtils::Format("%s %d MB %s",strDrive.c_str(), int(ULTotalFree.QuadPart/(1024*1024)),g_localizeStrings.Get(160).c_str());
-        result.push_back(strRet);
-      }
-      iPos += (strlen( pcBuffer + iPos) + 1 );
-    }while( strlen( pcBuffer + iPos ) > 0 );
-  }
-  delete[] pcBuffer;
-  return result;
+#endif
 }
 
 std::string CWIN32Util::GetResInfoString()
 {
+#ifdef TARGET_WINDOWS_STORE
+  auto displayInfo = DisplayInformation::GetForCurrentView();
+
+  return StringUtils::Format("Desktop Resolution: %dx%d"
+    , displayInfo.ScreenWidthInRawPixels()
+    , displayInfo.ScreenHeightInRawPixels()
+  );
+#else
   DEVMODE devmode;
   ZeroMemory(&devmode, sizeof(devmode));
   devmode.dmSize = sizeof(devmode);
   EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
   return StringUtils::Format("Desktop Resolution: %dx%d %dBit at %dHz",devmode.dmPelsWidth,devmode.dmPelsHeight,devmode.dmBitsPerPel,devmode.dmDisplayFrequency);
+#endif
 }
 
 int CWIN32Util::GetDesktopColorDepth()
 {
+#ifdef TARGET_WINDOWS_STORE
+  CLog::LogF(LOGDEBUG, "s not implemented");
+  return 32;
+#else
   DEVMODE devmode;
   ZeroMemory(&devmode, sizeof(devmode));
   devmode.dmSize = sizeof(devmode);
   EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
   return (int)devmode.dmBitsPerPel;
+#endif
 }
 
+#ifdef TARGET_WINDOWS_DESKTOP
 std::string CWIN32Util::GetSpecialFolder(int csidl)
 {
   std::string strProfilePath;
@@ -390,19 +322,29 @@ std::string CWIN32Util::GetSpecialFolder(int csidl)
   }
   else
     strProfilePath = "";
-  
+
   delete[] buf;
   return strProfilePath;
 }
+#endif
 
 std::string CWIN32Util::GetSystemPath()
 {
+#ifdef TARGET_WINDOWS_STORE
+  // access to system folder is not allowed in a UWP app
+  return "";
+#else
   return GetSpecialFolder(CSIDL_SYSTEM);
+#endif
 }
 
 std::string CWIN32Util::GetProfilePath()
 {
   std::string strProfilePath;
+#ifdef TARGET_WINDOWS_STORE
+  auto localFolder = ApplicationData::Current().LocalFolder();
+  strProfilePath = KODI::PLATFORM::WINDOWS::FromW(localFolder.Path().c_str());
+#else
   std::string strHomePath = CUtil::GetHomePath();
   if(g_application.PlatformDirectoriesEnabled())
     strProfilePath = URIUtils::AddFileToFolder(GetSpecialFolder(CSIDL_APPDATA|CSIDL_FLAG_CREATE), CCompileInfo::GetAppName());
@@ -413,7 +355,7 @@ std::string CWIN32Util::GetProfilePath()
     strProfilePath = strHomePath;
 
   URIUtils::AddSlashAtEnd(strProfilePath);
-
+#endif
   return strProfilePath;
 }
 
@@ -479,7 +421,7 @@ std::wstring CWIN32Util::ConvertPathToWin32Form(const std::string& pathUtf8)
   {
     std::string formedPath("\\\\?\\UNC"); // start from "\\?\UNC" prefix
     formedPath += URIUtils::CanonicalizePath(URIUtils::FixSlashesAndDups(pathUtf8.substr(7), '\\'), '\\'); // fix duplicated and forward slashes, resolve relative path, don't touch "\\?\UNC" prefix,
-    convertResult = g_charsetConverter.utf8ToW(formedPath, result, false, false, true); 
+    convertResult = g_charsetConverter.utf8ToW(formedPath, result, false, false, true);
   }
   else if (pathUtf8.compare(0, 4, "\\\\?\\", 4) == 0) // pathUtf8 starts from "\\?\", but it's not UNC path
   {
@@ -521,7 +463,7 @@ std::wstring CWIN32Util::ConvertPathToWin32Form(const CURL& url)
   {
     if (url.GetHostName().empty())
       return std::wstring(); // empty string
-    
+
     std::wstring result;
     if (g_charsetConverter.utf8ToW("\\\\?\\UNC\\" +
           URIUtils::CanonicalizePath(URIUtils::FixSlashesAndDups(url.GetHostName() + '\\' + url.GetFileName(), '\\'), '\\'),
@@ -531,7 +473,7 @@ std::wstring CWIN32Util::ConvertPathToWin32Form(const CURL& url)
   else
     return std::wstring(); // unsupported protocol, return empty string
 
-  CLog::Log(LOGERROR, "%s: Error converting path \"%s\" to Win32 form", __FUNCTION__, url.Get().c_str());
+  CLog::LogF(LOGERROR, "Error converting path \"%s\" to Win32 form", url.Get());
   return std::wstring(); // empty string
 }
 
@@ -551,43 +493,47 @@ __time64_t CWIN32Util::fileTimeToTimeT(const LARGE_INTEGER& ftimeli)
   return fileTimeToTimeT(__int64(ftimeli.QuadPart));
 }
 
-
 HRESULT CWIN32Util::ToggleTray(const char cDriveLetter)
 {
+#ifdef TARGET_WINDOWS_STORE
+  CLog::LogF(LOGDEBUG, "s not implemented");
+  return false;
+#else
+  using namespace KODI::PLATFORM::WINDOWS;
   BOOL bRet= FALSE;
   DWORD dwReq = 0;
   char cDL = cDriveLetter;
   if( !cDL )
   {
-    std::string dvdDevice = g_mediaManager.TranslateDevicePath("");
+    std::string dvdDevice = CServiceBroker::GetMediaManager().TranslateDevicePath("");
     if(dvdDevice == "")
       return S_FALSE;
     cDL = dvdDevice[0];
   }
 
-  std::string strVolFormat = StringUtils::Format("\\\\.\\%c:", cDL);
+  auto strVolFormat = ToW(StringUtils::Format("\\\\.\\%c:", cDL));
   HANDLE hDrive= CreateFile( strVolFormat.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-  std::string strRootFormat = StringUtils::Format("%c:\\", cDL);
+  auto strRootFormat = ToW(StringUtils::Format("%c:\\", cDL));
   if( ( hDrive != INVALID_HANDLE_VALUE || GetLastError() == NO_ERROR) &&
     ( GetDriveType( strRootFormat.c_str() ) == DRIVE_CDROM ) )
   {
     DWORD dwDummy;
-    dwReq = (GetDriveStatus(strVolFormat, true) == 1) ? IOCTL_STORAGE_LOAD_MEDIA : IOCTL_STORAGE_EJECT_MEDIA;
+    dwReq = (GetDriveStatus(FromW(strVolFormat), true) == 1) ? IOCTL_STORAGE_LOAD_MEDIA : IOCTL_STORAGE_EJECT_MEDIA;
     bRet = DeviceIoControl( hDrive, dwReq, NULL, 0, NULL, 0, &dwDummy, NULL);
   }
   // Windows doesn't seem to send always DBT_DEVICEREMOVECOMPLETE
   // unmount it here too as it won't hurt
   if(dwReq == IOCTL_STORAGE_EJECT_MEDIA && bRet == 1)
   {
-    strRootFormat = StringUtils::Format("%c:", cDL);
     CMediaSource share;
-    share.strPath = strRootFormat;
+    share.strPath = StringUtils::Format("%c:", cDL);
     share.strName = share.strPath;
-    g_mediaManager.RemoveAutoSource(share);
+    CServiceBroker::GetMediaManager().RemoveAutoSource(share);
   }
   CloseHandle(hDrive);
   return bRet? S_OK : S_FALSE;
+#endif
 }
 
 HRESULT CWIN32Util::EjectTray(const char cDriveLetter)
@@ -595,7 +541,7 @@ HRESULT CWIN32Util::EjectTray(const char cDriveLetter)
   char cDL = cDriveLetter;
   if( !cDL )
   {
-    std::string dvdDevice = g_mediaManager.TranslateDevicePath("");
+    std::string dvdDevice = CServiceBroker::GetMediaManager().TranslateDevicePath("");
     if(dvdDevice.empty())
       return S_FALSE;
     cDL = dvdDevice[0];
@@ -614,7 +560,7 @@ HRESULT CWIN32Util::CloseTray(const char cDriveLetter)
   char cDL = cDriveLetter;
   if( !cDL )
   {
-    std::string dvdDevice = g_mediaManager.TranslateDevicePath("");
+    std::string dvdDevice = CServiceBroker::GetMediaManager().TranslateDevicePath("");
     if(dvdDevice.empty())
       return S_FALSE;
     cDL = dvdDevice[0];
@@ -628,178 +574,12 @@ HRESULT CWIN32Util::CloseTray(const char cDriveLetter)
     return S_OK;
 }
 
-// safe removal of USB drives:
-// http://www.codeproject.com/KB/system/RemoveDriveByLetter.aspx
-// http://www.techtalkz.com/microsoft-device-drivers/250734-remove-usb-device-c-3.html
-
-DEVINST CWIN32Util::GetDrivesDevInstByDiskNumber(long DiskNumber)
-{
-
-  GUID* guid = (GUID*)(void*)&GUID_DEVINTERFACE_DISK;
-
-  // Get device interface info set handle for all devices attached to system
-  HDEVINFO hDevInfo = SetupDiGetClassDevs(guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-
-  if (hDevInfo == INVALID_HANDLE_VALUE)
-    return 0;
-
-  // Retrieve a context structure for a device interface of a device
-  // information set.
-  DWORD dwIndex = 0;
-  SP_DEVICE_INTERFACE_DATA devInterfaceData = {0};
-  devInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-  BOOL bRet = FALSE;
-
-  PSP_DEVICE_INTERFACE_DETAIL_DATA pspdidd;
-  SP_DEVICE_INTERFACE_DATA spdid;
-  SP_DEVINFO_DATA spdd;
-  DWORD dwSize;
-
-  spdid.cbSize = sizeof(spdid);
-
-  while ( true )
-  {
-    bRet = SetupDiEnumDeviceInterfaces(hDevInfo, NULL, guid, dwIndex, &devInterfaceData);
-    if (!bRet)
-      break;
-
-    SetupDiEnumInterfaceDevice(hDevInfo, NULL, guid, dwIndex, &spdid);
-
-    dwSize = 0;
-    SetupDiGetDeviceInterfaceDetail(hDevInfo, &spdid, NULL, 0, &dwSize, NULL);
-
-    if ( dwSize )
-    {
-      pspdidd = (PSP_DEVICE_INTERFACE_DETAIL_DATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSize);
-      if ( pspdidd == NULL )
-        continue;
-
-      pspdidd->cbSize = sizeof(*pspdidd);
-      ZeroMemory((PVOID)&spdd, sizeof(spdd));
-      spdd.cbSize = sizeof(spdd);
-
-      long res = SetupDiGetDeviceInterfaceDetail(hDevInfo, &spdid,
-      pspdidd, dwSize, &dwSize, &spdd);
-      if ( res )
-      {
-        HANDLE hDrive = CreateFile(pspdidd->DevicePath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
-        if ( hDrive != INVALID_HANDLE_VALUE )
-        {
-          STORAGE_DEVICE_NUMBER sdn;
-          DWORD dwBytesReturned = 0;
-          res = DeviceIoControl(hDrive, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0, &sdn, sizeof(sdn), &dwBytesReturned, NULL);
-          if ( res )
-          {
-            if ( DiskNumber == (long)sdn.DeviceNumber )
-            {
-              CloseHandle(hDrive);
-              SetupDiDestroyDeviceInfoList(hDevInfo);
-              return spdd.DevInst;
-            }
-          }
-          CloseHandle(hDrive);
-        }
-      }
-      HeapFree(GetProcessHeap(), 0, pspdidd);
-    }
-    dwIndex++;
-  }
-  SetupDiDestroyDeviceInfoList(hDevInfo);
-  return 0;
-}
-
-bool CWIN32Util::EjectDrive(const char cDriveLetter)
-{
-  if( !cDriveLetter )
-    return false;
-
-  std::string strVolFormat = StringUtils::Format("\\\\.\\%c:", cDriveLetter);
-
-  long DiskNumber = -1;
-
-  HANDLE hVolume = CreateFile(strVolFormat.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
-  if (hVolume == INVALID_HANDLE_VALUE)
-    return false;
-
-  STORAGE_DEVICE_NUMBER sdn;
-  DWORD dwBytesReturned = 0;
-  long res = DeviceIoControl(hVolume, IOCTL_STORAGE_GET_DEVICE_NUMBER,NULL, 0, &sdn, sizeof(sdn), &dwBytesReturned, NULL);
-  CloseHandle(hVolume);
-  if ( res )
-    DiskNumber = sdn.DeviceNumber;
-  else
-    return false;
-
-  DEVINST DevInst = GetDrivesDevInstByDiskNumber(DiskNumber);
-
-  if ( DevInst == 0 )
-    return false;
-
-  ULONG Status = 0;
-  ULONG ProblemNumber = 0;
-  PNP_VETO_TYPE VetoType = PNP_VetoTypeUnknown;
-  char VetoName[MAX_PATH];
-  bool bSuccess = false;
-
-  CM_Get_Parent(&DevInst, DevInst, 0); // disk's parent, e.g. the USB bridge, the SATA controller....
-  CM_Get_DevNode_Status(&Status, &ProblemNumber, DevInst, 0);
-
-  for(int i=0;i<3;i++)
-  {
-    res = CM_Request_Device_Eject(DevInst, &VetoType, VetoName, MAX_PATH, 0);
-    bSuccess = (res==CR_SUCCESS && VetoType==PNP_VetoTypeUnknown);
-   if ( bSuccess )
-    break;
-  }
-
-  return bSuccess;
-}
-
-#ifdef HAS_GL
-void CWIN32Util::CheckGLVersion()
-{
-  if(CWIN32Util::HasGLDefaultDrivers())
-  {
-    MessageBox(NULL, "MS default OpenGL drivers detected. Please get OpenGL drivers from your video card vendor", "XBMC: Fatal Error", MB_OK|MB_ICONERROR);
-    exit(1);
-  }
-
-  if(!CWIN32Util::HasReqGLVersion())
-  {
-    if(MessageBox(NULL, "Your OpenGL version doesn't meet the XBMC requirements", "XBMC: Warning", MB_OKCANCEL|MB_ICONWARNING) == IDCANCEL)
-    {
-      exit(1);
-    }
-  }
-}
-
-bool CWIN32Util::HasGLDefaultDrivers()
-{
-  unsigned int a=0,b=0;
-
-  std::string strVendor = g_Windowing.GetRenderVendor();
-  g_Windowing.GetRenderVersion(a, b);
-
-  if(strVendor.find("Microsoft")!=strVendor.npos && a==1 && b==1)
-    return true;
-  else
-    return false;
-}
-
-bool CWIN32Util::HasReqGLVersion()
-{
-  unsigned int a=0,b=0;
-
-  g_Windowing.GetRenderVersion(a, b);
-  if((a>=2) || (a == 1 && b >= 3))
-    return true;
-  else
-    return false;
-}
-#endif
-
 BOOL CWIN32Util::IsCurrentUserLocalAdministrator()
 {
+#ifdef TARGET_WINDOWS_STORE
+  // UWP apps never run as admin
+  return false;
+#else
   BOOL b;
   SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
   PSID AdministratorsGroup;
@@ -820,122 +600,7 @@ BOOL CWIN32Util::IsCurrentUserLocalAdministrator()
   }
 
   return(b);
-}
-
-void CWIN32Util::GetDrivesByType(VECSOURCES &localDrives, Drive_Types eDriveType, bool bonlywithmedia)
-{
-  WCHAR* pcBuffer= NULL;
-  DWORD dwStrLength= GetLogicalDriveStringsW( 0, pcBuffer );
-  if( dwStrLength != 0 )
-  {
-    CMediaSource share;
-
-    dwStrLength+= 1;
-    pcBuffer= new WCHAR [dwStrLength];
-    GetLogicalDriveStringsW( dwStrLength, pcBuffer );
-
-    int iPos= 0;
-    WCHAR cVolumeName[100];
-    do{
-      int nResult = 0;
-      cVolumeName[0]= L'\0';
-
-      std::wstring strWdrive = pcBuffer + iPos;
-
-      UINT uDriveType= GetDriveTypeW( strWdrive.c_str()  );
-      // don't use GetVolumeInformation on fdd's as the floppy controller may be enabled in Bios but
-      // no floppy HW is attached which causes huge delays.
-      if(strWdrive.size() >= 2 && strWdrive.substr(0,2) != L"A:" && strWdrive.substr(0,2) != L"B:")
-        nResult= GetVolumeInformationW( strWdrive.c_str() , cVolumeName, 100, 0, 0, 0, NULL, 25);
-      if(nResult == 0 && bonlywithmedia)
-      {
-        iPos += (wcslen( pcBuffer + iPos) + 1 );
-        continue;
-      }
-
-      // usb hard drives are reported as DRIVE_FIXED and won't be returned by queries with REMOVABLE_DRIVES set
-      // so test for usb hard drives
-      /*if(uDriveType == DRIVE_FIXED)
-      {
-        if(IsUsbDevice(strWdrive))
-          uDriveType = DRIVE_REMOVABLE;
-      }*/
-
-      share.strPath= share.strName= "";
-
-      bool bUseDCD= false;
-      if( uDriveType > DRIVE_UNKNOWN &&
-        (( eDriveType == ALL_DRIVES && (uDriveType == DRIVE_FIXED || uDriveType == DRIVE_REMOTE || uDriveType == DRIVE_CDROM || uDriveType == DRIVE_REMOVABLE )) ||
-         ( eDriveType == LOCAL_DRIVES && (uDriveType == DRIVE_FIXED || uDriveType == DRIVE_REMOTE)) ||
-         ( eDriveType == REMOVABLE_DRIVES && ( uDriveType == DRIVE_REMOVABLE )) ||
-         ( eDriveType == DVD_DRIVES && ( uDriveType == DRIVE_CDROM ))))
-      {
-        //share.strPath = strWdrive;
-        g_charsetConverter.wToUTF8(strWdrive, share.strPath);
-        if( cVolumeName[0] != L'\0' )
-          g_charsetConverter.wToUTF8(cVolumeName, share.strName);
-        if( uDriveType == DRIVE_CDROM && nResult)
-        {
-          // Has to be the same as auto mounted devices
-          share.strStatus = share.strName;
-          share.strName = share.strPath;
-          share.m_iDriveType= CMediaSource::SOURCE_TYPE_LOCAL;
-          bUseDCD= true;
-        }
-        else
-        {
-          // Lets show it, like Windows explorer do...
-          //! @todo Sorting should depend on driver letter
-          switch(uDriveType)
-          {
-          case DRIVE_CDROM:
-            share.strName = StringUtils::Format( "%s (%s)", share.strPath.c_str(), g_localizeStrings.Get(218).c_str());
-            break;
-          case DRIVE_REMOVABLE:
-            if(share.strName.empty())
-              share.strName = StringUtils::Format( "%s (%s)", g_localizeStrings.Get(437).c_str(), share.strPath.c_str());
-            break;
-          case DRIVE_UNKNOWN:
-            share.strName = StringUtils::Format( "%s (%s)", share.strPath.c_str(), g_localizeStrings.Get(13205).c_str());
-            break;
-          default:
-            if(share.strName.empty())
-              share.strName = share.strPath;
-            else
-              share.strName = StringUtils::Format( "%s (%s)", share.strPath.c_str(), share.strName.c_str());
-            break;
-          }
-        }
-        StringUtils::Replace(share.strName, ":\\", ":");
-        StringUtils::Replace(share.strPath, ":\\", ":");
-        share.m_ignore= true;
-        if( !bUseDCD )
-        {
-          share.m_iDriveType= (
-           ( uDriveType == DRIVE_FIXED  )    ? CMediaSource::SOURCE_TYPE_LOCAL :
-           ( uDriveType == DRIVE_REMOTE )    ? CMediaSource::SOURCE_TYPE_REMOTE :
-           ( uDriveType == DRIVE_CDROM  )    ? CMediaSource::SOURCE_TYPE_DVD :
-           ( uDriveType == DRIVE_REMOVABLE ) ? CMediaSource::SOURCE_TYPE_REMOVABLE :
-             CMediaSource::SOURCE_TYPE_UNKNOWN );
-        }
-
-        AddOrReplace(localDrives, share);
-      }
-      iPos += (wcslen( pcBuffer + iPos) + 1 );
-    } while( wcslen( pcBuffer + iPos ) > 0 );
-    delete[] pcBuffer;
-  }
-}
-
-std::string CWIN32Util::GetFirstOpticalDrive()
-{
-  VECSOURCES vShare;
-  std::string strdevice = "\\\\.\\";
-  CWIN32Util::GetDrivesByType(vShare, DVD_DRIVES);
-  if(!vShare.empty())
-    return strdevice.append(vShare.front().strPath);
-  else
-    return "";
+#endif
 }
 
 extern "C"
@@ -950,78 +615,35 @@ extern "C"
 }
 
 extern "C" {
-  /*
-   * Ported from NetBSD to Windows by Ron Koenderink, 2007
-   */
-
-  /*  $NetBSD: strptime.c,v 1.25 2005/11/29 03:12:00 christos Exp $  */
-
-  /*-
-   * Copyright (c) 1997, 1998, 2005 The NetBSD Foundation, Inc.
-   * All rights reserved.
-   *
-   * This code was contributed to The NetBSD Foundation by Klaus Klein.
-   * Heavily optimised by David Laight
-   *
-   * Redistribution and use in source and binary forms, with or without
-   * modification, are permitted provided that the following conditions
-   * are met:
-   * 1. Redistributions of source code must retain the above copyright
-   *    notice, this list of conditions and the following disclaimer.
-   * 2. Redistributions in binary form must reproduce the above copyright
-   *    notice, this list of conditions and the following disclaimer in the
-   *    documentation and/or other materials provided with the distribution.
-   * 3. All advertising materials mentioning features or use of this software
-   *    must display the following acknowledgement:
-   *        This product includes software developed by the NetBSD
-   *        Foundation, Inc. and its contributors.
-   * 4. Neither the name of The NetBSD Foundation nor the names of its
-   *    contributors may be used to endorse or promote products derived
-   *    from this software without specific prior written permission.
-   *
-   * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
-   * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-   * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-   * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
-   * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-   * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-   * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-   * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-   * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-   * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-   * POSSIBILITY OF SUCH DAMAGE.
-   */
-
-  #if !defined(TARGET_WINDOWS)
-  #include <sys/cdefs.h>
-  #endif
+/*
+ *  Copyright (c) 1997, 1998, 2005 The NetBSD Foundation, Inc.
+ *  All rights reserved.
+ *
+ *  SPDX-License-Identifier: BSD-4-Clause
+ *  See LICENSES/README.md for more information.
+ *
+ *  Ported from NetBSD to Windows by Ron Koenderink, 2007
+ *  $NetBSD: strptime.c,v 1.25 2005/11/29 03:12:00 christos Exp $
+ *
+ *  This code was contributed to The NetBSD Foundation by Klaus Klein.
+ *  Heavily optimised by David Laight
+ */
 
   #if defined(LIBC_SCCS) && !defined(lint)
   __RCSID("$NetBSD: strptime.c,v 1.25 2005/11/29 03:12:00 christos Exp $");
   #endif
 
-  #if !defined(TARGET_WINDOWS)
-  #include "namespace.h"
-  #include <sys/localedef.h>
-  #else
   typedef unsigned char u_char;
   typedef unsigned int uint;
-  #endif
   #include <ctype.h>
   #include <locale.h>
   #include <string.h>
   #include <time.h>
-  #if !defined(TARGET_WINDOWS)
-  #include <tzfile.h>
-  #endif
 
   #ifdef __weak_alias
   __weak_alias(strptime,_strptime)
   #endif
 
-  #if !defined(TARGET_WINDOWS)
-  #define  _ctloc(x)    (_CurrentTimeLocale->x)
-  #else
   #define _ctloc(x)   (x)
   const char *abday[] = {
     "Sun", "Mon", "Tue", "Wed",
@@ -1049,7 +671,6 @@ extern "C" {
   #define TM_YEAR_BASE 1900
   #define __UNCONST(x) ((char *)(((const char *)(x) - (const char *)0) + (char *)0))
 
-  #endif
   /*
    * We do not implement alternate representations. However, we always
    * check whether a given modifier is allowed for a certain conversion.
@@ -1348,27 +969,33 @@ extern "C" {
   }
 }
 
-
+#ifdef TARGET_WINDOWS_DESKTOP
 LONG CWIN32Util::UtilRegGetValue( const HKEY hKey, const char *const pcKey, DWORD *const pdwType, char **const ppcBuffer, DWORD *const pdwSizeBuff, const DWORD dwSizeAdd )
 {
+  using KODI::PLATFORM::WINDOWS::ToW;
+
+  auto pcKeyW = ToW(pcKey);
+
   DWORD dwSize;
-  LONG lRet= RegQueryValueEx(hKey, pcKey, NULL, pdwType, NULL, &dwSize );
+  LONG lRet= RegQueryValueEx(hKey, pcKeyW.c_str(), nullptr, pdwType, nullptr, &dwSize );
   if (lRet == ERROR_SUCCESS)
   {
     if (ppcBuffer)
     {
       char *pcValue=*ppcBuffer, *pcValueTmp;
       if (!pcValue || !pdwSizeBuff || dwSize +dwSizeAdd > *pdwSizeBuff) {
-        pcValueTmp = (char*)realloc(pcValue, dwSize +dwSizeAdd);
-        if(pcValueTmp != NULL)
+        pcValueTmp = static_cast<char*>(realloc(pcValue, dwSize + dwSizeAdd));
+        if(pcValueTmp != nullptr)
         {
           pcValue = pcValueTmp;
         }
       }
-      lRet= RegQueryValueEx(hKey,pcKey,NULL,NULL,(LPBYTE)pcValue,&dwSize);
+      lRet= RegQueryValueEx(hKey, pcKeyW.c_str(), nullptr, nullptr, reinterpret_cast<LPBYTE>(pcValue), &dwSize);
 
-      if ( lRet == ERROR_SUCCESS || *ppcBuffer ) *ppcBuffer= pcValue;
-      else free( pcValue );
+      if ( lRet == ERROR_SUCCESS || *ppcBuffer )
+        *ppcBuffer= pcValue;
+      else
+        free( pcValue );
     }
     if (pdwSizeBuff) *pdwSizeBuff= dwSize +dwSizeAdd;
   }
@@ -1377,8 +1004,12 @@ LONG CWIN32Util::UtilRegGetValue( const HKEY hKey, const char *const pcKey, DWOR
 
 bool CWIN32Util::UtilRegOpenKeyEx( const HKEY hKeyParent, const char *const pcKey, const REGSAM rsAccessRights, HKEY *hKey, const bool bReadX64 )
 {
-  const REGSAM rsAccessRightsTmp= ( CSysInfo::GetKernelBitness() == 64 ? rsAccessRights | ( bReadX64 ? KEY_WOW64_64KEY : KEY_WOW64_32KEY ) : rsAccessRights );
-  bool bRet= ( ERROR_SUCCESS == RegOpenKeyEx(hKeyParent, pcKey, 0, rsAccessRightsTmp, hKey));
+  using KODI::PLATFORM::WINDOWS::ToW;
+
+  const REGSAM rsAccessRightsTmp = (
+    CSysInfo::GetKernelBitness() == 64 ? rsAccessRights |
+      ( bReadX64 ? KEY_WOW64_64KEY : KEY_WOW64_32KEY ) : rsAccessRights );
+  bool bRet = ( ERROR_SUCCESS == RegOpenKeyEx(hKeyParent, ToW(pcKey).c_str(), 0, rsAccessRightsTmp, hKey));
   return bRet;
 }
 
@@ -1388,6 +1019,7 @@ bool CWIN32Util::UtilRegOpenKeyEx( const HKEY hKeyParent, const char *const pcKe
 // process name can help the user fix the problem.
 bool CWIN32Util::GetFocussedProcess(std::string &strProcessFile)
 {
+  using KODI::PLATFORM::WINDOWS::FromW;
   strProcessFile = "";
 
   // Get the window that has the focus
@@ -1406,40 +1038,17 @@ bool CWIN32Util::GetFocussedProcess(std::string &strProcessFile)
 
   // Load QueryFullProcessImageName dynamically because it isn't available
   // in all versions of Windows.
-  char procfile[MAX_PATH+1];
+  wchar_t procfile[MAX_PATH+1];
   DWORD procfilelen = MAX_PATH;
 
-  HINSTANCE hkernel32 = LoadLibrary("kernel32.dll");
-  if (hkernel32)
-  {
-    DWORD (WINAPI *pQueryFullProcessImageNameA)(HANDLE,DWORD,LPTSTR,PDWORD);
-    pQueryFullProcessImageNameA = (DWORD (WINAPI *)(HANDLE,DWORD,LPTSTR,PDWORD)) GetProcAddress(hkernel32, "QueryFullProcessImageNameA");
-    if (pQueryFullProcessImageNameA)
-      if (pQueryFullProcessImageNameA(hproc, 0, procfile, &procfilelen))
-        strProcessFile = procfile;
-    FreeLibrary(hkernel32);
-  }
-
-  // If QueryFullProcessImageName failed fall back to GetModuleFileNameEx.
-  // Note this does not work across x86-x64 boundaries.
-  if (strProcessFile == "")
-  {
-    HINSTANCE hpsapi = LoadLibrary("psapi.dll");
-    if (hpsapi)
-    {
-      DWORD (WINAPI *pGetModuleFileNameExA)(HANDLE,HMODULE,LPTSTR,DWORD);
-      pGetModuleFileNameExA = (DWORD (WINAPI*)(HANDLE,HMODULE,LPTSTR,DWORD)) GetProcAddress(hpsapi, "GetModuleFileNameExA");
-      if (pGetModuleFileNameExA)
-        if (pGetModuleFileNameExA(hproc, NULL, procfile, MAX_PATH))
-          strProcessFile = procfile;
-      FreeLibrary(hpsapi);
-    }
-  }
+  if (QueryFullProcessImageNameW(hproc, 0, procfile, &procfilelen))
+    strProcessFile = FromW(procfile);
 
   CloseHandle(hproc);
 
   return true;
 }
+#endif
 
 // Adjust the src rectangle so that the dst is always contained in the target rectangle.
 void CWIN32Util::CropSource(CRect& src, CRect& dst, CRect target, UINT rotation /* = 0 */)
@@ -1534,39 +1143,6 @@ void CWIN32Util::CropSource(CRect& src, CRect& dst, CRect target, UINT rotation 
   dst.y2 = ceil(dst.y2);
 }
 
-void CWinIdleTimer::StartZero()
-{
-  if (!g_application.IsDPMSActive())
-    SetThreadExecutionState(ES_SYSTEM_REQUIRED|ES_DISPLAY_REQUIRED);
-  CStopWatch::StartZero();
-}
-
-extern "C"
-{
-  /* case-independent string matching, similar to strstr but
-  * matching */
-  char * strcasestr(const char* haystack, const char* needle)
-  {
-    int i;
-    int nlength = (int) strlen (needle);
-    int hlength = (int) strlen (haystack);
-
-    if (nlength > hlength) return NULL;
-    if (hlength <= 0) return NULL;
-    if (nlength <= 0) return (char *)haystack;
-    /* hlength and nlength > 0, nlength <= hlength */
-    for (i = 0; i <= (hlength - nlength); i++)
-    {
-      if (strncasecmp (haystack + i, needle, nlength) == 0)
-      {
-        return (char *)haystack + i;
-      }
-    }
-    /* substring not found */
-    return NULL;
-  }
-}
-
 // detect if a drive is a usb device
 // code taken from http://banderlogi.blogspot.com/2011/06/enum-drive-letters-attached-for-usb.html
 
@@ -1575,6 +1151,23 @@ bool CWIN32Util::IsUsbDevice(const std::wstring &strWdrive)
   if (strWdrive.size() < 2)
     return false;
 
+#ifdef TARGET_WINDOWS_STORE
+  bool result = false;
+
+  auto removables = winrt::Windows::Storage::KnownFolders::RemovableDevices();
+  auto vector = Wait(removables.GetFoldersAsync());
+  auto strdrive = KODI::PLATFORM::WINDOWS::FromW(strWdrive);
+  for (auto& device : vector)
+  {
+    auto path = KODI::PLATFORM::WINDOWS::FromW(device.Path().c_str());
+    if (StringUtils::StartsWith(path, strdrive))
+    {
+      // looks like drive is removable
+      result = true;
+    }
+  }
+  return false;
+#else
   std::wstring strWDevicePath = StringUtils::Format(L"\\\\.\\%s",strWdrive.substr(0, 2).c_str());
 
   HANDLE deviceHandle = CreateFileW(
@@ -1613,7 +1206,8 @@ bool CWIN32Util::IsUsbDevice(const std::wstring &strWdrive)
   CloseHandle(deviceHandle);
 
   return BusTypeUsb == busType;
- }
+#endif
+}
 
 std::string CWIN32Util::WUSysMsg(DWORD dwError)
 {
@@ -1630,6 +1224,5 @@ std::string CWIN32Util::WUSysMsg(DWORD dwError)
 bool CWIN32Util::SetThreadLocalLocale(bool enable /* = true */)
 {
   const int param = enable ? _ENABLE_PER_THREAD_LOCALE : _DISABLE_PER_THREAD_LOCALE;
-  return CALL_IN_CRTS(_configthreadlocale, param) != -1;
+  return _configthreadlocale(param) != -1;
 }
-

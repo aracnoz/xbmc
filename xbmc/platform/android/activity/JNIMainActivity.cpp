@@ -1,28 +1,16 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JNIMainActivity.h"
 
-#include "platform/android/jni/Activity.h"
-#include "platform/android/jni/Intent.h"
-#include "platform/android/jni/jutils/jutils-details.hpp"
+#include <androidjni/Activity.h>
+#include <androidjni/Intent.h>
+#include <androidjni/jutils-details.hpp>
 
 using namespace jni;
 
@@ -44,7 +32,15 @@ void CJNIMainActivity::_onNewIntent(JNIEnv *env, jobject context, jobject intent
   (void)env;
   (void)context;
   if (m_appInstance)
-    m_appInstance->onNewIntent(CJNIIntent(jhobject(intent)));
+    m_appInstance->onNewIntent(CJNIIntent(jhobject::fromJNI(intent)));
+}
+
+void CJNIMainActivity::_onActivityResult(JNIEnv *env, jobject context, jint requestCode, jint resultCode, jobject resultData)
+{
+  (void)env;
+  (void)context;
+  if (m_appInstance)
+    m_appInstance->onActivityResult(requestCode, resultCode, CJNIIntent(jhobject::fromJNI(resultData)));
 }
 
 void CJNIMainActivity::_callNative(JNIEnv *env, jobject context, jlong funcAddr, jlong variantAddr)
@@ -52,6 +48,14 @@ void CJNIMainActivity::_callNative(JNIEnv *env, jobject context, jlong funcAddr,
   (void)env;
   (void)context;
   ((void (*)(CVariant *))funcAddr)((CVariant *)variantAddr);
+}
+
+void CJNIMainActivity::_onVisibleBehindCanceled(JNIEnv* env, jobject context)
+{
+  (void)env;
+  (void)context;
+  if (m_appInstance)
+    m_appInstance->onVisibleBehindCanceled();
 }
 
 void CJNIMainActivity::runNativeOnUiThread(void (*callback)(CVariant *), CVariant* variant)
@@ -66,14 +70,6 @@ void CJNIMainActivity::_onVolumeChanged(JNIEnv *env, jobject context, jint volum
   (void)context;
   if(m_appInstance)
     m_appInstance->onVolumeChanged(volume);
-}
-
-void CJNIMainActivity::_onAudioFocusChange(JNIEnv *env, jobject context, jint focusChange)
-{
-  (void)env;
-  (void)context;
-  if(m_appInstance)
-    m_appInstance->onAudioFocusChange(focusChange);
 }
 
 void CJNIMainActivity::_onInputDeviceAdded(JNIEnv *env, jobject context, jint deviceId)
@@ -111,28 +107,10 @@ void CJNIMainActivity::_doFrame(JNIEnv *env, jobject context, jlong frameTimeNan
     m_appInstance->doFrame(frameTimeNanos);
 }
 
-CJNISurface CJNIMainActivity::getVideoViewSurface()
+CJNIRect CJNIMainActivity::getDisplayRect()
 {
   return call_method<jhobject>(m_context,
-                               "getVideoViewSurface", "()Landroid/view/Surface;");
-}
-
-void CJNIMainActivity::clearVideoView()
-{
-  call_method<void>(m_context,
-                    "clearVideoView", "()V");
-}
-
-CJNIRect CJNIMainActivity::getVideoViewSurfaceRect()
-{
-  return call_method<jhobject>(m_context,
-                               "getVideoViewSurfaceRect", "()Landroid/graphics/Rect;");
-}
-
-void CJNIMainActivity::setVideoViewSurfaceRect(int l, int t, int r, int b)
-{
-  call_method<void>(m_context,
-                    "setVideoViewSurfaceRect", "(IIII)V", l, t, r, b);
+                               "getDisplayRect", "()Landroid/graphics/Rect;");
 }
 
 void CJNIMainActivity::registerMediaButtonEventReceiver()

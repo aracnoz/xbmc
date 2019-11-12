@@ -1,29 +1,17 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
 \file GUIControlGroupList.h
 \brief
 */
-
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "GUIControlGroup.h"
 
@@ -35,25 +23,26 @@ class CGUIControlGroupList : public CGUIControlGroup
 {
 public:
   CGUIControlGroupList(int parentID, int controlID, float posX, float posY, float width, float height, float itemGap, int pageControl, ORIENTATION orientation, bool useControlPositions, uint32_t alignment, const CScroller& scroller);
-  virtual ~CGUIControlGroupList(void);
-  virtual CGUIControlGroupList *Clone() const { return new CGUIControlGroupList(*this); };
+  ~CGUIControlGroupList(void) override;
+  CGUIControlGroupList *Clone() const override { return new CGUIControlGroupList(*this); };
 
-  virtual float GetWidth() const;
-  virtual float GetHeight() const;
+  float GetWidth() const override;
+  float GetHeight() const override;
   virtual float Size() const;
+  void SetInvalid() override;
 
-  virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
-  virtual void Render();
-  virtual bool OnMessage(CGUIMessage& message);
+  void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
+  void Render() override;
+  bool OnMessage(CGUIMessage& message) override;
 
-  virtual EVENT_RESULT SendMouseEvent(const CPoint &point, const CMouseEvent &event);
-  virtual void UnfocusFromPoint(const CPoint &point);
+  EVENT_RESULT SendMouseEvent(const CPoint &point, const CMouseEvent &event) override;
+  void UnfocusFromPoint(const CPoint &point) override;
 
-  virtual void AddControl(CGUIControl *control, int position = -1);
-  virtual void ClearAll();
+  void AddControl(CGUIControl *control, int position = -1) override;
+  void ClearAll() override;
 
   virtual std::string GetLabel(int info) const;
-  virtual bool GetCondition(int condition, int data) const;
+  bool GetCondition(int condition, int data) const override;
   /**
    * Calculate total size of child controls area (including gaps between controls)
    */
@@ -63,7 +52,7 @@ public:
   // based on grouplist orientation pick one value as minSize;
   void SetMinSize(float minWidth, float minHeight);
 protected:
-  virtual EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event);
+  EVENT_RESULT OnMouseEvent(const CPoint &point, const CMouseEvent &event) override;
   bool IsControlOnScreen(float pos, const CGUIControl* control) const;
   bool IsFirstFocusableControl(const CGUIControl *control) const;
   bool IsLastFocusableControl(const CGUIControl *control) const;
@@ -83,6 +72,7 @@ protected:
   float m_totalSize;
 
   CScroller m_scroller;
+  int m_lastScrollerValue;
 
   bool m_useControlPositions;
   ORIENTATION m_orientation;

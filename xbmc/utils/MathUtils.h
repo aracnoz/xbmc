@@ -1,26 +1,15 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include <stdint.h>
-#include <cassert>
+#include <assert.h>
 #include <climits>
 #include <cmath>
 
@@ -40,6 +29,8 @@
     defined(__SH4__) || \
     defined(__sparc__) || \
     defined(__arc__) || \
+    defined(_M_ARM) || \
+    defined(__or1k__) || \
     defined(__xtensa__)
   #define DISABLE_MATHUTILS_ASM_ROUND_INT
 #endif
@@ -120,7 +111,7 @@ namespace MathUtils
      *    The representation once the offset is applied has equal or greater
      *    precision than the input, so the addition does not cause rounding.
      */
-    return ((unsigned int) (x + 0x80000000.8p0)) - 0x80000000;
+    return ((unsigned int) (x + 2147483648.5)) - 0x80000000;
 
 #else
     const float round_to_nearest = 0.5f;
@@ -189,6 +180,20 @@ namespace MathUtils
     MathUtils::abs(0);
   }
 
+  /**
+   * Compare two floating-point numbers for equality and regard them
+   * as equal if their difference is below a given threshold.
+   *
+   * It is usually not useful to compare float numbers for equality with
+   * the standard operator== since very close numbers might have different
+   * representations.
+   */
+  template<typename FloatT>
+  inline bool FloatEquals(FloatT f1, FloatT f2, FloatT maxDelta)
+  {
+    return (std::abs(f2 - f1) < maxDelta);
+  }
+
 #if 0
   /*! \brief test routine for round_int and truncate_int
    Must return true on all platforms.
@@ -207,4 +212,3 @@ namespace MathUtils
   }
 #endif
 } // namespace MathUtils
-

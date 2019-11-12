@@ -1,61 +1,67 @@
 /*
- *      Copyright (C) 2014-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "input/joysticks/IButtonMapCallback.h"
-#include "input/joysticks/IDriverHandler.h"
+#include "input/joysticks/interfaces/IButtonMapCallback.h"
+#include "input/joysticks/interfaces/IDriverHandler.h"
+#include "input/keyboard/interfaces/IKeyboardDriverHandler.h"
+#include "input/mouse/interfaces/IMouseDriverHandler.h"
 
 #include <memory>
 
+namespace KODI
+{
 namespace JOYSTICK
 {
   class CButtonMapping;
   class IButtonMap;
   class IButtonMapper;
 }
+}
 
 namespace PERIPHERALS
 {
   class CPeripheral;
+  class CPeripherals;
 
-  class CAddonButtonMapping : public JOYSTICK::IDriverHandler,
-                              public JOYSTICK::IButtonMapCallback
+  class CAddonButtonMapping : public KODI::JOYSTICK::IDriverHandler,
+                              public KODI::KEYBOARD::IKeyboardDriverHandler,
+                              public KODI::MOUSE::IMouseDriverHandler,
+                              public KODI::JOYSTICK::IButtonMapCallback
   {
   public:
-    CAddonButtonMapping(CPeripheral* peripheral, JOYSTICK::IButtonMapper* mapper);
+    CAddonButtonMapping(CPeripherals& manager, CPeripheral* peripheral, KODI::JOYSTICK::IButtonMapper* mapper);
 
-    virtual ~CAddonButtonMapping(void);
+    ~CAddonButtonMapping(void) override;
 
     // implementation of IDriverHandler
-    virtual bool OnButtonMotion(unsigned int buttonIndex, bool bPressed) override;
-    virtual bool OnHatMotion(unsigned int hatIndex, JOYSTICK::HAT_STATE state) override;
-    virtual bool OnAxisMotion(unsigned int axisIndex, float position, int center, unsigned int range) override;
-    virtual void ProcessAxisMotions(void) override;
+    bool OnButtonMotion(unsigned int buttonIndex, bool bPressed) override;
+    bool OnHatMotion(unsigned int hatIndex, KODI::JOYSTICK::HAT_STATE state) override;
+    bool OnAxisMotion(unsigned int axisIndex, float position, int center, unsigned int range) override;
+    void ProcessAxisMotions(void) override;
+
+    // implementation of IKeyboardDriverHandler
+    bool OnKeyPress(const CKey& key) override;
+    void OnKeyRelease(const CKey& key) override;
+
+    // implementation of IMouseDriverHandler
+    bool OnPosition(int x, int y) override;
+    bool OnButtonPress(KODI::MOUSE::BUTTON_ID button) override;
+    void OnButtonRelease(KODI::MOUSE::BUTTON_ID button) override;
 
     // implementation of IButtonMapCallback
-    virtual void SaveButtonMap() override;
-    virtual void ResetIgnoredPrimitives() override;
-    virtual void RevertButtonMap() override;
+    void SaveButtonMap() override;
+    void ResetIgnoredPrimitives() override;
+    void RevertButtonMap() override;
 
   private:
-    std::unique_ptr<JOYSTICK::CButtonMapping> m_buttonMapping;
-    std::unique_ptr<JOYSTICK::IButtonMap>     m_buttonMap;
+    std::unique_ptr<KODI::JOYSTICK::CButtonMapping> m_buttonMapping;
+    std::unique_ptr<KODI::JOYSTICK::IButtonMap>     m_buttonMap;
   };
 }

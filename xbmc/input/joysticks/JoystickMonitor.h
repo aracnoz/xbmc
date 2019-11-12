@@ -1,26 +1,17 @@
 /*
- *      Copyright (C) 2015-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "IInputHandler.h"
+#include "input/joysticks/interfaces/IInputHandler.h"
 
+namespace KODI
+{
 namespace JOYSTICK
 {
   /*!
@@ -32,15 +23,16 @@ namespace JOYSTICK
   {
   public:
     // implementation of IInputHandler
-    virtual std::string ControllerID() const override;
-    virtual bool HasFeature(const FeatureName& feature) const override { return true; }
-    virtual bool AcceptsInput(void) override;
-    virtual INPUT_TYPE GetInputType(const FeatureName& feature) const override { return INPUT_TYPE::ANALOG; }
-    virtual bool OnButtonPress(const FeatureName& feature, bool bPressed) override;
-    virtual void OnButtonHold(const FeatureName& feature, unsigned int holdTimeMs) override { }
-    virtual bool OnButtonMotion(const FeatureName& feature, float magnitude) override;
-    virtual bool OnAnalogStickMotion(const FeatureName& feature, float x, float y, unsigned int motionTimeMs) override;
-    virtual bool OnAccelerometerMotion(const FeatureName& feature, float x, float y, float z) override { return false; }
+    std::string ControllerID() const override;
+    bool HasFeature(const FeatureName& feature) const override { return true; }
+    bool AcceptsInput(const FeatureName& feature) const override;
+    bool OnButtonPress(const FeatureName& feature, bool bPressed) override;
+    void OnButtonHold(const FeatureName& feature, unsigned int holdTimeMs) override {}
+    bool OnButtonMotion(const FeatureName& feature, float magnitude, unsigned int motionTimeMs) override;
+    bool OnAnalogStickMotion(const FeatureName& feature, float x, float y, unsigned int motionTimeMs) override;
+    bool OnAccelerometerMotion(const FeatureName& feature, float x, float y, float z) override { return false; }
+    bool OnWheelMotion(const FeatureName& feature, float position, unsigned int motionTimeMs) override;
+    bool OnThrottleMotion(const FeatureName& feature, float position, unsigned int motionTimeMs) override;
 
   private:
     /*!
@@ -49,4 +41,5 @@ namespace JOYSTICK
      */
     bool ResetTimers(void);
   };
+}
 }

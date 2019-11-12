@@ -1,25 +1,17 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIFadeLabelControl.h"
+
+#include "GUIMessage.h"
 #include "utils/Random.h"
+
+using namespace KODI::GUILIB;
 
 CGUIFadeLabelControl::CGUIFadeLabelControl(int parentID, int controlID, float posX, float posY, float width, float height, const CLabelInfo& labelInfo, bool scrollOut, unsigned int timeToDelayAtEnd, bool resetOnLabelChange, bool randomized)
     : CGUIControl(parentID, controlID, posX, posY, width, height), m_label(labelInfo), m_scrollInfo(50, labelInfo.offsetX, labelInfo.scrollSpeed)
@@ -39,7 +31,7 @@ CGUIFadeLabelControl::CGUIFadeLabelControl(int parentID, int controlID, float po
 }
 
 CGUIFadeLabelControl::CGUIFadeLabelControl(const CGUIFadeLabelControl &from)
-: CGUIControl(from), m_infoLabels(from.m_infoLabels), m_label(from.m_label), m_scrollInfo(from.m_scrollInfo), m_textLayout(from.m_textLayout), 
+: CGUIControl(from), m_infoLabels(from.m_infoLabels), m_label(from.m_label), m_scrollInfo(from.m_scrollInfo), m_textLayout(from.m_textLayout),
   m_fadeAnim(from.m_fadeAnim)
 {
   m_scrollOut = from.m_scrollOut;
@@ -55,11 +47,9 @@ CGUIFadeLabelControl::CGUIFadeLabelControl(const CGUIFadeLabelControl &from)
   m_randomized = from.m_randomized;
 }
 
-CGUIFadeLabelControl::~CGUIFadeLabelControl(void)
-{
-}
+CGUIFadeLabelControl::~CGUIFadeLabelControl(void) = default;
 
-void CGUIFadeLabelControl::SetInfo(const std::vector<CGUIInfoLabel> &infoLabels)
+void CGUIFadeLabelControl::SetInfo(const std::vector<GUIINFO::CGUIInfoLabel> &infoLabels)
 {
   m_lastLabel = -1;
   m_infoLabels = infoLabels;
@@ -69,7 +59,7 @@ void CGUIFadeLabelControl::SetInfo(const std::vector<CGUIInfoLabel> &infoLabels)
 
 void CGUIFadeLabelControl::AddLabel(const std::string &label)
 {
-  m_infoLabels.push_back(CGUIInfoLabel(label, "", GetParentID()));
+  m_infoLabels.emplace_back(label, "", GetParentID());
 }
 
 void CGUIFadeLabelControl::Process(unsigned int currentTime, CDirtyRegionList &dirtyregions)
@@ -98,12 +88,14 @@ void CGUIFadeLabelControl::Process(unsigned int currentTime, CDirtyRegionList &d
       m_scrollInfo.Reset();
       m_fadeAnim.ResetAnimation();
     }
+    MarkDirtyRegion();
   }
   if (m_currentLabel != m_lastLabel)
   { // new label - reset scrolling
     m_scrollInfo.Reset();
     m_fadeAnim.QueueAnimation(ANIM_PROCESS_REVERSE);
     m_lastLabel = m_currentLabel;
+    MarkDirtyRegion();
   }
 
   if (m_infoLabels.size() > 1 || !m_shortText)
@@ -128,11 +120,11 @@ void CGUIFadeLabelControl::Process(unsigned int currentTime, CDirtyRegionList &d
     TransformMatrix matrix;
     m_fadeAnim.Animate(currentTime, true);
     m_fadeAnim.RenderAnimation(matrix);
-    m_fadeMatrix = g_graphicsContext.AddTransform(matrix);
+    m_fadeMatrix = CServiceBroker::GetWinSystem()->GetGfxContext().AddTransform(matrix);
 
     if (m_fadeAnim.GetState() == ANIM_STATE_APPLIED)
       m_fadeAnim.ResetAnimation();
-    
+
     m_scrollInfo.SetSpeed((m_fadeAnim.GetProcess() == ANIM_PROCESS_NONE) ? m_scrollSpeed : 0);
 
     if (moveToNextLabel)
@@ -151,7 +143,7 @@ void CGUIFadeLabelControl::Process(unsigned int currentTime, CDirtyRegionList &d
       m_textLayout.UpdateScrollinfo(m_scrollInfo);
     }
 
-    g_graphicsContext.RemoveTransform();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
   }
 
   CGUIControl::Process(currentTime, dirtyregions);
@@ -183,13 +175,13 @@ void CGUIFadeLabelControl::Render()
       posX = m_posX + m_width * 0.5f;
     else if (m_label.align & XBFONT_RIGHT)
       posX = m_posX + m_width;
-    m_textLayout.Render(posX, posY, 0, m_label.textColor, m_label.shadowColor, m_label.align, m_width - m_label.offsetX);
+    m_textLayout.Render(posX, posY, m_label.angle, m_label.textColor, m_label.shadowColor, m_label.align, m_width - m_label.offsetX);
     CGUIControl::Render();
     return;
   }
 
   // render the scrolling text
-  g_graphicsContext.SetTransform(m_fadeMatrix);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetTransform(m_fadeMatrix);
   if (!m_scroll || (!m_scrollOut && m_shortText))
   {
     float posX = m_posX + m_label.offsetX;
@@ -201,7 +193,7 @@ void CGUIFadeLabelControl::Render()
   }
   else
     m_textLayout.RenderScrolling(m_posX, posY, 0, m_label.textColor, m_label.shadowColor, (m_label.align & ~3), m_width, m_scrollInfo);
-  g_graphicsContext.RemoveTransform();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
   CGUIControl::Render();
 }
 

@@ -1,29 +1,20 @@
 /*
- *      Copyright (C) 2015-2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralAddonTranslator.h"
+
+#include "games/controllers/ControllerTranslator.h"
 #include "input/joysticks/JoystickUtils.h"
 
 #include <algorithm>
 #include <iterator>
 
+using namespace KODI;
 using namespace JOYSTICK;
 using namespace PERIPHERALS;
 
@@ -58,7 +49,31 @@ const char* CPeripheralAddonTranslator::TranslateError(const PERIPHERAL_ERROR er
   }
 }
 
-CDriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const ADDON::DriverPrimitive& primitive)
+PeripheralType CPeripheralAddonTranslator::TranslateType(PERIPHERAL_TYPE type)
+{
+  switch (type)
+  {
+    case PERIPHERAL_TYPE_JOYSTICK:
+      return PERIPHERAL_JOYSTICK;
+    default:
+      break;
+  }
+  return PERIPHERAL_UNKNOWN;
+}
+
+PERIPHERAL_TYPE CPeripheralAddonTranslator::TranslateType(PeripheralType type)
+{
+  switch (type)
+  {
+    case PERIPHERAL_JOYSTICK:
+      return PERIPHERAL_TYPE_JOYSTICK;
+    default:
+      break;
+  }
+  return PERIPHERAL_TYPE_UNKNOWN;
+}
+
+CDriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const kodi::addon::DriverPrimitive& primitive)
 {
   CDriverPrimitive retVal;
 
@@ -84,6 +99,22 @@ CDriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const ADDON::Dri
       retVal = CDriverPrimitive(PRIMITIVE_TYPE::MOTOR, primitive.DriverIndex());
       break;
     }
+    case JOYSTICK_DRIVER_PRIMITIVE_TYPE_KEY:
+    {
+      KEYBOARD::KeySymbol keycode = GAME::CControllerTranslator::TranslateKeysym(primitive.Keycode());
+      retVal = CDriverPrimitive(keycode);
+      break;
+    }
+    case JOYSTICK_DRIVER_PRIMITIVE_TYPE_MOUSE_BUTTON:
+    {
+      retVal = CDriverPrimitive(TranslateMouseButton(primitive.MouseIndex()));
+      break;
+    }
+    case JOYSTICK_DRIVER_PRIMITIVE_TYPE_RELPOINTER_DIRECTION:
+    {
+      retVal = CDriverPrimitive(TranslateRelPointerDirection(primitive.RelPointerDirection()));
+      break;
+    }
     default:
       break;
   }
@@ -91,30 +122,46 @@ CDriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const ADDON::Dri
   return retVal;
 }
 
-ADDON::DriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const CDriverPrimitive& primitive)
+kodi::addon::DriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const CDriverPrimitive& primitive)
 {
-  ADDON::DriverPrimitive retVal;
+  kodi::addon::DriverPrimitive retVal;
 
   switch (primitive.Type())
   {
-    case BUTTON:
+    case PRIMITIVE_TYPE::BUTTON:
     {
-      retVal = ADDON::DriverPrimitive::CreateButton(primitive.Index());
+      retVal = kodi::addon::DriverPrimitive::CreateButton(primitive.Index());
       break;
     }
-    case HAT:
+    case PRIMITIVE_TYPE::HAT:
     {
-      retVal = ADDON::DriverPrimitive(primitive.Index(), TranslateHatDirection(primitive.HatDirection()));
+      retVal = kodi::addon::DriverPrimitive(primitive.Index(), TranslateHatDirection(primitive.HatDirection()));
       break;
     }
-    case SEMIAXIS:
+    case PRIMITIVE_TYPE::SEMIAXIS:
     {
-      retVal = ADDON::DriverPrimitive(primitive.Index(), primitive.Center(), TranslateSemiAxisDirection(primitive.SemiAxisDirection()), primitive.Range());
+      retVal = kodi::addon::DriverPrimitive(primitive.Index(), primitive.Center(), TranslateSemiAxisDirection(primitive.SemiAxisDirection()), primitive.Range());
       break;
     }
-    case MOTOR:
+    case PRIMITIVE_TYPE::MOTOR:
     {
-      retVal = ADDON::DriverPrimitive::CreateMotor(primitive.Index());
+      retVal = kodi::addon::DriverPrimitive::CreateMotor(primitive.Index());
+      break;
+    }
+    case PRIMITIVE_TYPE::KEY:
+    {
+      std::string keysym = GAME::CControllerTranslator::TranslateKeycode(primitive.Keycode());
+      retVal = kodi::addon::DriverPrimitive(keysym);
+      break;
+    }
+    case PRIMITIVE_TYPE::MOUSE_BUTTON:
+    {
+      retVal = kodi::addon::DriverPrimitive::CreateMouseButton(TranslateMouseButton(primitive.MouseButton()));
+      break;
+    }
+    case PRIMITIVE_TYPE::RELATIVE_POINTER:
+    {
+      retVal = kodi::addon::DriverPrimitive(TranslateRelPointerDirection(primitive.PointerDirection()));
       break;
     }
     default:
@@ -124,20 +171,20 @@ ADDON::DriverPrimitive CPeripheralAddonTranslator::TranslatePrimitive(const CDri
   return retVal;
 }
 
-std::vector<JOYSTICK::CDriverPrimitive> CPeripheralAddonTranslator::TranslatePrimitives(const std::vector<ADDON::DriverPrimitive>& primitives)
+std::vector<JOYSTICK::CDriverPrimitive> CPeripheralAddonTranslator::TranslatePrimitives(const std::vector<kodi::addon::DriverPrimitive>& primitives)
 {
   std::vector<JOYSTICK::CDriverPrimitive> ret;
   std::transform(primitives.begin(), primitives.end(), std::back_inserter(ret),
-    [](const ADDON::DriverPrimitive& primitive)
+    [](const kodi::addon::DriverPrimitive& primitive)
     {
       return CPeripheralAddonTranslator::TranslatePrimitive(primitive);
     });
   return ret;
 }
 
-std::vector<ADDON::DriverPrimitive> CPeripheralAddonTranslator::TranslatePrimitives(const std::vector<JOYSTICK::CDriverPrimitive>& primitives)
+std::vector<kodi::addon::DriverPrimitive> CPeripheralAddonTranslator::TranslatePrimitives(const std::vector<JOYSTICK::CDriverPrimitive>& primitives)
 {
-  std::vector<ADDON::DriverPrimitive> ret;
+  std::vector<kodi::addon::DriverPrimitive> ret;
   std::transform(primitives.begin(), primitives.end(), std::back_inserter(ret),
     [](const JOYSTICK::CDriverPrimitive& primitive)
     {
@@ -157,7 +204,7 @@ HAT_DIRECTION CPeripheralAddonTranslator::TranslateHatDirection(JOYSTICK_DRIVER_
     default:
       break;
   }
-  return HAT_DIRECTION::UNKNOWN;
+  return HAT_DIRECTION::NONE;
 }
 
 JOYSTICK_DRIVER_HAT_DIRECTION CPeripheralAddonTranslator::TranslateHatDirection(HAT_DIRECTION dir)
@@ -176,7 +223,7 @@ JOYSTICK_DRIVER_HAT_DIRECTION CPeripheralAddonTranslator::TranslateHatDirection(
 
 HAT_STATE CPeripheralAddonTranslator::TranslateHatState(JOYSTICK_STATE_HAT state)
 {
-  HAT_STATE translatedState = HAT_STATE::UNPRESSED;
+  HAT_STATE translatedState = HAT_STATE::NONE;
 
   if (state & JOYSTICK_STATE_HAT_UP)    translatedState |= HAT_STATE::UP;
   if (state & JOYSTICK_STATE_HAT_DOWN)  translatedState |= HAT_STATE::DOWN;
@@ -210,6 +257,75 @@ JOYSTICK_DRIVER_SEMIAXIS_DIRECTION CPeripheralAddonTranslator::TranslateSemiAxis
   return JOYSTICK_DRIVER_SEMIAXIS_UNKNOWN;
 }
 
+MOUSE::BUTTON_ID CPeripheralAddonTranslator::TranslateMouseButton(JOYSTICK_DRIVER_MOUSE_INDEX button)
+{
+  switch (button)
+  {
+    case JOYSTICK_DRIVER_MOUSE_INDEX_LEFT: return MOUSE::BUTTON_ID::LEFT;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_RIGHT: return MOUSE::BUTTON_ID::RIGHT;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_MIDDLE: return MOUSE::BUTTON_ID::MIDDLE;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON4: return MOUSE::BUTTON_ID::BUTTON4;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON5: return MOUSE::BUTTON_ID::BUTTON5;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_UP: return MOUSE::BUTTON_ID::WHEEL_UP;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_DOWN: return MOUSE::BUTTON_ID::WHEEL_DOWN;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_LEFT: return MOUSE::BUTTON_ID::HORIZ_WHEEL_LEFT;
+    case JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_RIGHT: return MOUSE::BUTTON_ID::HORIZ_WHEEL_RIGHT;
+    default:
+      break;
+  }
+
+  return MOUSE::BUTTON_ID::UNKNOWN;
+}
+
+JOYSTICK_DRIVER_MOUSE_INDEX CPeripheralAddonTranslator::TranslateMouseButton(MOUSE::BUTTON_ID button)
+{
+  switch (button)
+  {
+    case MOUSE::BUTTON_ID::LEFT: return JOYSTICK_DRIVER_MOUSE_INDEX_LEFT;
+    case MOUSE::BUTTON_ID::RIGHT: return JOYSTICK_DRIVER_MOUSE_INDEX_RIGHT;
+    case MOUSE::BUTTON_ID::MIDDLE: return JOYSTICK_DRIVER_MOUSE_INDEX_MIDDLE;
+    case MOUSE::BUTTON_ID::BUTTON4: return JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON4;
+    case MOUSE::BUTTON_ID::BUTTON5: return JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON5;
+    case MOUSE::BUTTON_ID::WHEEL_UP: return JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_UP;
+    case MOUSE::BUTTON_ID::WHEEL_DOWN: return JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_DOWN;
+    case MOUSE::BUTTON_ID::HORIZ_WHEEL_LEFT: return JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_LEFT;
+    case MOUSE::BUTTON_ID::HORIZ_WHEEL_RIGHT: return JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_RIGHT;
+    default:
+      break;
+  }
+
+  return JOYSTICK_DRIVER_MOUSE_INDEX_UNKNOWN;
+}
+
+RELATIVE_POINTER_DIRECTION CPeripheralAddonTranslator::TranslateRelPointerDirection(JOYSTICK_DRIVER_RELPOINTER_DIRECTION dir)
+{
+  switch (dir)
+  {
+    case JOYSTICK_DRIVER_RELPOINTER_LEFT:   return RELATIVE_POINTER_DIRECTION::LEFT;
+    case JOYSTICK_DRIVER_RELPOINTER_RIGHT:  return RELATIVE_POINTER_DIRECTION::RIGHT;
+    case JOYSTICK_DRIVER_RELPOINTER_UP:     return RELATIVE_POINTER_DIRECTION::UP;
+    case JOYSTICK_DRIVER_RELPOINTER_DOWN:   return RELATIVE_POINTER_DIRECTION::DOWN;
+    default:
+      break;
+  }
+
+  return RELATIVE_POINTER_DIRECTION::NONE;
+}
+
+JOYSTICK_DRIVER_RELPOINTER_DIRECTION CPeripheralAddonTranslator::TranslateRelPointerDirection(RELATIVE_POINTER_DIRECTION dir)
+{
+  switch (dir)
+  {
+    case RELATIVE_POINTER_DIRECTION::UP:     return JOYSTICK_DRIVER_RELPOINTER_UP;
+    case RELATIVE_POINTER_DIRECTION::DOWN:   return JOYSTICK_DRIVER_RELPOINTER_DOWN;
+    case RELATIVE_POINTER_DIRECTION::RIGHT:  return JOYSTICK_DRIVER_RELPOINTER_RIGHT;
+    case RELATIVE_POINTER_DIRECTION::LEFT:   return JOYSTICK_DRIVER_RELPOINTER_LEFT;
+    default:
+      break;
+  }
+  return JOYSTICK_DRIVER_RELPOINTER_UNKNOWN;
+}
+
 JOYSTICK::FEATURE_TYPE CPeripheralAddonTranslator::TranslateFeatureType(JOYSTICK_FEATURE_TYPE type)
 {
   switch (type)
@@ -218,6 +334,11 @@ JOYSTICK::FEATURE_TYPE CPeripheralAddonTranslator::TranslateFeatureType(JOYSTICK
     case JOYSTICK_FEATURE_TYPE_ANALOG_STICK:  return JOYSTICK::FEATURE_TYPE::ANALOG_STICK;
     case JOYSTICK_FEATURE_TYPE_ACCELEROMETER: return JOYSTICK::FEATURE_TYPE::ACCELEROMETER;
     case JOYSTICK_FEATURE_TYPE_MOTOR:         return JOYSTICK::FEATURE_TYPE::MOTOR;
+    case JOYSTICK_FEATURE_TYPE_RELPOINTER:    return JOYSTICK::FEATURE_TYPE::RELPOINTER;
+    case JOYSTICK_FEATURE_TYPE_ABSPOINTER:    return JOYSTICK::FEATURE_TYPE::ABSPOINTER;
+    case JOYSTICK_FEATURE_TYPE_WHEEL:         return JOYSTICK::FEATURE_TYPE::WHEEL;
+    case JOYSTICK_FEATURE_TYPE_THROTTLE:      return JOYSTICK::FEATURE_TYPE::THROTTLE;
+    case JOYSTICK_FEATURE_TYPE_KEY:           return JOYSTICK::FEATURE_TYPE::KEY;
     default:
       break;
   }
@@ -232,13 +353,18 @@ JOYSTICK_FEATURE_TYPE CPeripheralAddonTranslator::TranslateFeatureType(JOYSTICK:
     case JOYSTICK::FEATURE_TYPE::ANALOG_STICK:  return JOYSTICK_FEATURE_TYPE_ANALOG_STICK;
     case JOYSTICK::FEATURE_TYPE::ACCELEROMETER: return JOYSTICK_FEATURE_TYPE_ACCELEROMETER;
     case JOYSTICK::FEATURE_TYPE::MOTOR:         return JOYSTICK_FEATURE_TYPE_MOTOR;
+    case JOYSTICK::FEATURE_TYPE::RELPOINTER:    return JOYSTICK_FEATURE_TYPE_RELPOINTER;
+    case JOYSTICK::FEATURE_TYPE::ABSPOINTER:    return JOYSTICK_FEATURE_TYPE_ABSPOINTER;
+    case JOYSTICK::FEATURE_TYPE::WHEEL:         return JOYSTICK_FEATURE_TYPE_WHEEL;
+    case JOYSTICK::FEATURE_TYPE::THROTTLE:      return JOYSTICK_FEATURE_TYPE_THROTTLE;
+    case JOYSTICK::FEATURE_TYPE::KEY:           return JOYSTICK_FEATURE_TYPE_KEY;
     default:
       break;
   }
   return JOYSTICK_FEATURE_TYPE_UNKNOWN;
 }
 
-ADDON::DriverPrimitive CPeripheralAddonTranslator::Opposite(const ADDON::DriverPrimitive& primitive)
+kodi::addon::DriverPrimitive CPeripheralAddonTranslator::Opposite(const kodi::addon::DriverPrimitive& primitive)
 {
-  return ADDON::DriverPrimitive(primitive.DriverIndex(), primitive.Center() * -1, primitive.SemiAxisDirection() * -1, primitive.Range());
+  return kodi::addon::DriverPrimitive(primitive.DriverIndex(), primitive.Center() * -1, primitive.SemiAxisDirection() * -1, primitive.Range());
 }

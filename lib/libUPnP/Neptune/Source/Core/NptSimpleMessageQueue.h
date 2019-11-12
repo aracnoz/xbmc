@@ -43,7 +43,7 @@
 /*----------------------------------------------------------------------
 |   class references
 +---------------------------------------------------------------------*/
-class NPT_SimpleMessageCapsule;
+struct NPT_SimpleMessageCapsule;
 
 /*----------------------------------------------------------------------
 |   NPT_SimpleMessageQueue
@@ -53,12 +53,12 @@ class NPT_SimpleMessageQueue : public NPT_MessageQueue
  public:
     // members
     NPT_SimpleMessageQueue();
-    virtual ~NPT_SimpleMessageQueue();
+    ~NPT_SimpleMessageQueue() override;
 
     // NPT_MessageQueue methods
-    virtual NPT_Result QueueMessage(NPT_Message*        message, 
-                                    NPT_MessageHandler* handler);
-    virtual NPT_Result PumpMessage(NPT_Timeout timeout = NPT_TIMEOUT_INFINITE);
+    NPT_Result QueueMessage(NPT_Message*        message, 
+                                    NPT_MessageHandler* handler) override;
+    NPT_Result PumpMessage(NPT_Timeout timeout = NPT_TIMEOUT_INFINITE) override;
 
  private:
     // members

@@ -1,37 +1,29 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#if   defined(TARGET_WINDOWS)
+#pragma once
+
+#if   defined(TARGET_WINDOWS_DESKTOP)
 #define HAVE_PERIPHERAL_BUS_USB 1
-#include "win32/PeripheralBusUSB.h"
+#include "platform/win32/peripherals/PeripheralBusUSB.h"
+#elif defined(TARGET_WINDOWS_STORE)
+#define HAVE_PERIPHERAL_BUS_USB 1
+#include "platform/win10/peripherals/PeripheralBusUSB.h"
 #elif defined(TARGET_LINUX) && defined(HAVE_LIBUDEV)
 #define HAVE_PERIPHERAL_BUS_USB 1
-#include "linux/PeripheralBusUSBLibUdev.h"
+#include "platform/linux/peripherals/PeripheralBusUSBLibUdev.h"
 #elif defined(TARGET_LINUX) && defined(HAVE_LIBUSB)
 #define HAVE_PERIPHERAL_BUS_USB 1
-#include "linux/PeripheralBusUSBLibUSB.h"
+#include "platform/linux/peripherals/PeripheralBusUSBLibUSB.h"
 #elif defined(TARGET_FREEBSD) && defined(HAVE_LIBUSB)
 #define HAVE_PERIPHERAL_BUS_USB 1
-#include "linux/PeripheralBusUSBLibUSB.h"
-#elif defined(TARGET_DARWIN)
+#include "platform/linux/peripherals/PeripheralBusUSBLibUSB.h"
+#elif defined(TARGET_DARWIN_OSX)
 #define HAVE_PERIPHERAL_BUS_USB 1
-#include "osx/PeripheralBusUSB.h"
+#include "platform/darwin/osx/peripherals/PeripheralBusUSB.h"
 #endif

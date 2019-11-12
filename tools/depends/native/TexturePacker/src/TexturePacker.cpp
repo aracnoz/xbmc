@@ -1,6 +1,6 @@
 /*
  *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *      http://kodi.tv
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,12 +20,12 @@
 
 #ifdef TARGET_WINDOWS
 #include <sys/types.h>
-#include <sys/stat.h>
 #define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#include <cinttypes>
 #define platform_stricmp _stricmp
 #else
-#define platform_stricmp stricmp
+#include <inttypes.h>
+#define platform_stricmp strcasecmp
 #endif
 #include <cerrno>
 #include <dirent.h>
@@ -45,8 +45,7 @@
 #endif
 
 #include <lzo/lzo1x.h>
-
-using namespace std;
+#include <sys/stat.h>
 
 #define FLAGS_USE_LZO     1
 
@@ -83,7 +82,7 @@ void CreateSkeletonHeaderImpl(CXBTFWriter& xbtfWriter, std::string fullPath, std
   {
     while ((dp = readdir(dirp)) != NULL)
     {
-      if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) 
+      if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
       {
         continue;
       }
@@ -200,12 +199,12 @@ CXBTFFrame createXBTFFrame(RGBAImage &image, CXBTFWriter& writer, double maxMSE,
   int width, height;
   unsigned int format = 0;
   unsigned char* argb = (unsigned char*)image.pixels;
-  
+
   width  = image.width;
   height = image.height;
   bool hasAlpha = HasAlpha(argb, width, height);
 
-  CXBTFFrame frame; 
+  CXBTFFrame frame;
   format = XB_FMT_A8R8G8B8;
   frame = appendContent(writer, width, height, argb, (width * height * 4), format, hasAlpha, flags);
 
@@ -222,8 +221,8 @@ void Usage()
 }
 
 static bool checkDupe(struct MD5Context* ctx,
-                      map<string,unsigned int>& hashes,
-                      vector<unsigned int>& dupes, unsigned int pos)
+                      std::map<std::string, unsigned int>& hashes,
+                      std::vector<unsigned int>& dupes, unsigned int pos)
 {
   unsigned char digest[17];
   MD5Final(digest,ctx);
@@ -235,14 +234,14 @@ static bool checkDupe(struct MD5Context* ctx,
       digest[9], digest[10], digest[11], digest[12], digest[13], digest[14],
       digest[15]);
   hex[32] = 0;
-  map<string,unsigned int>::iterator it = hashes.find(hex);
+  std::map<std::string, unsigned int>::iterator it = hashes.find(hex);
   if (it != hashes.end())
   {
-    dupes[pos] = it->second; 
+    dupes[pos] = it->second;
     return true;
   }
 
-  hashes.insert(make_pair(hex,pos));
+  hashes.insert(std::make_pair(hex,pos));
   dupes[pos] = pos;
 
   return false;
@@ -257,8 +256,8 @@ int createBundle(const std::string& InputDir, const std::string& OutputFile, dou
     return 1;
   }
 
-  map<string,unsigned int> hashes;
-  vector<unsigned int> dupes;
+  std::map<std::string, unsigned int> hashes;
+  std::vector<unsigned int> dupes;
   CreateSkeletonHeader(writer, InputDir);
 
   std::vector<CXBTFFile> files = writer.GetFiles();

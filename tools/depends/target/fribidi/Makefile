@@ -3,18 +3,15 @@ DEPS= ../../Makefile.include Makefile
 
 # lib name, version
 LIBNAME=fribidi
-VERSION=0.19.1
+VERSION=1.0.5
 SOURCE=$(LIBNAME)-$(VERSION)
-ARCHIVE=$(SOURCE).tar.gz
-export CFLAGS+=-D__STDC_INT64__
+ARCHIVE=$(SOURCE).tar.bz2
+
 # configuration settings
 CONFIGURE=cp -f $(CONFIG_SUB) $(CONFIG_GUESS) .; \
-          ./configure --prefix=$(PREFIX) --disable-docs --enable-malloc \
-          --disable-shared --with-glib=no
+          ./configure --prefix=$(PREFIX) --disable-shared --with-glib=no
 
 LIBDYLIB=$(PLATFORM)/lib/.libs/lib$(LIBNAME).a
-
-CLEAN_FILES=$(ARCHIVE) $(PLATFORM)
 
 all: .installed-$(PLATFORM)
 
@@ -40,4 +37,3 @@ clean:
 
 distclean::
 	rm -rf $(PLATFORM) .installed-$(PLATFORM)
-
